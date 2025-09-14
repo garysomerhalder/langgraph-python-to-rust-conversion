@@ -3,8 +3,8 @@
 ## 📊 Overall Progress
 - **Total Tasks**: 3
 - **Completed**: 2 (67%)
-- **In Progress**: 0 (0%)
-- **Todo**: 1 (33%)
+- **In Progress**: 1 (33%)
+- **Todo**: 0 (0%)
 - **Blocked**: 0 (0%)
 
 ## 🎯 Tasks by Category
@@ -30,7 +30,7 @@
 |----|-------|--------|----------|----------|---------|-----------|
 | FOUND-001 | Initialize Rust Project Structure | 🟢 DONE | P0 | Foundation | 2025-09-14 | 2025-09-14 |
 | FOUND-002 | Research LangGraph Python Implementation | 🟢 DONE | P0 | Foundation | 2025-09-14 | 2025-09-14 |
-| CORE-001 | Implement Core Graph Data Structures | 🔴 TODO | P0 | Core | - | - |
+| CORE-001 | Implement Core Graph Data Structures | 🟡 IN_PROGRESS | P0 | Core | 2025-09-14 | - |
 
 ## 🔄 Status Legend
 - 🔴 TODO - Not started

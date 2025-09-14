@@ -38,9 +38,17 @@ pub enum LangGraphError {
     #[error("Execution error: {0}")]
     Execution(String),
     
+    /// Checkpoint error
+    #[error("Checkpoint error: {0}")]
+    Checkpoint(String),
+    
     /// Serialization/deserialization error
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
+    
+    /// Graph-specific errors
+    #[error("Graph error: {0}")]
+    Graph(#[from] graph::GraphError),
     
     /// Generic error for unexpected conditions
     #[error("Internal error: {0}")]
@@ -48,81 +56,16 @@ pub enum LangGraphError {
 }
 
 /// Core graph module containing graph structures and algorithms
-pub mod graph {
-    //! Graph data structures and algorithms
-    
-    use serde::{Deserialize, Serialize};
-    
-    /// Represents a node in the graph
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    pub struct Node {
-        /// Unique identifier for the node
-        pub id: String,
-        /// Node type/kind
-        pub node_type: NodeType,
-        /// Optional metadata
-        pub metadata: Option<serde_json::Value>,
-    }
-    
-    /// Types of nodes supported in the graph
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    pub enum NodeType {
-        /// Start node of the graph
-        Start,
-        /// End node of the graph
-        End,
-        /// Agent node that performs actions
-        Agent(String),
-        /// Conditional node for branching
-        Conditional,
-        /// Parallel execution node
-        Parallel,
-    }
-}
+pub mod graph;
 
 /// State management module
-pub mod state {
-    //! State management for graph execution
-    
-    use serde::{Deserialize, Serialize};
-    use std::collections::HashMap;
-    
-    /// Represents the state of a graph execution
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    pub struct GraphState {
-        /// Current values in the state
-        pub values: HashMap<String, serde_json::Value>,
-        /// Execution history
-        pub history: Vec<StateTransition>,
-    }
-    
-    /// Represents a state transition
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    pub struct StateTransition {
-        /// Source node ID
-        pub from: String,
-        /// Target node ID
-        pub to: String,
-        /// Timestamp of transition
-        pub timestamp: u64,
-        /// Optional transition metadata
-        pub metadata: Option<serde_json::Value>,
-    }
-}
+pub mod state;
 
 /// Execution engine module
-pub mod engine {
-    //! Graph execution engine
-    
-    use async_trait::async_trait;
-    
-    /// Trait for executable graph components
-    #[async_trait]
-    pub trait Executable {
-        /// Execute the component
-        async fn execute(&self) -> crate::Result<()>;
-    }
-}
+pub mod engine;
+
+/// Checkpointing and persistence module
+pub mod checkpoint;
 
 #[cfg(test)]
 mod tests {
