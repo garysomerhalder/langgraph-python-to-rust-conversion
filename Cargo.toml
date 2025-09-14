@@ -1,0 +1,54 @@
+[package]
+name = "langgraph-rust"
+version = "0.1.0"
+edition = "2021"
+authors = ["Gary Somerhalder"]
+description = "A Rust implementation of LangGraph for building stateful, multi-agent applications"
+repository = "https://github.com/terragon/langgraph-rust"
+license = "MIT OR Apache-2.0"
+keywords = ["langgraph", "graph", "agents", "state-machine", "workflow"]
+categories = ["data-structures", "algorithms", "development-tools"]
+
+[lib]
+name = "langgraph"
+path = "src/lib.rs"
+
+[dependencies]
+# Graph processing - using latest versions
+petgraph = "0.6"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+anyhow = "1.0"
+
+# Async runtime for agent execution
+tokio = { version = "1.42", features = ["full"] }
+async-trait = "0.1"
+
+# Logging and observability
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# For state management
+dashmap = "6.1"
+arc-swap = "1.7"
+
+[dev-dependencies]
+criterion = "0.5"
+proptest = "1.6"
+tokio-test = "0.4"
+pretty_assertions = "1.4"
+
+# Benchmarks will be added later
+# [[bench]]
+# name = "graph_benchmarks"
+# harness = false
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+[profile.dev]
+opt-level = 0
+debug = true
