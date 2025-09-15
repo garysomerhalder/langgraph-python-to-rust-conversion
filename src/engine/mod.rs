@@ -9,6 +9,7 @@ use crate::Result;
 pub mod executor;
 pub mod node_executor;
 pub mod context;
+pub mod graph_traversal;
 
 pub use executor::{
     ExecutionEngine, ExecutionContext, ExecutionMessage, 

@@ -261,62 +261,38 @@ impl ExecutionEngine {
     /// Execute the graph
     async fn execute_graph(&self, context: &ExecutionContext) -> Result<StateData> {
         use crate::engine::node_executor::{DefaultNodeExecutor, NodeExecutor};
+        use crate::engine::graph_traversal::{GraphTraverser, TraversalStrategy};
         
-        let executor = DefaultNodeExecutor;
-        let mut current_node = "__start__".to_string();
-        let mut visited = std::collections::HashSet::new();
-        let max_iterations = 100; // Prevent infinite loops
-        let mut iterations = 0;
+        let node_executor = DefaultNodeExecutor;
+        let traverser = GraphTraverser::new(TraversalStrategy::Topological);
         
-        while current_node != "__end__" && iterations < max_iterations {
-            iterations += 1;
-            
-            // Prevent cycles
-            if visited.contains(&current_node) {
-                return Err(ExecutionError::InvalidState(
-                    format!("Cycle detected at node: {}", current_node)
-                ).into());
+        // Get execution order
+        let execution_order = traverser.get_execution_order(&context.graph)?;
+        
+        // Execute nodes in order
+        for node_id in execution_order {
+            // Skip special nodes that don't need execution
+            if node_id == "__start__" || node_id == "__end__" {
+                continue;
             }
-            visited.insert(current_node.clone());
             
             // Get the node from the graph
-            let node = context.graph.graph().get_node(&current_node)
+            let node = context.graph.graph().get_node(&node_id)
                 .ok_or_else(|| ExecutionError::NodeExecutionFailed(
-                    format!("Node not found: {}", current_node)
+                    format!("Node not found: {}", node_id)
                 ))?;
             
             // Execute the node
             let mut state = context.state.write().await;
             let mut state_data = state.snapshot();
-            let result = executor.execute(node, &mut state_data, context).await?;
+            let result = node_executor.execute(node, &mut state_data, context).await?;
             state.update(result);
-            
-            // Find next node(s) based on edges
-            let edges = context.graph.graph().get_edges_from(&current_node);
-            
-            if edges.is_empty() {
-                // No more edges, we're done
-                break;
-            } else if edges.len() == 1 {
-                // Single edge, follow it
-                current_node = edges[0].0.id.clone();
-            } else {
-                // Multiple edges - would need conditional logic here
-                // For now, just take the first one
-                current_node = edges[0].0.id.clone();
-            }
             
             // Update context metadata
             let mut active = self.active_executions.write().await;
             if let Some(ctx) = active.get_mut(&context.execution_id) {
                 ctx.metadata.nodes_executed += 1;
             }
-        }
-        
-        if iterations >= max_iterations {
-            return Err(ExecutionError::Timeout(
-                "Maximum iterations reached in graph execution".to_string()
-            ).into());
         }
         
         // Return final state
@@ -331,57 +307,46 @@ impl ExecutionEngine {
         tx: mpsc::Sender<ExecutionMessage>,
     ) -> Result<()> {
         use crate::engine::node_executor::{DefaultNodeExecutor, NodeExecutor};
+        use crate::engine::graph_traversal::{GraphTraverser, TraversalStrategy};
         
-        let executor = DefaultNodeExecutor;
-        let mut current_node = "__start__".to_string();
-        let mut visited = HashSet::new();
-        let max_iterations = 100;
-        let mut iterations = 0;
+        let node_executor = DefaultNodeExecutor;
+        let traverser = GraphTraverser::new(TraversalStrategy::Topological);
         
-        while current_node != "__end__" && iterations < max_iterations {
-            iterations += 1;
-            
-            // Prevent cycles
-            if visited.contains(&current_node) {
-                return Err(ExecutionError::InvalidState(
-                    format!("Cycle detected at node: {}", current_node)
-                ).into());
-            }
-            visited.insert(current_node.clone());
+        // Get execution order
+        let execution_order = traverser.get_execution_order(&context.graph)?;
+        
+        // Send start message
+        let _ = tx.send(ExecutionMessage {
+            node_id: "__start__".to_string(),
+            state: StateData::new(),
+            timestamp: current_timestamp(),
+            message_type: "start".to_string(),
+        }).await;
+        
+        // Execute nodes in order and stream results
+        for node_id in execution_order {
+            // Skip special nodes
+            if node_id == "__start__" || node_id == "__end__" {
+                continue;
             
             // Get the node from the graph
-            let node = context.graph.graph().get_node(&current_node)
+            let node = context.graph.graph().get_node(&node_id)
                 .ok_or_else(|| ExecutionError::NodeExecutionFailed(
-                    format!("Node not found: {}", current_node)
+                    format!("Node not found: {}", node_id)
                 ))?;
             
             // Execute the node
             let mut state = context.state.write().await;
             let mut state_data = state.snapshot();
-            let result = executor.execute(node, &mut state_data, context).await?;
+            let result = node_executor.execute(node, &mut state_data, context).await?;
             state.update(result.clone());
-            
-            // Find next node(s) based on edges
-            let edges = context.graph.graph().get_edges_from(&current_node);
-            
-            let next_node = if edges.is_empty() {
-                "__end__".to_string()
-            } else if edges.len() == 1 {
-                edges[0].0.id.clone()
-            } else {
-                // Multiple edges - would need conditional logic here
-                edges[0].0.id.clone()
-            };
             
             // Send execution message
             let msg = ExecutionMessage {
-                from: current_node.clone(),
-                to: next_node.clone(),
-                payload: result,
-                metadata: Some(serde_json::json!({
-                    "iteration": iterations,
-                    "node_type": format!("{:?}", node.node_type)
-                })),
+                node_id: node_id.clone(),
+                state: result,
+                timestamp: current_timestamp(),
+                message_type: "node_executed".to_string(),
             };
             
             tx.send(msg).await.map_err(|e| {
@@ -393,19 +358,16 @@ impl ExecutionEngine {
             if let Some(ctx) = active.get_mut(&context.execution_id) {
                 ctx.metadata.nodes_executed += 1;
             }
-            
-            if edges.is_empty() {
-                break;
-            }
-            
-            current_node = next_node;
         }
         
-        if iterations >= max_iterations {
-            return Err(ExecutionError::Timeout(
-                "Maximum iterations reached in streaming execution".to_string()
-            ).into());
-        }
+        // Send completion message
+        let final_state = context.state.read().await;
+        let _ = tx.send(ExecutionMessage {
+            node_id: "__end__".to_string(),
+            state: final_state.snapshot(),
+            timestamp: current_timestamp(),
+            message_type: "completed".to_string(),
+        }).await;
         
         Ok(())
     }

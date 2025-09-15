@@ -22,6 +22,7 @@ pub mod command;
 pub mod state_graph;
 pub mod conditional;
 pub mod subgraph;
+pub mod condition_evaluator;
 
 pub use builder::GraphBuilder;
 pub use node::{Node, NodeType, NodeFunction};
