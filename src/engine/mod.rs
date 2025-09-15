@@ -10,6 +10,7 @@ pub mod executor;
 pub mod node_executor;
 pub mod context;
 pub mod graph_traversal;
+pub mod parallel_executor;
 
 pub use executor::{
     ExecutionEngine, ExecutionContext, ExecutionMessage, 
@@ -17,6 +18,10 @@ pub use executor::{
 };
 pub use node_executor::{NodeExecutor, DefaultNodeExecutor, ParallelNodeExecutor, RetryNodeExecutor};
 pub use context::{SharedContext, ContextConfig, RetryConfig, MessageBus, ExecutionScope};
+pub use parallel_executor::{
+    ParallelExecutor, ExecutionMetrics, DependencyAnalyzer,
+    StateVersionManager, StateVersion, DeadlockDetector
+};
 
 /// Trait for executable graph components
 #[async_trait]

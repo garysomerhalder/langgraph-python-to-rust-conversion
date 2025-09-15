@@ -15,10 +15,16 @@ pub mod reducer;
 pub mod channel;
 pub mod state_channels;
 pub mod advanced;
+pub mod versioning;
 
 pub use reducer::{Reducer, ReducerFn, DefaultReducer, AppendReducer};
 pub use channel::{Channel, ChannelType};
 pub use state_channels::StateChannels;
+pub use versioning::{
+    StateVersioningSystem, VersionId, Version, StateSnapshot, StateDelta,
+    VersionMetadata, VersioningConfig, VersionStorage, InMemoryStorage,
+    BranchManager, VersioningMetrics
+};
 
 /// Trait for types that can be used as state in the graph
 pub trait State: Send + Sync + Clone + 'static {
