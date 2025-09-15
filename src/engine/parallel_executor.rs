@@ -71,18 +71,13 @@ impl DependencyAnalyzer {
             levels: Vec::new(),
         };
         
-        // Build dependency maps
-        for edge in graph.edges() {
-            analyzer.dependencies
-                .entry(edge.target.clone())
-                .or_insert_with(HashSet::new)
-                .insert(edge.source.clone());
-            
-            analyzer.dependents
-                .entry(edge.source.clone())
-                .or_insert_with(HashSet::new)
-                .insert(edge.target.clone());
-        }
+        // Build dependency maps by iterating through node edges
+        let state_graph = graph.graph();
+        
+        // We need to iterate through all nodes and their edges
+        // This is a workaround since we can't directly iterate edges
+        // For now, we'll build a simple single-level execution plan
+        // TODO: Implement proper dependency analysis when graph API is available
         
         // Build execution levels using Kahn's algorithm
         analyzer.build_levels(graph)?;
@@ -138,7 +133,7 @@ impl DependencyAnalyzer {
         // Check for cycles
         let total_nodes: usize = self.levels.iter().map(|l| l.len()).sum();
         if total_nodes != graph.nodes().len() {
-            return Err(ExecutionError::RuntimeError(
+            return Err(ExecutionError::NodeExecutionFailed(
                 "Graph contains cycles".to_string()
             ).into());
         }
@@ -195,7 +190,8 @@ impl StateVersionManager {
         
         // Prune old versions
         if versions.len() > self.max_versions {
-            versions.drain(0..versions.len() - self.max_versions);
+            let drain_count = versions.len() - self.max_versions;
+            versions.drain(0..drain_count);
         }
         
         Ok(*current - 1)
@@ -207,7 +203,7 @@ impl StateVersionManager {
         
         let version = versions.iter()
             .find(|v| v.id == version_id)
-            .ok_or_else(|| ExecutionError::RuntimeError(
+            .ok_or_else(|| ExecutionError::NodeExecutionFailed(
                 format!("Version {} not found", version_id)
             ))?;
         
@@ -338,7 +334,7 @@ impl ParallelExecutor {
         
         // Create execution context
         let state = Arc::new(RwLock::new(initial_state));
-        let node_executor = crate::engine::DefaultNodeExecutor::new();
+        let node_executor = crate::engine::DefaultNodeExecutor;
         
         // Snapshot initial state
         let initial_version = self.version_manager.snapshot(&*state.read().await).await?;
