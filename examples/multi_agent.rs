@@ -113,7 +113,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     decision_agent.reflect(&result, &final_state).await?;
     
     // Display collaboration summary
-    println!("=" .repeat(50));
+    println!("{}", "=".repeat(50));
     println!("\n📋 Collaboration Summary:");
     println!("  Research Agent: Gathered market data and competitive analysis");
     println!("  Analysis Agent: Evaluated viability and identified risks");
