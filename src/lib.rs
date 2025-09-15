@@ -71,6 +71,9 @@ pub mod engine;
 /// Checkpointing and persistence module
 pub mod checkpoint;
 
+/// Streaming and channels module
+pub mod stream;
+
 #[cfg(test)]
 mod tests {
     use super::*;

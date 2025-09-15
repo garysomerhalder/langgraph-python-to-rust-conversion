@@ -37,6 +37,10 @@ arc-swap = "1.7"
 # For execution engine
 uuid = { version = "1.11", features = ["v4"] }
 
+# For streaming
+tokio-stream = "0.1"
+bincode = "1.3"
+
 [dev-dependencies]
 criterion = "0.5"
 proptest = "1.6"

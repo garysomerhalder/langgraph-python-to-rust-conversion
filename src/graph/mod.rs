@@ -27,6 +27,9 @@ pub use edge::{Edge, EdgeType, ConditionalEdge};
 pub use command::Command;
 pub use state_graph::{StateGraphManager, StateConditionalEdge};
 
+// Type alias for compatibility
+pub type Graph = CompiledGraph;
+
 /// Errors specific to graph operations
 #[derive(Error, Debug)]
 pub enum GraphError {
@@ -44,6 +47,21 @@ pub enum GraphError {
     
     #[error("Orphaned node: {0}")]
     OrphanedNode(String),
+    
+    #[error("Node error: {0}")]
+    NodeError(String),
+    
+    #[error("Edge error: {0}")]
+    EdgeError(String),
+    
+    #[error("Validation error: {0}")]
+    ValidationError(String),
+    
+    #[error("Runtime error: {0}")]
+    RuntimeError(String),
+    
+    #[error("Serialization error: {0}")]
+    SerializationError(String),
 }
 
 /// Main graph structure representing a LangGraph workflow
@@ -145,6 +163,11 @@ impl StateGraph {
     pub fn get_node_mut(&mut self, name: &str) -> Option<&mut Node> {
         self.node_map.get(name)
             .and_then(|idx| self.graph.node_weight_mut(*idx))
+    }
+    
+    /// Get the number of nodes in the graph
+    pub fn node_count(&self) -> usize {
+        self.graph.node_count()
     }
     
     /// Check if the graph has cycles

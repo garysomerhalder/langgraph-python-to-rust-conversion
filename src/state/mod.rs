@@ -19,6 +19,18 @@ pub use reducer::{Reducer, ReducerFn, DefaultReducer, AppendReducer};
 pub use channel::{Channel, ChannelType};
 pub use state_channels::StateChannels;
 
+/// Trait for types that can be used as state in the graph
+pub trait State: Send + Sync + Clone + 'static {
+    /// Get a value from the state
+    fn get_value(&self, key: &str) -> Option<Value>;
+    
+    /// Set a value in the state
+    fn set_value(&mut self, key: String, value: Value);
+    
+    /// Convert to JSON representation
+    fn to_json(&self) -> Value;
+}
+
 /// Type alias for state data
 pub type StateData = HashMap<String, Value>;
 
@@ -180,6 +192,20 @@ impl GraphState {
 impl Default for GraphState {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl State for GraphState {
+    fn get_value(&self, key: &str) -> Option<Value> {
+        self.get(key).cloned()
+    }
+    
+    fn set_value(&mut self, key: String, value: Value) {
+        self.set(key, value);
+    }
+    
+    fn to_json(&self) -> Value {
+        serde_json::to_value(self).unwrap_or(Value::Null)
     }
 }
 
