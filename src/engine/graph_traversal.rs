@@ -204,15 +204,17 @@ impl GraphTraverser {
         }
         
         // Check for conditional edges
-        let has_conditions = edges.iter().any(|(_, edge)| edge.condition.is_some());
+        let has_conditions = edges.iter().any(|(_, edge)| {
+            matches!(edge.edge_type, EdgeType::Conditional { .. })
+        });
         
         if has_conditions {
             // Evaluate conditions
             for (node, edge) in edges {
-                if let Some(ref condition) = edge.condition {
+                if let EdgeType::Conditional { condition, target, .. } = &edge.edge_type {
                     // TODO: Implement condition evaluation
                     // For now, just take the first matching condition
-                    next_nodes.push(node.id.clone());
+                    next_nodes.push(target.clone());
                     break;
                 }
             }
@@ -328,8 +330,8 @@ mod tests {
         });
         
         // Add edges
-        graph.add_edge("__start__", "process", Edge::default()).unwrap();
-        graph.add_edge("process", "__end__", Edge::default()).unwrap();
+        graph.add_edge("__start__", "process", Edge::direct()).unwrap();
+        graph.add_edge("process", "__end__", Edge::direct()).unwrap();
         
         // Compile
         GraphBuilder::new(graph)

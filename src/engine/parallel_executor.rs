@@ -379,7 +379,7 @@ impl ParallelExecutor {
         let duration = start_time.elapsed();
         let mut metrics = self.metrics.write().await;
         metrics.total_duration_ms = duration.as_millis();
-        metrics.total_nodes = graph.nodes().len();
+        metrics.total_nodes = graph.graph().node_count();
         metrics.parallel_batches = analyzer.num_levels();
         
         // Calculate efficiency
@@ -458,7 +458,7 @@ impl ParallelExecutor {
         
         // Execute node (this would call actual node implementation)
         let result_state = match &node.node_type {
-            NodeType::Function(name) => {
+            NodeType::Agent(name) => {
                 // Execute function node
                 debug!("Executing function node: {}", name);
                 // In real implementation, this would call the actual function
@@ -469,9 +469,9 @@ impl ParallelExecutor {
                 debug!("Executing tool node: {}", name);
                 node_state
             }
-            NodeType::Agent(name) => {
-                // Execute agent node
-                debug!("Executing agent node: {}", name);
+            NodeType::Custom(name) => {
+                // Execute custom node
+                debug!("Executing custom node: {}", name);
                 node_state
             }
             _ => node_state,
@@ -512,19 +512,19 @@ mod tests {
         
         graph.add_node(Node {
             id: "A".to_string(),
-            node_type: NodeType::Function("process_a".to_string()),
+            node_type: NodeType::Agent("process_a".to_string()),
             metadata: None,
         });
         
         graph.add_node(Node {
             id: "B".to_string(),
-            node_type: NodeType::Function("process_b".to_string()),
+            node_type: NodeType::Agent("process_b".to_string()),
             metadata: None,
         });
         
         graph.add_node(Node {
             id: "C".to_string(),
-            node_type: NodeType::Function("merge_results".to_string()),
+            node_type: NodeType::Agent("merge_results".to_string()),
             metadata: None,
         });
         
@@ -535,11 +535,11 @@ mod tests {
         });
         
         // Add edges
-        graph.add_edge("__start__", "A", Edge::default()).unwrap();
-        graph.add_edge("__start__", "B", Edge::default()).unwrap();
-        graph.add_edge("A", "C", Edge::default()).unwrap();
-        graph.add_edge("B", "C", Edge::default()).unwrap();
-        graph.add_edge("C", "__end__", Edge::default()).unwrap();
+        graph.add_edge("__start__", "A", Edge::direct()).unwrap();
+        graph.add_edge("__start__", "B", Edge::direct()).unwrap();
+        graph.add_edge("A", "C", Edge::direct()).unwrap();
+        graph.add_edge("B", "C", Edge::direct()).unwrap();
+        graph.add_edge("C", "__end__", Edge::direct()).unwrap();
         
         graph.compile().unwrap()
     }
@@ -631,11 +631,11 @@ mod tests {
         for i in 0..10 {
             graph.add_node(Node {
                 id: format!("node_{}", i),
-                node_type: NodeType::Function(format!("process_{}", i)),
+                node_type: NodeType::Agent(format!("process_{}", i)),
                 metadata: None,
             });
             
-            graph.add_edge("__start__", &format!("node_{}", i), Edge::default()).unwrap();
+            graph.add_edge("__start__", &format!("node_{}", i), Edge::direct()).unwrap();
         }
         
         graph.add_node(Node {
@@ -645,7 +645,7 @@ mod tests {
         });
         
         for i in 0..10 {
-            graph.add_edge(&format!("node_{}", i), "__end__", Edge::default()).unwrap();
+            graph.add_edge(&format!("node_{}", i), "__end__", Edge::direct()).unwrap();
         }
         
         let compiled = graph.compile().unwrap();

@@ -317,10 +317,13 @@ impl ExecutionEngine {
         
         // Send start message
         let _ = tx.send(ExecutionMessage {
-            node_id: "__start__".to_string(),
-            state: StateData::new(),
-            timestamp: current_timestamp(),
-            message_type: "start".to_string(),
+            from: "__start__".to_string(),
+            to: "__start__".to_string(),
+            payload: StateData::new(),
+            metadata: Some(serde_json::json!({
+                "timestamp": current_timestamp(),
+                "message_type": "start"
+            })),
         }).await;
         
         // Execute nodes in order and stream results
@@ -344,10 +347,13 @@ impl ExecutionEngine {
             
             // Send execution message
             let msg = ExecutionMessage {
-                node_id: node_id.clone(),
-                state: result,
-                timestamp: current_timestamp(),
-                message_type: "node_executed".to_string(),
+                from: node_id.clone(),
+                to: node_id.clone(),
+                payload: result,
+                metadata: Some(serde_json::json!({
+                    "timestamp": current_timestamp(),
+                    "message_type": "node_executed"
+                })),
             };
             
             tx.send(msg).await.map_err(|e| {
@@ -364,10 +370,13 @@ impl ExecutionEngine {
         // Send completion message
         let final_state = context.state.read().await;
         let _ = tx.send(ExecutionMessage {
-            node_id: "__end__".to_string(),
-            state: final_state.snapshot(),
-            timestamp: current_timestamp(),
-            message_type: "completed".to_string(),
+            from: "__end__".to_string(),
+            to: "__end__".to_string(),
+            payload: final_state.snapshot(),
+            metadata: Some(serde_json::json!({
+                "timestamp": current_timestamp(),
+                "message_type": "completed"
+            })),
         }).await;
         
         Ok(())

@@ -468,8 +468,8 @@ mod tests {
             metadata: None,
         });
         
-        graph.add_edge("__start__", "process", Edge::default()).unwrap();
-        graph.add_edge("process", "__end__", Edge::default()).unwrap();
+        graph.add_edge("__start__", "process", Edge::direct()).unwrap();
+        graph.add_edge("process", "__end__", Edge::direct()).unwrap();
         
         graph
     }

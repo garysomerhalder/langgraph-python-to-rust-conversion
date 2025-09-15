@@ -429,30 +429,32 @@ impl StateVersioningSystem {
     }
     
     /// Reconstruct state from version
-    async fn reconstruct_state(&self, version: &Version) -> Result<StateData> {
-        match &version.state {
-            StateSnapshot::Full(state) => Ok(state.clone()),
-            
-            StateSnapshot::Delta(delta) => {
-                // Get base state
-                if let Some(base_state) = self.get_version(&delta.base_version).await? {
-                    Ok(delta.apply(&base_state))
-                } else {
-                    Err(crate::graph::GraphError::RuntimeError(
-                        format!("Base version {} not found", delta.base_version.id)
-                    ).into())
+    fn reconstruct_state<'a>(&'a self, version: &'a Version) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<StateData>> + Send + 'a>> {
+        Box::pin(async move {
+            match &version.state {
+                StateSnapshot::Full(state) => Ok(state.clone()),
+                
+                StateSnapshot::Delta(delta) => {
+                    // Get base state
+                    if let Some(base_state) = self.get_version(&delta.base_version).await? {
+                        Ok(delta.apply(&base_state))
+                    } else {
+                        Err(crate::graph::GraphError::RuntimeError(
+                            format!("Base version {} not found", delta.base_version.id)
+                        ).into())
+                    }
+                }
+                
+                StateSnapshot::Compressed(data) => {
+                    // Decompress (simplified - would use actual compression)
+                    let json = String::from_utf8(data.clone())
+                        .map_err(|e| crate::graph::GraphError::RuntimeError(e.to_string()))?;
+                    let state: StateData = serde_json::from_str(&json)
+                        .map_err(|e| crate::graph::GraphError::RuntimeError(e.to_string()))?;
+                    Ok(state)
                 }
             }
-            
-            StateSnapshot::Compressed(data) => {
-                // Decompress (simplified - would use actual compression)
-                let json = String::from_utf8(data.clone())
-                    .map_err(|e| crate::graph::GraphError::RuntimeError(e.to_string()))?;
-                let state: StateData = serde_json::from_str(&json)
-                    .map_err(|e| crate::graph::GraphError::RuntimeError(e.to_string()))?;
-                Ok(state)
-            }
-        }
+        })
     }
     
     /// Rollback to a specific version
