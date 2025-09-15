@@ -14,6 +14,39 @@ use crate::state::StateData;
 use crate::tools::{ToolRegistry, ToolContext, ToolResult};
 use crate::Result;
 
+// Additional types for agent framework
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentConfig {
+    pub name: String,
+    pub description: Option<String>,
+    pub max_iterations: Option<usize>,
+    pub tools: Vec<String>,
+    pub system_prompt: Option<String>,
+    pub temperature: Option<f32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Conversation {
+    pub messages: Vec<Message>,
+    pub metadata: Option<HashMap<String, Value>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Message {
+    pub role: MessageRole,
+    pub content: String,
+    pub name: Option<String>,
+    pub metadata: Option<HashMap<String, Value>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum MessageRole {
+    System,
+    User,
+    Assistant,
+    Function,
+}
+
 /// Errors related to agent operations
 #[derive(Error, Debug)]
 pub enum AgentError {
@@ -549,6 +582,14 @@ impl MultiAgentCoordinator {
         Ok(state)
     }
 }
+
+pub mod implementations;
+
+// Re-export concrete implementations
+pub use implementations::{
+    ChainOfThoughtAgent, ReActAgent, MemoryAgent,
+    ReasoningStep, ReActStep, ActionSpec, MemoryItem,
+};
 
 #[cfg(test)]
 mod tests {

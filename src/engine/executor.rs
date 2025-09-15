@@ -328,6 +328,7 @@ impl ExecutionEngine {
             // Skip special nodes
             if node_id == "__start__" || node_id == "__end__" {
                 continue;
+            }
             
             // Get the node from the graph
             let node = context.graph.graph().get_node(&node_id)
