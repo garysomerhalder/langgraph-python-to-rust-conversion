@@ -1,7 +1,7 @@
 //! Graph traversal algorithms for execution
 
 use std::collections::{HashMap, HashSet, VecDeque};
-use crate::graph::{CompiledGraph, Node, NodeType};
+use crate::graph::{CompiledGraph, Node, NodeType, EdgeType};
 use crate::state::StateData;
 use crate::Result;
 use crate::engine::ExecutionError;
@@ -211,10 +211,10 @@ impl GraphTraverser {
         if has_conditions {
             // Evaluate conditions
             for (node, edge) in edges {
-                if let EdgeType::Conditional { condition, target, .. } = &edge.edge_type {
+                if let EdgeType::Conditional(cond_edge) = &edge.edge_type {
                     // TODO: Implement condition evaluation
                     // For now, just take the first matching condition
-                    next_nodes.push(target.clone());
+                    next_nodes.push(cond_edge.target.clone());
                     break;
                 }
             }
