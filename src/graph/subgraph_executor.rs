@@ -257,7 +257,7 @@ pub struct ParallelSubgraphExecutor {
 }
 
 /// Strategy for merging parallel subgraph results
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum MergeStrategy {
     /// Take the first successful result
     FirstSuccess,
@@ -270,6 +270,17 @@ pub enum MergeStrategy {
     
     /// Vote-based merge (majority wins)
     Voting,
+}
+
+impl std::fmt::Debug for MergeStrategy {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::FirstSuccess => write!(f, "FirstSuccess"),
+            Self::LastWriteWins => write!(f, "LastWriteWins"),
+            Self::Custom(_) => write!(f, "Custom(<function>)"),
+            Self::Voting => write!(f, "Voting"),
+        }
+    }
 }
 
 impl ParallelSubgraphExecutor {

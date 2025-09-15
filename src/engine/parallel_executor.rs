@@ -90,15 +90,34 @@ impl DependencyAnalyzer {
         let mut in_degree: HashMap<String, usize> = HashMap::new();
         let mut queue = VecDeque::new();
         
-        // Calculate in-degrees
-        for node in graph.nodes() {
-            let degree = self.dependencies.get(&node.id)
+        // Calculate in-degrees by traversing from start
+        let mut visited = HashSet::new();
+        let mut nodes_to_process = Vec::new();
+        let mut traverse_queue = VecDeque::new();
+        traverse_queue.push_back("__start__".to_string());
+        
+        while let Some(node_id) = traverse_queue.pop_front() {
+            if visited.contains(&node_id) {
+                continue;
+            }
+            visited.insert(node_id.clone());
+            nodes_to_process.push(node_id.clone());
+            
+            let edges = graph.graph().get_edges_from(&node_id);
+            for (next_node, _) in edges {
+                traverse_queue.push_back(next_node.id.clone());
+            }
+        }
+        
+        // Initialize in-degrees for all nodes
+        for node_id in &nodes_to_process {
+            let degree = self.dependencies.get(node_id)
                 .map(|deps| deps.len())
                 .unwrap_or(0);
-            in_degree.insert(node.id.clone(), degree);
+            in_degree.insert(node_id.clone(), degree);
             
             if degree == 0 {
-                queue.push_back(node.id.clone());
+                queue.push_back(node_id.clone());
             }
         }
         
@@ -132,7 +151,26 @@ impl DependencyAnalyzer {
         
         // Check for cycles
         let total_nodes: usize = self.levels.iter().map(|l| l.len()).sum();
-        if total_nodes != graph.nodes().len() {
+        // Count total nodes
+        let mut actual_nodes = 0;
+        let mut visited = HashSet::new();
+        let mut queue = VecDeque::new();
+        queue.push_back("__start__".to_string());
+        
+        while let Some(node_id) = queue.pop_front() {
+            if visited.contains(&node_id) {
+                continue;
+            }
+            visited.insert(node_id.clone());
+            actual_nodes += 1;
+            
+            let edges = graph.graph().get_edges_from(&node_id);
+            for (next_node, _) in edges {
+                queue.push_back(next_node.id.clone());
+            }
+        }
+        
+        if total_nodes != actual_nodes {
             return Err(ExecutionError::NodeExecutionFailed(
                 "Graph contains cycles".to_string()
             ).into());
@@ -334,7 +372,7 @@ impl ParallelExecutor {
         
         // Create execution context
         let state = Arc::new(RwLock::new(initial_state));
-        let node_executor = crate::engine::DefaultNodeExecutor;
+        let node_executor = Arc::new(crate::engine::DefaultNodeExecutor);
         
         // Snapshot initial state
         let initial_version = self.version_manager.snapshot(&*state.read().await).await?;
@@ -348,7 +386,7 @@ impl ParallelExecutor {
                     batch,
                     graph,
                     &state,
-                    &node_executor,
+                    Arc::clone(&node_executor),
                 ).await {
                     Ok(_) => {
                         // Snapshot after successful batch
@@ -388,7 +426,8 @@ impl ParallelExecutor {
             duration, metrics.parallelism_efficiency
         );
         
-        Ok(state.read().await.clone())
+        let final_state = state.read().await.clone();
+        Ok(final_state)
     }
     
     /// Execute a batch of nodes in parallel
@@ -397,7 +436,7 @@ impl ParallelExecutor {
         batch: &[String],
         graph: &CompiledGraph,
         state: &Arc<RwLock<StateData>>,
-        node_executor: &crate::engine::DefaultNodeExecutor,
+        node_executor: Arc<crate::engine::DefaultNodeExecutor>,
     ) -> Result<()> {
         let mut futures = FuturesUnordered::new();
         
@@ -412,7 +451,10 @@ impl ParallelExecutor {
                     format!("Node not found: {}", node_id)
                 ))?;
             
-            let permit = self.semaphore.clone().acquire_owned().await?;
+            let permit = self.semaphore.clone().acquire_owned().await
+                .map_err(|e| ExecutionError::NodeExecutionFailed(
+                    format!("Failed to acquire semaphore: {}", e)
+                ))?;
             let state_clone = state.clone();
             let node_clone = node.clone();
             let executor_clone = node_executor.clone();
@@ -425,7 +467,7 @@ impl ParallelExecutor {
                 let result = Self::execute_node(
                     &node_clone,
                     &state_clone,
-                    &executor_clone,
+                    executor_clone,
                 ).await;
                 
                 detector.register_complete(node_id_clone).await;
@@ -447,7 +489,7 @@ impl ParallelExecutor {
     async fn execute_node(
         node: &Node,
         state: &Arc<RwLock<StateData>>,
-        executor: &crate::engine::DefaultNodeExecutor,
+        executor: Arc<crate::engine::DefaultNodeExecutor>,
     ) -> Result<()> {
         // Create isolated state copy for node execution
         let node_state = state.read().await.clone();
