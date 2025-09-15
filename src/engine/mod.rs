@@ -11,6 +11,8 @@ pub mod node_executor;
 pub mod context;
 pub mod graph_traversal;
 pub mod parallel_executor;
+pub mod resilience;
+pub mod tracing;
 
 pub use executor::{
     ExecutionEngine, ExecutionContext, ExecutionMessage, 
@@ -21,6 +23,16 @@ pub use context::{SharedContext, ContextConfig, RetryConfig, MessageBus, Executi
 pub use parallel_executor::{
     ParallelExecutor, ExecutionMetrics, DependencyAnalyzer,
     StateVersionManager, StateVersion, DeadlockDetector
+};
+pub use resilience::{
+    CircuitBreaker, CircuitBreakerConfig, CircuitState, CircuitMetrics,
+    RetryExecutor, RetryConfig as ResilienceRetryConfig, Bulkhead, BulkheadMetrics,
+    ResilienceManager, ResilienceError, HealthCheck, HealthStatus
+};
+pub use tracing::{
+    TraceContext, Span, SpanEvent, SpanStatus, Tracer, SpanHandle,
+    SpanExporter, ConsoleSpanExporter, JsonSpanExporter, TracingMetrics,
+    InstrumentedExecutor, ContextPropagator
 };
 
 /// Trait for executable graph components
