@@ -20,12 +20,16 @@ pub mod node;
 pub mod edge;
 pub mod command;
 pub mod state_graph;
+pub mod conditional;
+pub mod subgraph;
 
 pub use builder::GraphBuilder;
 pub use node::{Node, NodeType, NodeFunction};
 pub use edge::{Edge, EdgeType, ConditionalEdge};
 pub use command::Command;
 pub use state_graph::{StateGraphManager, StateConditionalEdge};
+pub use conditional::{ConditionalRouter, ConditionalBranch};
+pub use subgraph::{Subgraph, StateMapper, PassthroughMapper, SelectiveMapper, SubgraphBuilder, RecursiveSubgraph};
 
 // Type alias for compatibility
 pub type Graph = CompiledGraph;

@@ -14,6 +14,7 @@ use serde_json::Value;
 pub mod reducer;
 pub mod channel;
 pub mod state_channels;
+pub mod advanced;
 
 pub use reducer::{Reducer, ReducerFn, DefaultReducer, AppendReducer};
 pub use channel::{Channel, ChannelType};

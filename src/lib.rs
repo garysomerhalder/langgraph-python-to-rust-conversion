@@ -54,6 +54,22 @@ pub enum LangGraphError {
     #[error("Engine error: {0}")]
     Engine(#[from] engine::ExecutionError),
     
+    /// Tool errors
+    #[error("Tool error: {0}")]
+    Tool(#[from] tools::ToolError),
+    
+    /// Agent errors
+    #[error("Agent error: {0}")]
+    Agent(#[from] agents::AgentError),
+    
+    /// Advanced state errors
+    #[error("Advanced state error: {0}")]
+    AdvancedState(#[from] state::advanced::StateError),
+    
+    /// Join error from async tasks
+    #[error("Async join error: {0}")]
+    Join(#[from] tokio::task::JoinError),
+    
     /// Generic error for unexpected conditions
     #[error("Internal error: {0}")]
     Internal(String),
@@ -73,6 +89,12 @@ pub mod checkpoint;
 
 /// Streaming and channels module
 pub mod stream;
+
+/// Tool integration module
+pub mod tools;
+
+/// Agent capabilities module
+pub mod agents;
 
 #[cfg(test)]
 mod tests {
