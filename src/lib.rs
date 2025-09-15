@@ -1,19 +1,60 @@
 //! # LangGraph Rust Implementation
 //! 
-//! A Rust implementation of LangGraph for building stateful, multi-agent applications.
+//! A high-performance Rust implementation of LangGraph for building stateful, multi-agent applications
+//! with Large Language Models (LLMs).
 //! 
 //! ## Overview
 //! 
-//! LangGraph is a library for building stateful, multi-agent applications with Large Language Models (LLMs).
-//! It provides a graph-based approach to orchestrating complex workflows and agent interactions.
+//! LangGraph provides a graph-based approach to orchestrating complex workflows and agent interactions.
+//! This Rust implementation offers type safety, high performance, and seamless async execution.
+//! 
+//! ## Quick Start
+//! 
+//! ```rust
+//! use langgraph::graph::{GraphBuilder, NodeType};
+//! use langgraph::state::GraphState;
+//! use serde_json::json;
+//! 
+//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! // Build a simple workflow
+//! let graph = GraphBuilder::new("my_workflow")
+//!     .add_node("__start__", NodeType::Start)
+//!     .add_node("process", NodeType::Agent("processor".to_string()))
+//!     .add_node("__end__", NodeType::End)
+//!     .set_entry_point("__start__")
+//!     .add_edge("__start__", "process")
+//!     .add_edge("process", "__end__")
+//!     .build()?
+//!     .compile()?;
+//! 
+//! // Execute with state
+//! let mut state = GraphState::new();
+//! state.set("input", json!("Hello, World!"));
+//! 
+//! let result = graph.invoke(state.values).await?;
+//! # Ok(())
+//! # }
+//! ```
 //! 
 //! ## Key Features
 //! 
 //! - **Graph-based workflows**: Define complex agent interactions as directed graphs
-//! - **State management**: Built-in state persistence and checkpointing
+//! - **State management**: Built-in state persistence with versioning and snapshots
 //! - **Async execution**: Fully async/await compatible with Tokio runtime
 //! - **Type safety**: Leverage Rust's type system for compile-time guarantees
-//! - **Extensible**: Easy to add custom nodes, edges, and state types
+//! - **Conditional routing**: Dynamic graph traversal based on state
+//! - **Tool integration**: Extensible framework for external tools
+//! - **Multi-agent coordination**: Build collaborative agent systems
+//! 
+//! ## Modules
+//! 
+//! - [`graph`]: Core graph structures and builders
+//! - [`state`]: State management with channels and reducers
+//! - [`engine`]: Execution engine for graph traversal
+//! - [`stream`]: Async streaming with backpressure
+//! - [`tools`]: Tool integration framework
+//! - [`agents`]: Intelligent agents with reasoning
+//! - [`checkpoint`]: State persistence and recovery
 
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]

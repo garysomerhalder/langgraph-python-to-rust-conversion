@@ -47,6 +47,22 @@ proptest = "1.6"
 tokio-test = "0.4"
 pretty_assertions = "1.4"
 
+[[example]]
+name = "simple_workflow"
+path = "examples/simple_workflow.rs"
+
+[[example]]
+name = "conditional_routing"
+path = "examples/conditional_routing.rs"
+
+[[example]]
+name = "multi_agent"
+path = "examples/multi_agent.rs"
+
+[[example]]
+name = "state_management"
+path = "examples/state_management.rs"
+
 # Benchmarks will be added later
 # [[bench]]
 # name = "graph_benchmarks"

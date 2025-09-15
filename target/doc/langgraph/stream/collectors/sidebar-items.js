@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["AggregateCollector","BufferedCollector","GroupByCollector","HashMapCollector","Statistics","StatisticsCollector","VecCollector"],"trait":["StreamCollector"]};

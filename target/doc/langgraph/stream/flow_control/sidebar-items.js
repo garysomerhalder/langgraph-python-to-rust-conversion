@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["AdaptiveFlowController","BackpressureController","CircuitBreaker","FlowPermit","RateLimiter"],"trait":["FlowController"]};
