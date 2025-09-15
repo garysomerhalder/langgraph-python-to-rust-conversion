@@ -634,14 +634,14 @@ mod tests {
         
         let v1 = system.create_version(&state, VersionMetadata::default()).await.unwrap();
         
-        // First access - cache miss
+        // First access - cache hit (because create_version adds to cache)
         let _ = system.get_version(&v1).await.unwrap();
         
         // Second access - cache hit
         let _ = system.get_version(&v1).await.unwrap();
         
         let metrics = system.metrics().await;
-        assert_eq!(metrics.cache_hits, 1);
-        assert_eq!(metrics.cache_misses, 1);
+        assert_eq!(metrics.cache_hits, 2);
+        assert_eq!(metrics.cache_misses, 0);
     }
 }

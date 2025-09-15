@@ -74,10 +74,35 @@ impl DependencyAnalyzer {
         // Build dependency maps by iterating through node edges
         let state_graph = graph.graph();
         
-        // We need to iterate through all nodes and their edges
-        // This is a workaround since we can't directly iterate edges
-        // For now, we'll build a simple single-level execution plan
-        // TODO: Implement proper dependency analysis when graph API is available
+        // First, collect all nodes and their relationships
+        let mut visited = HashSet::new();
+        let mut queue = VecDeque::new();
+        queue.push_back("__start__".to_string());
+        
+        while let Some(node_id) = queue.pop_front() {
+            if visited.contains(&node_id) {
+                continue;
+            }
+            visited.insert(node_id.clone());
+            
+            // Get edges from this node
+            let edges = state_graph.get_edges_from(&node_id);
+            for (next_node, _) in edges {
+                let next_id = next_node.id.clone();
+                
+                // Add dependency: next_node depends on node_id
+                analyzer.dependencies.entry(next_id.clone())
+                    .or_insert_with(HashSet::new)
+                    .insert(node_id.clone());
+                
+                // Add dependent: node_id has next_node as a dependent
+                analyzer.dependents.entry(node_id.clone())
+                    .or_insert_with(HashSet::new)
+                    .insert(next_id.clone());
+                
+                queue.push_back(next_id);
+            }
+        }
         
         // Build execution levels using Kahn's algorithm
         analyzer.build_levels(graph)?;
@@ -90,27 +115,19 @@ impl DependencyAnalyzer {
         let mut in_degree: HashMap<String, usize> = HashMap::new();
         let mut queue = VecDeque::new();
         
-        // Calculate in-degrees by traversing from start
-        let mut visited = HashSet::new();
-        let mut nodes_to_process = Vec::new();
-        let mut traverse_queue = VecDeque::new();
-        traverse_queue.push_back("__start__".to_string());
-        
-        while let Some(node_id) = traverse_queue.pop_front() {
-            if visited.contains(&node_id) {
-                continue;
-            }
-            visited.insert(node_id.clone());
-            nodes_to_process.push(node_id.clone());
-            
-            let edges = graph.graph().get_edges_from(&node_id);
-            for (next_node, _) in edges {
-                traverse_queue.push_back(next_node.id.clone());
-            }
+        // Get all nodes that we've discovered
+        let mut all_nodes = HashSet::new();
+        for (node, _) in &self.dependencies {
+            all_nodes.insert(node.clone());
         }
+        for (node, _) in &self.dependents {
+            all_nodes.insert(node.clone());
+        }
+        // Also add __start__ if it has no dependents (it's a source)
+        all_nodes.insert("__start__".to_string());
         
         // Initialize in-degrees for all nodes
-        for node_id in &nodes_to_process {
+        for node_id in &all_nodes {
             let degree = self.dependencies.get(node_id)
                 .map(|deps| deps.len())
                 .unwrap_or(0);
@@ -584,6 +601,9 @@ mod tests {
         graph.add_edge("B", "C", Edge::direct()).unwrap();
         graph.add_edge("C", "__end__", Edge::direct()).unwrap();
         
+        // Set entry point
+        graph.set_entry_point("__start__").unwrap();
+        
         graph.compile().unwrap()
     }
     
@@ -690,6 +710,9 @@ mod tests {
         for i in 0..10 {
             graph.add_edge(&format!("node_{}", i), "__end__", Edge::direct()).unwrap();
         }
+        
+        // Set entry point
+        graph.set_entry_point("__start__").unwrap();
         
         let compiled = graph.compile().unwrap();
         let executor = ParallelExecutor::new(5); // Limit concurrency

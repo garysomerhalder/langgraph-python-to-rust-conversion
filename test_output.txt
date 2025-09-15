@@ -1,0 +1,2494 @@
+warning: unused import: `std::fmt`
+ --> src/graph/mod.rs:7:5
+  |
+7 | use std::fmt;
+  |     ^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `std::collections::HashMap`
+ --> src/graph/builder.rs:3:5
+  |
+3 | use std::collections::HashMap;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `EdgeType`
+ --> src/graph/builder.rs:5:26
+  |
+5 | use crate::graph::{Edge, EdgeType, Node, NodeType, StateGraph};
+  |                          ^^^^^^^^
+
+warning: unused import: `std::collections::HashMap`
+ --> src/graph/command.rs:3:5
+  |
+3 | use std::collections::HashMap;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::state::GraphState as CheckpointGraphState`
+ --> src/graph/state_graph.rs:8:5
+  |
+8 | use crate::state::GraphState as CheckpointGraphState;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `Deserialize` and `Serialize`
+ --> src/graph/conditional.rs:4:13
+  |
+4 | use serde::{Deserialize, Serialize};
+  |             ^^^^^^^^^^^  ^^^^^^^^^
+
+warning: unused import: `GraphState`
+ --> src/graph/conditional.rs:5:31
+  |
+5 | use crate::state::{StateData, GraphState};
+  |                               ^^^^^^^^^^
+
+warning: unused import: `Node`
+ --> src/graph/conditional.rs:6:32
+  |
+6 | use crate::graph::{GraphError, Node};
+  |                                ^^^^
+
+warning: unused imports: `Deserialize` and `Serialize`
+ --> src/graph/subgraph.rs:5:13
+  |
+5 | use serde::{Deserialize, Serialize};
+  |             ^^^^^^^^^^^  ^^^^^^^^^
+
+warning: unused import: `GraphState`
+ --> src/graph/subgraph.rs:8:31
+  |
+8 | use crate::state::{StateData, GraphState};
+  |                               ^^^^^^^^^^
+
+warning: unused import: `std::collections::HashMap`
+ --> src/graph/condition_evaluator.rs:4:5
+  |
+4 | use std::collections::HashMap;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `async_trait::async_trait`
+ --> src/graph/subgraph_executor.rs:8:5
+  |
+8 | use async_trait::async_trait;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `Deserialize` and `Serialize`
+ --> src/graph/subgraph_executor.rs:9:13
+  |
+9 | use serde::{Deserialize, Serialize};
+  |             ^^^^^^^^^^^  ^^^^^^^^^
+
+warning: unused import: `serde_json::Value`
+  --> src/graph/subgraph_executor.rs:10:5
+   |
+10 | use serde_json::Value;
+   |     ^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `GraphBuilder`, `NodeType`, and `Node`
+  --> src/graph/subgraph_executor.rs:13:35
+   |
+13 | use crate::graph::{CompiledGraph, GraphBuilder, StateGraph, Node, NodeType};
+   |                                   ^^^^^^^^^^^^              ^^^^  ^^^^^^^^
+
+warning: unused import: `ExecutionContext`
+  --> src/graph/subgraph_executor.rs:15:48
+   |
+15 | use crate::engine::executor::{ExecutionEngine, ExecutionContext};
+   |                                                ^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::fmt`
+ --> src/state/mod.rs:7:5
+  |
+7 | use std::fmt;
+  |     ^^^^^^^^
+
+warning: unused imports: `Deserialize` and `Serialize`
+ --> src/state/state_channels.rs:3:13
+  |
+3 | use serde::{Deserialize, Serialize};
+  |             ^^^^^^^^^^^  ^^^^^^^^^
+
+warning: unused import: `VecDeque`
+ --> src/state/advanced.rs:5:33
+  |
+5 | use std::collections::{HashMap, VecDeque};
+  |                                 ^^^^^^^^
+
+warning: unused import: `GraphState`
+  --> src/state/advanced.rs:12:31
+   |
+12 | use crate::state::{StateData, GraphState};
+   |                               ^^^^^^^^^^
+
+warning: unused import: `Mutex`
+  --> src/state/versioning.rs:12:27
+   |
+12 | use tokio::sync::{RwLock, Mutex};
+   |                           ^^^^^
+
+warning: unused imports: `error` and `warn`
+  --> src/state/versioning.rs:13:22
+   |
+13 | use tracing::{debug, error, info, instrument, warn};
+   |                      ^^^^^                    ^^^^
+
+warning: unused import: `HashSet`
+ --> src/engine/executor.rs:3:33
+  |
+3 | use std::collections::{HashMap, HashSet};
+  |                                 ^^^^^^^
+
+warning: unused import: `tokio::task::JoinHandle`
+ --> src/engine/executor.rs:6:5
+  |
+6 | use tokio::task::JoinHandle;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `async_trait::async_trait`
+ --> src/engine/executor.rs:7:5
+  |
+7 | use async_trait::async_trait;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `NodeType`, `Node`, and `StateGraph`
+  --> src/engine/executor.rs:11:35
+   |
+11 | use crate::graph::{CompiledGraph, StateGraph, Node, NodeType};
+   |                                   ^^^^^^^^^^  ^^^^  ^^^^^^^^
+
+warning: unused import: `GraphState`
+ --> src/engine/node_executor.rs:9:20
+  |
+9 | use crate::state::{GraphState, StateData};
+  |                    ^^^^^^^^^^
+
+warning: unused import: `ExecutionMessage`
+  --> src/engine/node_executor.rs:10:49
+   |
+10 | use crate::engine::executor::{ExecutionContext, ExecutionMessage, ExecutionError};
+   |                                                 ^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::graph::CompiledGraph`
+ --> src/engine/context.rs:8:5
+  |
+8 | use crate::graph::CompiledGraph;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `GraphState`
+ --> src/engine/context.rs:9:20
+  |
+9 | use crate::state::{GraphState, StateData};
+  |                    ^^^^^^^^^^
+
+warning: unused imports: `NodeType` and `Node`
+ --> src/engine/graph_traversal.rs:4:35
+  |
+4 | use crate::graph::{CompiledGraph, Node, NodeType, EdgeType};
+  |                                   ^^^^  ^^^^^^^^
+
+warning: unused import: `async_trait::async_trait`
+ --> src/engine/parallel_executor.rs:9:5
+  |
+9 | use async_trait::async_trait;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `Mutex`
+  --> src/engine/parallel_executor.rs:12:38
+   |
+12 | use tokio::sync::{RwLock, Semaphore, Mutex};
+   |                                      ^^^^^
+
+warning: unused import: `tokio::task::JoinHandle`
+  --> src/engine/parallel_executor.rs:13:5
+   |
+13 | use tokio::task::JoinHandle;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `warn`
+  --> src/engine/parallel_executor.rs:14:47
+   |
+14 | use tracing::{debug, error, info, instrument, warn};
+   |                                               ^^^^
+
+warning: unused import: `ExecutionContext`
+  --> src/engine/parallel_executor.rs:18:31
+   |
+18 | use crate::engine::executor::{ExecutionContext, ExecutionError};
+   |                               ^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::engine::NodeExecutor`
+  --> src/engine/parallel_executor.rs:19:5
+   |
+19 | use crate::engine::NodeExecutor;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::collections::HashMap`
+ --> src/checkpoint/mod.rs:3:5
+  |
+3 | use std::collections::HashMap;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::fmt`
+ --> src/checkpoint/mod.rs:4:5
+  |
+4 | use std::fmt;
+  |     ^^^^^^^^
+
+warning: unused import: `StateData`
+  --> src/checkpoint/mod.rs:11:32
+   |
+11 | use crate::state::{GraphState, StateData};
+   |                                ^^^^^^^^^
+
+warning: unused import: `StreamExt`
+ --> src/stream/streaming_engine.rs:2:31
+  |
+2 | use futures::stream::{Stream, StreamExt};
+  |                               ^^^^^^^^^
+
+warning: unused import: `tokio::sync::RwLock`
+ --> src/stream/streaming_engine.rs:5:5
+  |
+5 | use tokio::sync::RwLock;
+  |     ^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `AtomicBool`
+ --> src/stream/flow_control.rs:3:38
+  |
+3 | use std::sync::atomic::{AtomicUsize, AtomicBool, Ordering};
+  |                                      ^^^^^^^^^^
+
+warning: unused import: `AgentError`
+  --> src/agents/implementations.rs:13:34
+   |
+13 | use crate::agents::{AgentConfig, AgentError, Conversation, Message, MessageRole};
+   |                                  ^^^^^^^^^^
+
+warning: unused import: `ToolResult`
+  --> src/agents/implementations.rs:15:53
+   |
+15 | use crate::tools::{Tool, ToolContext, ToolRegistry, ToolResult};
+   |                                                     ^^^^^^^^^^
+
+warning: unused variable: `executor`
+   --> src/graph/subgraph_executor.rs:308:17
+    |
+308 |             let executor = &self.executors[i % self.executors.len()];
+    |                 ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_executor`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `executor`
+   --> src/engine/parallel_executor.rs:497:9
+    |
+497 |         executor: Arc<crate::engine::DefaultNodeExecutor>,
+    |         ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_executor`
+
+warning: unused import: `Tool`
+  --> src/agents/implementations.rs:15:20
+   |
+15 | use crate::tools::{Tool, ToolContext, ToolRegistry, ToolResult};
+   |                    ^^^^
+
+warning: unused import: `crate::checkpoint::Checkpointer`
+ --> src/graph/state_graph.rs:7:5
+  |
+7 | use crate::checkpoint::Checkpointer;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `NodeFunction`
+ --> src/engine/node_executor.rs:8:36
+  |
+8 | use crate::graph::{Node, NodeType, NodeFunction};
+  |                                    ^^^^^^^^^^^^
+
+warning: unused variable: `graph`
+   --> src/graph/subgraph_executor.rs:243:31
+    |
+243 |     pub fn contains_recursion(graph: &StateGraph) -> bool {
+    |                               ^^^^^ help: if this is intentional, prefix it with an underscore: `_graph`
+
+warning: unused variable: `has_end`
+   --> src/graph/mod.rs:227:13
+    |
+227 |         let has_end = self.node_map.contains_key("__end__");
+    |             ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_has_end`
+
+warning: variable does not need to be mutable
+   --> src/engine/graph_traversal.rs:127:13
+    |
+127 |         let mut current = "__start__".to_string();
+    |             ----^^^^^^^
+    |             |
+    |             help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` on by default
+
+warning: unused variable: `node`
+   --> src/engine/graph_traversal.rs:213:18
+    |
+213 |             for (node, edge) in edges {
+    |                  ^^^^ help: if this is intentional, prefix it with an underscore: `_node`
+
+warning: unused variable: `state`
+   --> src/engine/graph_traversal.rs:194:9
+    |
+194 |         state: &StateData,
+    |         ^^^^^ help: if this is intentional, prefix it with an underscore: `_state`
+
+warning: unused variable: `graph`
+   --> src/engine/graph_traversal.rs:291:9
+    |
+291 |         graph: &CompiledGraph,
+    |         ^^^^^ help: if this is intentional, prefix it with an underscore: `_graph`
+
+warning: unused variable: `state_graph`
+  --> src/engine/parallel_executor.rs:75:13
+   |
+75 |         let state_graph = graph.graph();
+   |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_state_graph`
+
+warning: unused variable: `initial_state`
+  --> src/stream/streaming_engine.rs:62:9
+   |
+62 |         initial_state: S,
+   |         ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_initial_state`
+
+warning: unused variable: `initial_state`
+  --> src/stream/streaming_engine.rs:95:9
+   |
+95 |         initial_state: S,
+   |         ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_initial_state`
+
+warning: unused variable: `input_stream`
+  --> src/stream/transformers.rs:20:9
+   |
+20 |         input_stream: Pin<Box<dyn Stream<Item = Self::Input> + Send>>,
+   |         ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_input_stream`
+
+warning: unused variable: `context`
+   --> src/tools/mod.rs:152:33
+    |
+152 |     async fn can_execute(&self, context: &ToolContext) -> bool {
+    |                                 ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_context`
+
+warning: unused variable: `state`
+   --> src/agents/mod.rs:317:31
+    |
+317 |     fn react_reasoning(&self, state: &StateData) -> AgentDecision {
+    |                               ^^^^^ help: if this is intentional, prefix it with an underscore: `_state`
+
+warning: unused variable: `agent`
+   --> src/agents/mod.rs:510:33
+    |
+510 |     pub fn add_agent(&mut self, agent: Arc<tokio::sync::Mutex<dyn Agent>>) {
+    |                                 ^^^^^ help: if this is intentional, prefix it with an underscore: `_agent`
+
+warning: unused variable: `state`
+   --> src/agents/implementations.rs:781:54
+    |
+781 |     async fn chat(&self, conversation: Conversation, state: StateData) -> Result<Conversation> {
+    |                                                      ^^^^^ help: if this is intentional, prefix it with an underscore: `_state`
+
+warning: field `checkpointer` is never read
+   --> src/graph/mod.rs:254:5
+    |
+249 | pub struct CompiledGraph {
+    |            ------------- field in this struct
+...
+254 |     checkpointer: Option<Arc<dyn crate::checkpoint::Checkpointer>>,
+    |     ^^^^^^^^^^^^
+    |
+    = note: `CompiledGraph` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+    = note: `#[warn(dead_code)]` on by default
+
+warning: field `receivers` is never read
+  --> src/engine/context.rs:95:5
+   |
+87 | pub struct MessageBus {
+   |            ---------- field in this struct
+...
+95 |     receivers: RwLock<HashMap<String, mpsc::Receiver<ExecutionMessage>>>,
+   |     ^^^^^^^^^
+
+warning: field `max_concurrency` is never read
+  --> src/engine/parallel_executor.rs:25:5
+   |
+23 | pub struct ParallelExecutor {
+   |            ---------------- field in this struct
+24 |     /// Maximum number of concurrent executions
+25 |     max_concurrency: usize,
+   |     ^^^^^^^^^^^^^^^
+
+warning: field `check_interval` is never read
+   --> src/engine/parallel_executor.rs:275:5
+    |
+267 | pub struct DeadlockDetector {
+    |            ---------------- field in this struct
+...
+275 |     check_interval: Duration,
+    |     ^^^^^^^^^^^^^^
+
+warning: field `inner` is never read
+   --> src/stream/streaming_engine.rs:134:5
+    |
+133 | pub struct StreamingNode<T> {
+    |            ------------- field in this struct
+134 |     inner: T,
+    |     ^^^^^
+
+warning: field `name` is never read
+   --> src/stream/channels.rs:108:5
+    |
+107 | pub struct ChannelSender<T> {
+    |            ------------- field in this struct
+108 |     name: String,
+    |     ^^^^
+
+warning: field `name` is never read
+   --> src/stream/channels.rs:155:5
+    |
+154 | pub struct ChannelReceiver<T> {
+    |            --------------- field in this struct
+155 |     name: String,
+    |     ^^^^
+
+warning: field `id` is never read
+  --> src/stream/flow_control.rs:17:5
+   |
+16 | pub struct FlowPermit {
+   |            ---------- field in this struct
+17 |     id: usize,
+   |     ^^
+
+warning: fields `throughput` and `errors` are never read
+   --> src/stream/flow_control.rs:230:5
+    |
+228 | struct FlowMetrics {
+    |        ----------- fields in this struct
+229 |     latencies: Vec<Duration>,
+230 |     throughput: Vec<usize>,
+    |     ^^^^^^^^^^
+231 |     errors: Vec<Instant>,
+    |     ^^^^^^
+
+warning: fields `base_url`, `method`, and `headers` are never read
+   --> src/tools/mod.rs:275:5
+    |
+273 | pub struct HttpTool {
+    |            -------- fields in this struct
+274 |     spec: ToolSpec,
+275 |     base_url: String,
+    |     ^^^^^^^^
+276 |     method: String,
+    |     ^^^^^^
+277 |     headers: HashMap<String, String>,
+    |     ^^^^^^^
+
+warning: field `channels` is never read
+   --> src/agents/mod.rs:474:5
+    |
+469 | pub struct MultiAgentCoordinator {
+    |            --------------------- field in this struct
+...
+474 |     channels: HashMap<(String, String), tokio::sync::mpsc::Sender<Value>>,
+    |     ^^^^^^^^
+
+warning: missing documentation for a module
+  --> src/graph/mod.rs:22:1
+   |
+22 | pub mod state_graph;
+   | ^^^^^^^^^^^^^^^^^^^
+   |
+note: the lint level is defined here
+  --> src/lib.rs:59:9
+   |
+59 | #![warn(missing_docs)]
+   |         ^^^^^^^^^^^^
+
+warning: missing documentation for a type alias
+  --> src/graph/mod.rs:41:1
+   |
+41 | pub type Graph = CompiledGraph;
+   | ^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/graph/mod.rs:47:5
+   |
+47 |     NodeNotFound(String),
+   |     ^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/graph/mod.rs:50:5
+   |
+50 |     EdgeNotFound { from: String, to: String },
+   |     ^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/graph/mod.rs:50:20
+   |
+50 |     EdgeNotFound { from: String, to: String },
+   |                    ^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/graph/mod.rs:50:34
+   |
+50 |     EdgeNotFound { from: String, to: String },
+   |                                  ^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/graph/mod.rs:53:5
+   |
+53 |     CycleDetected,
+   |     ^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/graph/mod.rs:56:5
+   |
+56 |     InvalidStructure(String),
+   |     ^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/graph/mod.rs:59:5
+   |
+59 |     OrphanedNode(String),
+   |     ^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/graph/mod.rs:62:5
+   |
+62 |     NodeError(String),
+   |     ^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/graph/mod.rs:65:5
+   |
+65 |     EdgeError(String),
+   |     ^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/graph/mod.rs:68:5
+   |
+68 |     ValidationError(String),
+   |     ^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/graph/mod.rs:71:5
+   |
+71 |     RuntimeError(String),
+   |     ^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/graph/mod.rs:74:5
+   |
+74 |     SerializationError(String),
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/graph/node.rs:70:5
+   |
+70 |     pub id: String,
+   |     ^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/graph/node.rs:71:5
+   |
+71 |     pub function: NodeFn,
+   |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/graph/node.rs:83:5
+   |
+83 |     pub id: String,
+   |     ^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/graph/node.rs:84:5
+   |
+84 |     pub agent_name: String,
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/graph/node.rs:85:5
+   |
+85 |     pub function: NodeFn,
+   |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/graph/node.rs:105:5
+    |
+105 |     pub id: String,
+    |     ^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/graph/node.rs:106:5
+    |
+106 |     pub tool_name: String,
+    |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/graph/node.rs:107:5
+    |
+107 |     pub function: NodeFn,
+    |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/graph/node.rs:127:5
+    |
+127 |     pub id: String,
+    |     ^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/graph/node.rs:128:5
+    |
+128 |     pub condition: Box<dyn Fn(&StateData) -> String + Send + Sync>,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a trait
+  --> src/graph/state_graph.rs:12:1
+   |
+12 | pub trait GenericCheckpointer<T>: Send + Sync 
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> src/graph/state_graph.rs:16:5
+   |
+16 |     async fn save(&self, checkpoint_id: &str, state: &T) -> Result<(), Box<dyn std::error::Error>>;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> src/graph/state_graph.rs:17:5
+   |
+17 |     async fn load(&self, checkpoint_id: &str) -> Result<T, Box<dyn std::error::Error>>;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+  --> src/graph/state_graph.rs:20:1
+   |
+20 | pub struct StateGraphManager<T> 
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/graph/state_graph.rs:24:5
+   |
+24 |     pub graph: StateGraph,
+   |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/graph/state_graph.rs:25:5
+   |
+25 |     pub state: Arc<RwLock<T>>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/graph/state_graph.rs:26:5
+   |
+26 |     pub channels: StateChannels<T>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/graph/state_graph.rs:27:5
+   |
+27 |     pub reducers: HashMap<String, Box<dyn Reducer>>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/graph/state_graph.rs:28:5
+   |
+28 |     pub conditional_edges: Vec<StateConditionalEdge<T>>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/graph/state_graph.rs:29:5
+   |
+29 |     pub checkpointer: Option<Arc<dyn GenericCheckpointer<T>>>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+  --> src/graph/state_graph.rs:36:5
+   |
+36 |     pub fn new(name: &str) -> Self {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+  --> src/graph/state_graph.rs:47:5
+   |
+47 |     pub fn with_state(name: &str, initial_state: T) -> Self {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> src/graph/state_graph.rs:58:5
+   |
+58 |     pub async fn get_state(&self) -> T {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> src/graph/state_graph.rs:62:5
+   |
+62 | /     pub async fn update_state<F>(&self, updater: F) 
+63 | |     where
+64 | |         F: FnOnce(&mut T)
+   | |_________________________^
+
+warning: missing documentation for a method
+  --> src/graph/state_graph.rs:70:5
+   |
+70 | /     pub async fn merge_state(&self, partial: serde_json::Value, reducer_name: &str) 
+71 | |     where
+72 | |         T: Serialize + for<'de> Deserialize<'de>
+   | |________________________________________________^
+
+warning: missing documentation for a method
+  --> src/graph/state_graph.rs:84:5
+   |
+84 |     pub fn add_reducer(&mut self, name: String, reducer: Box<dyn Reducer>) {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> src/graph/state_graph.rs:88:5
+   |
+88 |     pub fn add_conditional_edge(&mut self, edge: StateConditionalEdge<T>) {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> src/graph/state_graph.rs:92:5
+   |
+92 |     pub async fn evaluate_conditional_edges(&self) -> Vec<(String, String)> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+   --> src/graph/state_graph.rs:105:5
+    |
+105 |     pub async fn checkpoint(&self, checkpoint_id: &str) -> Result<(), Box<dyn std::error::Error>> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+   --> src/graph/state_graph.rs:113:5
+    |
+113 |     pub async fn restore(&self, checkpoint_id: &str) -> Result<(), Box<dyn std::error::Error>> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+   --> src/graph/state_graph.rs:122:5
+    |
+122 |     pub fn set_checkpointer(&mut self, checkpointer: Arc<dyn GenericCheckpointer<T>>) {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+   --> src/graph/state_graph.rs:126:5
+    |
+126 |     pub fn add_node(&mut self, node: Node) {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+   --> src/graph/state_graph.rs:130:5
+    |
+130 |     pub fn add_edge(&mut self, from: &str, to: &str, edge: Edge) -> Result<(), Box<dyn std::error::Error>> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+   --> src/graph/state_graph.rs:135:5
+    |
+135 |     pub fn set_entry_point(&mut self, node_id: &str) -> Result<(), Box<dyn std::error::Error>> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+   --> src/graph/state_graph.rs:140:5
+    |
+140 |     pub fn compile(self) -> Result<crate::graph::CompiledGraph, Box<dyn std::error::Error>> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+   --> src/graph/state_graph.rs:177:1
+    |
+177 | pub struct StateConditionalEdge<T> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/graph/state_graph.rs:178:5
+    |
+178 |     pub source: String,
+    |     ^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/graph/state_graph.rs:179:5
+    |
+179 |     pub target: String,
+    |     ^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/graph/state_graph.rs:180:5
+    |
+180 |     pub condition: Box<dyn Fn(&T) -> bool + Send + Sync>,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+   --> src/graph/condition_evaluator.rs:217:1
+    |
+217 | pub struct ConditionalRoute {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/graph/condition_evaluator.rs:218:5
+    |
+218 |     pub condition: String,
+    |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/graph/condition_evaluator.rs:219:5
+    |
+219 |     pub target: String,
+    |     ^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/graph/condition_evaluator.rs:220:5
+    |
+220 |     pub priority: i32,
+    |     ^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/graph/subgraph_executor.rs:37:15
+   |
+37 |     Partial { allowed_keys: Vec<String> },
+   |               ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/graph/subgraph_executor.rs:43:14
+   |
+43 |     Mapped { mappings: HashMap<String, String> },
+   |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a module
+  --> src/state/mod.rs:16:1
+   |
+16 | pub mod state_channels;
+   | ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/state/reducer.rs:160:5
+    |
+160 |     pub function: ReducerFn,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+ --> src/state/state_channels.rs:6:1
+  |
+6 | pub struct StateChannels<T> 
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+  --> src/state/state_channels.rs:18:5
+   |
+18 |     pub fn new() -> Self {
+   |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> src/state/state_channels.rs:25:5
+   |
+25 |     pub fn create_channel(&mut self, name: String, buffer_size: usize) {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> src/state/state_channels.rs:31:5
+   |
+31 |     pub async fn send(&self, channel_name: &str, value: T) -> Result<(), mpsc::error::SendError<T>> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> src/state/state_channels.rs:39:5
+   |
+39 |     pub async fn receive(&mut self, channel_name: &str) -> Option<T> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> src/state/state_channels.rs:47:5
+   |
+47 |     pub fn get_sender(&self, channel_name: &str) -> Option<mpsc::Sender<T>> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/state/advanced.rs:19:5
+   |
+19 |     VersionNotFound(u64),
+   |     ^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/state/advanced.rs:22:5
+   |
+22 |     BranchNotFound(String),
+   |     ^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/state/advanced.rs:25:5
+   |
+25 |     MergeConflict(String),
+   |     ^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/state/advanced.rs:28:5
+   |
+28 |     InvalidOperation(String),
+   |     ^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/state/advanced.rs:31:5
+   |
+31 |     SnapshotNotFound(String),
+   |     ^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/state/versioning.rs:39:5
+   |
+39 |     pub id: u64,
+   |     ^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/state/versioning.rs:40:5
+   |
+40 |     pub timestamp: u64,
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/state/versioning.rs:41:5
+   |
+41 |     pub hash: String,
+   |     ^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+  --> src/state/versioning.rs:45:5
+   |
+45 |     pub fn new(id: u64) -> Self {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/state/versioning.rs:64:5
+   |
+64 |     pub id: VersionId,
+   |     ^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/state/versioning.rs:65:5
+   |
+65 |     pub parent_id: Option<VersionId>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/state/versioning.rs:66:5
+   |
+66 |     pub state: StateSnapshot,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/state/versioning.rs:67:5
+   |
+67 |     pub metadata: VersionMetadata,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/state/versioning.rs:150:5
+    |
+150 |     pub author: String,
+    |     ^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/state/versioning.rs:151:5
+    |
+151 |     pub message: String,
+    |     ^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/state/versioning.rs:152:5
+    |
+152 |     pub tags: Vec<String>,
+    |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/state/versioning.rs:153:5
+    |
+153 |     pub branch: String,
+    |     ^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/state/versioning.rs:154:5
+    |
+154 |     pub is_checkpoint: bool,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+   --> src/state/versioning.rs:260:5
+    |
+260 |     pub fn new() -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/state/versioning.rs:305:5
+    |
+305 |     pub total_versions: usize,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/state/versioning.rs:306:5
+    |
+306 |     pub total_snapshots: usize,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/state/versioning.rs:307:5
+    |
+307 |     pub total_deltas: usize,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/state/versioning.rs:308:5
+    |
+308 |     pub cache_hits: usize,
+    |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/state/versioning.rs:309:5
+    |
+309 |     pub cache_misses: usize,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/state/versioning.rs:310:5
+    |
+310 |     pub average_delta_size: usize,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/state/versioning.rs:311:5
+    |
+311 |     pub storage_bytes: usize,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+   --> src/state/versioning.rs:525:5
+    |
+525 |     pub fn new() -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/engine/executor.rs:19:5
+   |
+19 |     NodeExecutionFailed(String),
+   |     ^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/engine/executor.rs:22:5
+   |
+22 |     Timeout(String),
+   |     ^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/engine/executor.rs:25:5
+   |
+25 |     Cancelled,
+   |     ^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/engine/executor.rs:28:5
+   |
+28 |     InvalidState(String),
+   |     ^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/engine/executor.rs:31:5
+   |
+31 |     MessageError(String),
+   |     ^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/engine/parallel_executor.rs:43:5
+   |
+43 |     pub total_nodes: usize,
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/engine/parallel_executor.rs:44:5
+   |
+44 |     pub parallel_batches: usize,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/engine/parallel_executor.rs:45:5
+   |
+45 |     pub total_duration_ms: u128,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/engine/parallel_executor.rs:46:5
+   |
+46 |     pub average_node_duration_ms: u128,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/engine/parallel_executor.rs:47:5
+   |
+47 |     pub max_node_duration_ms: u128,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/engine/parallel_executor.rs:48:5
+   |
+48 |     pub parallelism_efficiency: f64,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/engine/parallel_executor.rs:49:5
+   |
+49 |     pub state_conflicts: usize,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/engine/parallel_executor.rs:50:5
+   |
+50 |     pub rollbacks: usize,
+   |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+   --> src/engine/parallel_executor.rs:206:5
+    |
+206 |     pub fn new(max_versions: usize) -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/engine/parallel_executor.rs:260:5
+    |
+260 |     pub id: usize,
+    |     ^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/engine/parallel_executor.rs:261:5
+    |
+261 |     pub timestamp: Instant,
+    |     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/engine/parallel_executor.rs:262:5
+    |
+262 |     pub state: StateData,
+    |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/engine/parallel_executor.rs:263:5
+    |
+263 |     pub metadata: HashMap<String, String>,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+   --> src/engine/parallel_executor.rs:279:5
+    |
+279 |     pub fn new(check_interval: Duration) -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/checkpoint/mod.rs:17:5
+   |
+17 |     NotFound(String),
+   |     ^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/checkpoint/mod.rs:20:5
+   |
+20 |     SaveFailed(String),
+   |     ^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/checkpoint/mod.rs:23:5
+   |
+23 |     LoadFailed(String),
+   |     ^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/checkpoint/mod.rs:26:5
+   |
+26 |     InvalidData(String),
+   |     ^^^^^^^^^^^
+
+warning: missing documentation for a module
+ --> src/stream/mod.rs:1:1
+  |
+1 | pub mod streaming_engine;
+  | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a module
+ --> src/stream/mod.rs:2:1
+  |
+2 | pub mod channels;
+  | ^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a module
+ --> src/stream/mod.rs:3:1
+  |
+3 | pub mod transformers;
+  | ^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a module
+ --> src/stream/mod.rs:4:1
+  |
+4 | pub mod collectors;
+  | ^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a module
+ --> src/stream/mod.rs:5:1
+  |
+5 | pub mod flow_control;
+  | ^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+  --> src/stream/streaming_engine.rs:11:1
+   |
+11 | pub struct StreamOutput<T> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/stream/streaming_engine.rs:12:5
+   |
+12 |     pub value: T,
+   |     ^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/stream/streaming_engine.rs:13:5
+   |
+13 |     pub timestamp: std::time::SystemTime,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/stream/streaming_engine.rs:14:5
+   |
+14 |     pub node_id: String,
+   |     ^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/stream/streaming_engine.rs:15:5
+   |
+15 |     pub sequence: usize,
+   |     ^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a trait
+  --> src/stream/streaming_engine.rs:19:1
+   |
+19 | pub trait StreamingEngine: Send + Sync {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated type
+  --> src/stream/streaming_engine.rs:20:5
+   |
+20 |     type Output: Send + Sync;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> src/stream/streaming_engine.rs:22:5
+   |
+22 | /     async fn stream_execution<S: State>(
+23 | |         &self,
+24 | |         graph: Arc<Graph>,
+25 | |         initial_state: S,
+26 | |     ) -> Result<Pin<Box<dyn Stream<Item = StreamOutput<Self::Output>> + Send>>, GraphError>;
+   | |____________________________________________________________________________________________^
+
+warning: missing documentation for a method
+  --> src/stream/streaming_engine.rs:28:5
+   |
+28 | /     async fn stream_with_backpressure<S: State>(
+29 | |         &self,
+30 | |         graph: Arc<Graph>,
+31 | |         initial_state: S,
+32 | |         buffer_size: usize,
+33 | |     ) -> Result<Pin<Box<dyn Stream<Item = StreamOutput<Self::Output>> + Send>>, GraphError>;
+   | |____________________________________________________________________________________________^
+
+warning: missing documentation for a struct
+  --> src/stream/streaming_engine.rs:36:1
+   |
+36 | pub struct DefaultStreamingEngine {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+  --> src/stream/streaming_engine.rs:42:5
+   |
+42 |     pub fn new(buffer_size: usize) -> Self {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> src/stream/streaming_engine.rs:49:5
+   |
+49 |     pub fn with_metrics(mut self, enable: bool) -> Self {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+   --> src/stream/streaming_engine.rs:133:1
+    |
+133 | pub struct StreamingNode<T> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+   --> src/stream/streaming_engine.rs:139:5
+    |
+139 |     pub fn new(inner: T) -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+   --> src/stream/streaming_engine.rs:146:5
+    |
+146 |     pub fn disable_streaming(mut self) -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an enum
+ --> src/stream/channels.rs:9:1
+  |
+9 | pub enum ChannelType {
+  | ^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/stream/channels.rs:10:5
+   |
+10 |     Broadcast(usize),
+   |     ^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/stream/channels.rs:11:5
+   |
+11 |     Mpsc(usize),
+   |     ^^^^
+
+warning: missing documentation for a variant
+  --> src/stream/channels.rs:12:5
+   |
+12 |     Oneshot,
+   |     ^^^^^^^
+
+warning: missing documentation for a struct
+  --> src/stream/channels.rs:16:1
+   |
+16 | pub struct ChannelRegistry {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+  --> src/stream/channels.rs:21:5
+   |
+21 |     pub fn new() -> Self {
+   |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> src/stream/channels.rs:27:5
+   |
+27 | /     pub async fn create_channel(
+28 | |         &self,
+29 | |         name: String,
+30 | |         channel_type: ChannelType,
+31 | |     ) -> Result<(), GraphError> {
+   | |_______________________________^
+
+warning: missing documentation for a method
+  --> src/stream/channels.rs:63:5
+   |
+63 | /     pub async fn get_sender<T: Clone + Send + Sync + 'static>(
+64 | |         &self,
+65 | |         name: &str,
+66 | |     ) -> Result<ChannelSender<T>, GraphError> {
+   | |_____________________________________________^
+
+warning: missing documentation for a method
+  --> src/stream/channels.rs:75:5
+   |
+75 | /     pub async fn get_receiver<T: Clone + Send + Sync + 'static>(
+76 | |         &self,
+77 | |         name: &str,
+78 | |     ) -> Result<ChannelReceiver<T>, GraphError> {
+   | |_______________________________________________^
+
+warning: missing documentation for a method
+  --> src/stream/channels.rs:87:5
+   |
+87 |     pub async fn remove_channel(&self, name: &str) -> Result<(), GraphError> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+   --> src/stream/channels.rs:107:1
+    |
+107 | pub struct ChannelSender<T> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+   --> src/stream/channels.rs:125:5
+    |
+125 |     pub async fn send(&self, value: T) -> Result<(), GraphError> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+   --> src/stream/channels.rs:154:1
+    |
+154 | pub struct ChannelReceiver<T> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+   --> src/stream/channels.rs:172:5
+    |
+172 |     pub async fn recv(&mut self) -> Result<T, GraphError> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a trait
+   --> src/stream/channels.rs:209:1
+    |
+209 | pub trait ChannelSelector: Send + Sync {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+   --> src/stream/channels.rs:210:5
+    |
+210 |     async fn select(&self, channels: Vec<String>) -> Result<String, GraphError>;
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+   --> src/stream/channels.rs:213:1
+    |
+213 | pub struct RoundRobinSelector {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+   --> src/stream/channels.rs:218:5
+    |
+218 |     pub fn new() -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a trait
+ --> src/stream/transformers.rs:9:1
+  |
+9 | pub trait StreamTransformer: Send + Sync {
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated type
+  --> src/stream/transformers.rs:10:5
+   |
+10 |     type Input: Send + Sync;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated type
+  --> src/stream/transformers.rs:11:5
+   |
+11 |     type Output: Send + Sync;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> src/stream/transformers.rs:13:5
+   |
+13 | /     async fn transform(
+14 | |         &self,
+15 | |         input: Self::Input,
+16 | |     ) -> Result<Self::Output, GraphError>;
+   | |__________________________________________^
+
+warning: missing documentation for a method
+ --> src/stream/transformers.rs:8:1
+  |
+8 | #[async_trait]
+  | ^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+  --> src/stream/transformers.rs:31:1
+   |
+31 | pub struct MapTransformer<F, I, O> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+  --> src/stream/transformers.rs:37:5
+   |
+37 |     pub fn new(mapper: F) -> Self {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+  --> src/stream/transformers.rs:60:1
+   |
+60 | pub struct FilterTransformer<F, T> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+  --> src/stream/transformers.rs:66:5
+   |
+66 |     pub fn new(predicate: F) -> Self {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+  --> src/stream/transformers.rs:92:1
+   |
+92 | pub struct BatchTransformer<T> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+  --> src/stream/transformers.rs:98:5
+   |
+98 |     pub fn new(batch_size: usize) -> Self {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+   --> src/stream/transformers.rs:141:1
+    |
+141 | pub struct WindowTransformer<T> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+   --> src/stream/transformers.rs:147:5
+    |
+147 |     pub fn new(window_size: std::time::Duration) -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+   --> src/stream/transformers.rs:179:1
+    |
+179 | pub struct ChainTransformer<T1, T2> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+   --> src/stream/transformers.rs:185:5
+    |
+185 |     pub fn new(first: T1, second: T2) -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a trait
+  --> src/stream/collectors.rs:10:1
+   |
+10 | pub trait StreamCollector: Send + Sync {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated type
+  --> src/stream/collectors.rs:11:5
+   |
+11 |     type Item: Send + Sync;
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated type
+  --> src/stream/collectors.rs:12:5
+   |
+12 |     type Output: Send + Sync;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> src/stream/collectors.rs:14:5
+   |
+14 |     async fn collect_item(&mut self, item: Self::Item) -> Result<(), GraphError>;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> src/stream/collectors.rs:15:5
+   |
+15 |     async fn finalize(self) -> Result<Self::Output, GraphError>;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+ --> src/stream/collectors.rs:9:1
+  |
+9 | #[async_trait]
+  | ^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+  --> src/stream/collectors.rs:31:1
+   |
+31 | pub struct VecCollector<T> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+  --> src/stream/collectors.rs:37:5
+   |
+37 |     pub fn new() -> Self {
+   |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+  --> src/stream/collectors.rs:44:5
+   |
+44 |     pub fn with_max_size(max_size: usize) -> Self {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+  --> src/stream/collectors.rs:75:1
+   |
+75 | pub struct HashMapCollector<K, V> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+  --> src/stream/collectors.rs:80:5
+   |
+80 |     pub fn new() -> Self {
+   |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+   --> src/stream/collectors.rs:107:1
+    |
+107 | pub struct AggregateCollector<T, A> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+   --> src/stream/collectors.rs:113:5
+    |
+113 |     pub fn new(aggregator: A) -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+   --> src/stream/collectors.rs:140:1
+    |
+140 | pub struct GroupByCollector<K, V> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+   --> src/stream/collectors.rs:145:5
+    |
+145 |     pub fn new() -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+   --> src/stream/collectors.rs:172:1
+    |
+172 | pub struct StatisticsCollector {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+   --> src/stream/collectors.rs:181:5
+    |
+181 |     pub fn new() -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+   --> src/stream/collectors.rs:193:1
+    |
+193 | pub struct Statistics {
+    | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/stream/collectors.rs:194:5
+    |
+194 |     pub count: usize,
+    |     ^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/stream/collectors.rs:195:5
+    |
+195 |     pub sum: f64,
+    |     ^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/stream/collectors.rs:196:5
+    |
+196 |     pub mean: f64,
+    |     ^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/stream/collectors.rs:197:5
+    |
+197 |     pub min: Option<f64>,
+    |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/stream/collectors.rs:198:5
+    |
+198 |     pub max: Option<f64>,
+    |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/stream/collectors.rs:199:5
+    |
+199 |     pub median: Option<f64>,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/stream/collectors.rs:200:5
+    |
+200 |     pub std_dev: Option<f64>,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+   --> src/stream/collectors.rs:259:1
+    |
+259 | pub struct BufferedCollector<T> {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+   --> src/stream/collectors.rs:266:5
+    |
+266 | /     pub fn new<F>(flush_size: usize, flush_callback: F) -> Self
+267 | |     where
+268 | |         F: Fn(Vec<T>) + Send + Sync + 'static,
+    | |______________________________________________^
+
+warning: missing documentation for a trait
+  --> src/stream/flow_control.rs:10:1
+   |
+10 | pub trait FlowController: Send + Sync {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> src/stream/flow_control.rs:11:5
+   |
+11 |     async fn acquire(&self) -> Result<FlowPermit, GraphError>;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> src/stream/flow_control.rs:12:5
+   |
+12 |     async fn release(&self, permit: FlowPermit);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> src/stream/flow_control.rs:13:5
+   |
+13 |     fn is_healthy(&self) -> bool;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+  --> src/stream/flow_control.rs:16:1
+   |
+16 | pub struct FlowPermit {
+   | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+  --> src/stream/flow_control.rs:21:1
+   |
+21 | pub struct BackpressureController {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+  --> src/stream/flow_control.rs:28:5
+   |
+28 |     pub fn new(max_in_flight: usize) -> Self {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> src/stream/flow_control.rs:36:5
+   |
+36 |     pub fn current_load(&self) -> usize {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+  --> src/stream/flow_control.rs:40:5
+   |
+40 |     pub fn load_percentage(&self) -> f64 {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused `SemaphorePermit` that must be used
+  --> src/stream/flow_control.rs:48:9
+   |
+48 | /         self.semaphore.acquire().await
+49 | |             .map_err(|_| GraphError::RuntimeError("Failed to acquire permit".to_string()))?;
+   | |___________________________________________________________________________________________^
+   |
+   = note: `#[warn(unused_must_use)]` on by default
+help: use `let _ = ...` to ignore the resulting value
+   |
+48 |         let _ = self.semaphore.acquire().await
+   |         +++++++
+
+warning: missing documentation for a struct
+  --> src/stream/flow_control.rs:68:1
+   |
+68 | pub struct RateLimiter {
+   | ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+  --> src/stream/flow_control.rs:74:5
+   |
+74 |     pub fn new(max_per_second: usize) -> Self {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+   --> src/stream/flow_control.rs:120:1
+    |
+120 | pub struct CircuitBreaker {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+   --> src/stream/flow_control.rs:139:5
+    |
+139 | /     pub fn new(
+140 | |         failure_threshold: usize,
+141 | |         success_threshold: usize,
+142 | |         timeout: Duration,
+143 | |     ) -> Self {
+    | |_____________^
+
+warning: missing documentation for a method
+   --> src/stream/flow_control.rs:155:5
+    |
+155 |     pub async fn record_success(&self) {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+   --> src/stream/flow_control.rs:169:5
+    |
+169 |     pub async fn record_failure(&self) {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+   --> src/stream/flow_control.rs:223:1
+    |
+223 | pub struct AdaptiveFlowController {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+   --> src/stream/flow_control.rs:235:5
+    |
+235 |     pub fn new(base_controller: Arc<dyn FlowController>) -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+   --> src/stream/flow_control.rs:246:5
+    |
+246 |     pub async fn record_latency(&self, latency: Duration) {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a method
+   --> src/stream/flow_control.rs:255:5
+    |
+255 |     pub async fn get_p99_latency(&self) -> Option<Duration> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/tools/mod.rs:19:5
+   |
+19 |     NotFound(String),
+   |     ^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/tools/mod.rs:22:5
+   |
+22 |     InvalidParameters(String),
+   |     ^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/tools/mod.rs:25:5
+   |
+25 |     ExecutionFailed(String),
+   |     ^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/tools/mod.rs:28:5
+   |
+28 |     PermissionDenied(String),
+   |     ^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/tools/mod.rs:31:5
+   |
+31 |     Timeout(String),
+   |     ^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/tools/mod.rs:34:5
+   |
+34 |     SerializationError(String),
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+  --> src/agents/mod.rs:19:1
+   |
+19 | pub struct AgentConfig {
+   | ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/agents/mod.rs:20:5
+   |
+20 |     pub name: String,
+   |     ^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/agents/mod.rs:21:5
+   |
+21 |     pub description: Option<String>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/agents/mod.rs:22:5
+   |
+22 |     pub max_iterations: Option<usize>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/agents/mod.rs:23:5
+   |
+23 |     pub tools: Vec<String>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/agents/mod.rs:24:5
+   |
+24 |     pub system_prompt: Option<String>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/agents/mod.rs:25:5
+   |
+25 |     pub temperature: Option<f32>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+  --> src/agents/mod.rs:29:1
+   |
+29 | pub struct Conversation {
+   | ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/agents/mod.rs:30:5
+   |
+30 |     pub messages: Vec<Message>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/agents/mod.rs:31:5
+   |
+31 |     pub metadata: Option<HashMap<String, Value>>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+  --> src/agents/mod.rs:35:1
+   |
+35 | pub struct Message {
+   | ^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/agents/mod.rs:36:5
+   |
+36 |     pub role: MessageRole,
+   |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/agents/mod.rs:37:5
+   |
+37 |     pub content: String,
+   |     ^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/agents/mod.rs:38:5
+   |
+38 |     pub name: Option<String>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/agents/mod.rs:39:5
+   |
+39 |     pub metadata: Option<HashMap<String, Value>>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an enum
+  --> src/agents/mod.rs:43:1
+   |
+43 | pub enum MessageRole {
+   | ^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/agents/mod.rs:44:5
+   |
+44 |     System,
+   |     ^^^^^^
+
+warning: missing documentation for a variant
+  --> src/agents/mod.rs:45:5
+   |
+45 |     User,
+   |     ^^^^
+
+warning: missing documentation for a variant
+  --> src/agents/mod.rs:46:5
+   |
+46 |     Assistant,
+   |     ^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/agents/mod.rs:47:5
+   |
+47 |     Function,
+   |     ^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/agents/mod.rs:54:5
+   |
+54 |     NotFound(String),
+   |     ^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/agents/mod.rs:57:5
+   |
+57 |     ReasoningFailed(String),
+   |     ^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/agents/mod.rs:60:5
+   |
+60 |     DecisionFailed(String),
+   |     ^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/agents/mod.rs:63:5
+   |
+63 |     ToolExecutionFailed(String),
+   |     ^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/agents/mod.rs:66:5
+   |
+66 |     MemoryAccessFailed(String),
+   |     ^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a variant
+  --> src/agents/mod.rs:69:5
+   |
+69 |     CommunicationFailed(String),
+   |     ^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/agents/mod.rs:490:20
+    |
+490 |     Hierarchical { supervisor: String },
+    |                    ^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+  --> src/agents/implementations.rs:39:1
+   |
+39 | pub struct ReasoningStep {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/agents/implementations.rs:40:5
+   |
+40 |     pub step_number: usize,
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/agents/implementations.rs:41:5
+   |
+41 |     pub thought: String,
+   |     ^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/agents/implementations.rs:42:5
+   |
+42 |     pub action: Option<String>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/agents/implementations.rs:43:5
+   |
+43 |     pub observation: Option<String>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+  --> src/agents/implementations.rs:44:5
+   |
+44 |     pub conclusion: Option<String>,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+  --> src/agents/implementations.rs:48:5
+   |
+48 |     pub fn new(config: AgentConfig, tools: Arc<ToolRegistry>) -> Self {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+   --> src/agents/implementations.rs:339:5
+    |
+339 |     pub fn new(config: AgentConfig, tools: Arc<ToolRegistry>) -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+   --> src/agents/implementations.rs:519:1
+    |
+519 | pub struct ReActStep {
+    | ^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/agents/implementations.rs:520:5
+    |
+520 |     pub iteration: usize,
+    |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/agents/implementations.rs:521:5
+    |
+521 |     pub thought: String,
+    |     ^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/agents/implementations.rs:522:5
+    |
+522 |     pub action: Option<ActionSpec>,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/agents/implementations.rs:523:5
+    |
+523 |     pub observation: Option<String>,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+   --> src/agents/implementations.rs:527:1
+    |
+527 | pub struct ActionSpec {
+    | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/agents/implementations.rs:528:5
+    |
+528 |     pub tool: String,
+    |     ^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/agents/implementations.rs:529:5
+    |
+529 |     pub parameters: Value,
+    |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct
+   --> src/agents/implementations.rs:600:1
+    |
+600 | pub struct MemoryItem {
+    | ^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/agents/implementations.rs:601:5
+    |
+601 |     pub id: String,
+    |     ^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/agents/implementations.rs:602:5
+    |
+602 |     pub content: String,
+    |     ^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/agents/implementations.rs:603:5
+    |
+603 |     pub importance: f32,
+    |     ^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/agents/implementations.rs:604:5
+    |
+604 |     pub timestamp: u64,
+    |     ^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/agents/implementations.rs:605:5
+    |
+605 |     pub access_count: usize,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for a struct field
+   --> src/agents/implementations.rs:606:5
+    |
+606 |     pub associations: Vec<String>,
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: missing documentation for an associated function
+   --> src/agents/implementations.rs:610:5
+    |
+610 |     pub fn new(config: AgentConfig) -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+   Compiling langgraph-rust v0.1.0 (/root/repo)
+warning: `langgraph-rust` (lib) generated 349 warnings (run `cargo fix --lib -p langgraph-rust` to apply 46 suggestions)
+warning: unused import: `tokio::sync::RwLock`
+ --> tests/h_cycle_integration_test.rs:6:5
+  |
+6 | use tokio::sync::RwLock;
+  |     ^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `langgraph::state::StateData`
+ --> tests/h_cycle_integration_test.rs:8:5
+  |
+8 | use langgraph::state::StateData;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `langgraph::engine::executor::ExecutionEngine`
+  --> tests/h_cycle_integration_test.rs:10:5
+   |
+10 | use langgraph::engine::executor::ExecutionEngine;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: variable does not need to be mutable
+  --> tests/h_cycle_integration_test.rs:69:9
+   |
+69 |     let mut version_manager = StateVersionManager::new(10);
+   |         ----^^^^^^^^^^^^^^^
+   |         |
+   |         help: remove this `mut`
+   |
+   = note: `#[warn(unused_mut)]` on by default
+
+warning: `langgraph-rust` (test "h_cycle_integration_test") generated 4 warnings (run `cargo fix --test "h_cycle_integration_test"` to apply 4 suggestions)
+warning: unused import: `std::collections::HashMap`
+   --> src/graph/node.rs:149:9
+    |
+149 |     use std::collections::HashMap;
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `GraphBuilder` and `Node`
+  --> src/graph/subgraph_executor.rs:13:35
+   |
+13 | use crate::graph::{CompiledGraph, GraphBuilder, StateGraph, Node, NodeType};
+   |                                   ^^^^^^^^^^^^              ^^^^
+
+warning: unused import: `Node`
+ --> src/engine/graph_traversal.rs:4:35
+  |
+4 | use crate::graph::{CompiledGraph, Node, NodeType, EdgeType};
+  |                                   ^^^^
+
+warning: unused variable: `compiled`
+  --> examples/simple_workflow.rs:30:9
+   |
+30 |     let compiled = graph.compile()?;
+   |         ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_compiled`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `idx`
+   --> src/graph/mod.rs:299:13
+    |
+299 |         let idx = graph.add_node(node);
+    |             ^^^ help: if this is intentional, prefix it with an underscore: `_idx`
+
+warning: unused `std::result::Result` that must be used
+   --> src/engine/node_executor.rs:290:9
+    |
+290 | /         graph.add_edge("__start__", "__end__", Edge {
+291 | |             edge_type: EdgeType::Direct,
+292 | |             metadata: None,
+293 | |         });
+    | |__________^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+    = note: `#[warn(unused_must_use)]` on by default
+help: use `let _ = ...` to ignore the resulting value
+    |
+290 |         let _ = graph.add_edge("__start__", "__end__", Edge {
+    |         +++++++
+
+warning: unused `SemaphorePermit` that must be used
+  --> src/stream/flow_control.rs:48:9
+   |
+48 | /         self.semaphore.acquire().await
+49 | |             .map_err(|_| GraphError::RuntimeError("Failed to acquire permit".to_string()))?;
+   | |___________________________________________________________________________________________^
+   |
+help: use `let _ = ...` to ignore the resulting value
+   |
+48 |         let _ = self.semaphore.acquire().await
+   |         +++++++
+
+warning: `langgraph-rust` (example "simple_workflow") generated 1 warning
+warning: unused imports: `GraphError` and `Graph`
+ --> tests/streaming_test.rs:2:24
+  |
+2 | use langgraph::graph::{Graph, GraphError};
+  |                        ^^^^^  ^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `State`
+ --> tests/streaming_test.rs:3:24
+  |
+3 | use langgraph::state::{State, GraphState};
+  |                        ^^^^^
+
+warning: comparison is useless due to type limits
+  --> tests/streaming_test.rs:30:17
+   |
+30 |         assert!(output.sequence >= 0);
+   |                 ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_comparisons)]` on by default
+
+warning: `langgraph-rust` (test "streaming_test") generated 3 warnings (run `cargo fix --test "streaming_test"` to apply 2 suggestions)
+warning: unused import: `Node`
+ --> tests/integration_test.rs:1:48
+  |
+1 | use langgraph::graph::{GraphBuilder, NodeType, Node};
+  |                                                ^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused imports: `DefaultReducer`, `Reducer`, and `StateData`
+ --> tests/integration_test.rs:2:36
+  |
+2 | use langgraph::state::{GraphState, StateData, Reducer, DefaultReducer};
+  |                                    ^^^^^^^^^  ^^^^^^^  ^^^^^^^^^^^^^^
+
+warning: unused import: `langgraph::engine::*`
+ --> tests/integration_test.rs:4:5
+  |
+4 | use langgraph::engine::*;
+  |     ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `futures::stream::StreamExt`
+ --> tests/integration_test.rs:9:5
+  |
+9 | use futures::stream::StreamExt;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `initial_state`
+  --> tests/integration_test.rs:34:9
+   |
+34 |     let initial_state = GraphState::new();
+   |         ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_initial_state`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `graph`
+   --> tests/integration_test.rs:351:9
+    |
+351 |     let graph = builder.build().unwrap().compile().unwrap();
+    |         ^^^^^ help: if this is intentional, prefix it with an underscore: `_graph`
+
+warning: `langgraph-rust` (lib test) generated 351 warnings (345 duplicates) (run `cargo fix --lib -p langgraph-rust --tests` to apply 3 suggestions)
+warning: unused import: `GraphState`
+ --> examples/conditional_routing.rs:4:24
+  |
+4 | use langgraph::state::{GraphState, StateData};
+  |                        ^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused variable: `graph`
+  --> examples/conditional_routing.rs:14:9
+   |
+14 |     let graph = GraphBuilder::new("decision_workflow")
+   |         ^^^^^ help: if this is intentional, prefix it with an underscore: `_graph`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: `langgraph-rust` (test "integration_test") generated 6 warnings (run `cargo fix --test "integration_test"` to apply 3 suggestions)
+warning: `langgraph-rust` (example "conditional_routing") generated 2 warnings (run `cargo fix --example "conditional_routing"` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 12.20s
+     Running unittests src/lib.rs (target/debug/deps/langgraph-98ba5a8d68683b1b)
+
+running 93 tests
+test agents::implementations::tests::test_chain_of_thought_agent ... ok
+test agents::implementations::tests::test_memory_agent ... ok
+test agents::tests::test_agent_memory ... ok
+test agents::tests::test_reasoning_agent ... ok
+test agents::implementations::tests::test_react_agent ... ok
+test checkpoint::tests::test_checkpoint_creation ... ok
+test checkpoint::tests::test_in_memory_checkpointer ... ok
+test checkpoint::tests::test_delete_thread ... ok
+test engine::context::tests::test_execution_scope ... ok
+test engine::context::tests::test_shared_context ... ok
+test engine::executor::tests::test_execution_engine_creation ... ok
+test engine::graph_traversal::tests::test_breadth_first_traversal ... ok
+test engine::executor::tests::test_execution_id_generation ... ok
+test engine::graph_traversal::tests::test_depth_first_traversal ... ok
+test engine::node_executor::tests::test_default_executor_start_node ... ok
+test engine::graph_traversal::tests::test_topological_order ... ok
+test engine::parallel_executor::tests::test_deadlock_detection ... ok
+test engine::parallel_executor::tests::test_dependency_analysis ... FAILED
+test engine::parallel_executor::tests::test_parallel_execution ... FAILED
+test engine::parallel_executor::tests::test_parallel_performance ... FAILED
+test engine::parallel_executor::tests::test_state_versioning ... ok
+test graph::builder::tests::test_builder_basic ... ok
+test graph::builder::tests::test_builder_conditional_edges ... ok
+test graph::builder::tests::test_builder_with_metadata ... ok
+test graph::command::tests::test_command_builder ... ok
+test graph::command::tests::test_command_creation ... ok
+test graph::command::tests::test_command_parallel ... ok
+test graph::command::tests::test_command_with_goto ... ok
+test graph::command::tests::test_command_with_update ... ok
+test graph::command::tests::test_command_with_update_and_goto ... ok
+test graph::condition_evaluator::tests::test_comparison_conditions ... ok
+test graph::condition_evaluator::tests::test_contains_condition ... ok
+test graph::condition_evaluator::tests::test_equality_condition ... ok
+test graph::condition_evaluator::tests::test_exists_condition ... ok
+test graph::condition_evaluator::tests::test_truthy_condition ... ok
+test graph::conditional::tests::test_conditional_edge ... ok
+test graph::conditional::tests::test_conditional_router ... ok
+test graph::edge::tests::test_conditional_edge ... ok
+test graph::edge::tests::test_conditional_edge_with_fallback ... ok
+test graph::edge::tests::test_direct_edge ... ok
+test graph::edge::tests::test_edge_with_metadata ... ok
+test graph::node::tests::test_basic_node_execution ... ok
+test graph::node::tests::test_node_creation ... ok
+test graph::node::tests::test_node_type_equality ... ok
+test graph::state_graph::tests::test_conditional_edge ... ok
+test graph::condition_evaluator::tests::test_conditional_router ... ok
+test graph::state_graph::tests::test_state_graph_creation ... ok
+test graph::subgraph::tests::test_state_mappers ... ok
+test graph::subgraph::tests::test_subgraph_builder ... ok
+test graph::subgraph_executor::tests::test_conditional_subgraph ... ok
+test graph::state_graph::tests::test_state_update ... ok
+test graph::subgraph_executor::tests::test_parallel_subgraph_executor ... ok
+test graph::tests::test_add_edge ... ok
+test graph::subgraph_executor::tests::test_subgraph_executor ... ok
+test graph::tests::test_add_node ... ok
+test graph::tests::test_graph_creation ... ok
+test graph::tests::test_validation_fails_without_start ... ok
+test state::advanced::tests::test_branching ... ok
+test state::advanced::tests::test_snapshots ... ok
+test state::advanced::tests::test_state_diff ... ok
+test state::advanced::tests::test_versioned_state_manager ... ok
+test state::channel::tests::test_channel_builder ... ok
+test state::channel::tests::test_channel_creation ... ok
+test state::channel::tests::test_channel_type_validation ... ok
+test state::channel::tests::test_channel_with_default ... ok
+test state::channel::tests::test_required_channel ... ok
+test state::reducer::tests::test_add_reducer ... ok
+test state::reducer::tests::test_append_reducer ... ok
+test state::reducer::tests::test_default_reducer ... ok
+test state::reducer::tests::test_custom_reducer ... ok
+test state::reducer::tests::test_max_reducer ... ok
+test state::reducer::tests::test_merge_reducer ... ok
+test state::reducer::tests::test_min_reducer ... ok
+test state::state_channels::tests::test_channel_creation ... ok
+test state::state_channels::tests::test_send_receive ... ok
+test state::tests::test_graph_state_with_thread_id ... ok
+test state::tests::test_graph_state_creation ... ok
+test state::tests::test_state_schema_validation ... ok
+test state::tests::test_state_snapshot_restore ... ok
+test state::tests::test_state_transition ... ok
+test state::tests::test_state_update ... ok
+test state::tests::test_state_get_set ... ok
+test state::versioning::tests::test_branch_manager ... ok
+test state::versioning::tests::test_state_delta ... ok
+test state::versioning::tests::test_cache_efficiency ... FAILED
+test tests::test_node_creation ... ok
+test tests::test_state_initialization ... ok
+test tools::tests::test_function_tool_execution ... ok
+test state::versioning::tests::test_versioning_system ... ok
+test utils::tests::test_deep_merge ... ok
+test utils::tests::test_extract_subset ... ok
+test utils::tests::test_validate_schema ... ok
+test tools::tests::test_tool_registry ... ok
+
+failures:
+
+---- engine::parallel_executor::tests::test_dependency_analysis stdout ----
+
+thread 'engine::parallel_executor::tests::test_dependency_analysis' panicked at src/engine/parallel_executor.rs:587:25:
+called `Result::unwrap()` on an `Err` value: Graph(InvalidStructure("No entry point defined"))
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- engine::parallel_executor::tests::test_parallel_execution stdout ----
+
+thread 'engine::parallel_executor::tests::test_parallel_execution' panicked at src/engine/parallel_executor.rs:587:25:
+called `Result::unwrap()` on an `Err` value: Graph(InvalidStructure("No entry point defined"))
+
+---- engine::parallel_executor::tests::test_parallel_performance stdout ----
+
+thread 'engine::parallel_executor::tests::test_parallel_performance' panicked at src/engine/parallel_executor.rs:694:40:
+called `Result::unwrap()` on an `Err` value: Graph(InvalidStructure("No entry point defined"))
+
+---- state::versioning::tests::test_cache_efficiency stdout ----
+
+thread 'state::versioning::tests::test_cache_efficiency' panicked at src/state/versioning.rs:644:9:
+assertion `left == right` failed
+  left: 2
+ right: 1
+
+
+failures:
+    engine::parallel_executor::tests::test_dependency_analysis
+    engine::parallel_executor::tests::test_parallel_execution
+    engine::parallel_executor::tests::test_parallel_performance
+    state::versioning::tests::test_cache_efficiency
+
+test result: FAILED. 89 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+error: test failed, to rerun pass `--lib`
