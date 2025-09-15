@@ -8,6 +8,7 @@ use std::fmt;
 use std::sync::Arc;
 
 use petgraph::graph::{DiGraph, NodeIndex};
+use petgraph::visit::EdgeRef;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -78,6 +79,26 @@ pub struct GraphMetadata {
 }
 
 impl StateGraph {
+    /// Get node by name
+    pub fn get_node(&self, name: &str) -> Option<&Node> {
+        self.node_map.get(name).and_then(|idx| self.graph.node_weight(*idx))
+    }
+    
+    /// Get all edges for a node
+    pub fn get_edges_from(&self, node_name: &str) -> Vec<(&Node, &Edge)> {
+        if let Some(&idx) = self.node_map.get(node_name) {
+            self.graph
+                .edges(idx)
+                .filter_map(|edge| {
+                    self.graph.node_weight(edge.target())
+                        .map(|target| (target, edge.weight()))
+                })
+                .collect()
+        } else {
+            Vec::new()
+        }
+    }
+    
     /// Create a new empty graph
     pub fn new(name: impl Into<String>) -> Self {
         Self {
@@ -118,12 +139,6 @@ impl StateGraph {
             .ok_or_else(|| GraphError::NodeNotFound(node_name.to_string()))?;
         self.entry_point = Some(*idx);
         Ok(())
-    }
-    
-    /// Get a node by name
-    pub fn get_node(&self, name: &str) -> Option<&Node> {
-        self.node_map.get(name)
-            .and_then(|idx| self.graph.node_weight(*idx))
     }
     
     /// Get a mutable reference to a node by name
@@ -207,6 +222,11 @@ pub struct CompiledGraph {
 }
 
 impl CompiledGraph {
+    /// Get the underlying graph
+    pub fn graph(&self) -> &StateGraph {
+        &self.graph
+    }
+    
     /// Execute the graph with given input state
     pub async fn invoke(&self, input: StateData) -> Result<StateData> {
         // TODO: Implement execution logic

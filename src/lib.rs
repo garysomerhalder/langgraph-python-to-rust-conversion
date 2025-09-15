@@ -50,6 +50,10 @@ pub enum LangGraphError {
     #[error("Graph error: {0}")]
     Graph(#[from] graph::GraphError),
     
+    /// Engine execution errors
+    #[error("Engine error: {0}")]
+    Engine(#[from] engine::ExecutionError),
+    
     /// Generic error for unexpected conditions
     #[error("Internal error: {0}")]
     Internal(String),

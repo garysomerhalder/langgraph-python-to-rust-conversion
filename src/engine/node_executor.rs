@@ -42,10 +42,6 @@ impl NodeExecutor for DefaultNodeExecutor {
                 // End node finalizes state
                 Ok(state.clone())
             }
-            NodeType::Function(func) => {
-                // Execute function node
-                self.execute_function(func, state, context).await
-            }
             NodeType::Agent(agent_name) => {
                 // Execute agent node
                 self.execute_agent(&node.id, agent_name, state, context).await
@@ -75,18 +71,6 @@ impl NodeExecutor for DefaultNodeExecutor {
 }
 
 impl DefaultNodeExecutor {
-    /// Execute a function node
-    async fn execute_function(
-        &self,
-        func: &NodeFunction,
-        state: &mut StateData,
-        _context: &ExecutionContext,
-    ) -> Result<StateData> {
-        // Call the function with state
-        let result = (func.function)(state);
-        Ok(result)
-    }
-    
     /// Execute an agent node
     async fn execute_agent(
         &self,
@@ -286,8 +270,31 @@ mod tests {
         let mut state = HashMap::new();
         state.insert("test".to_string(), Value::String("value".to_string()));
         
-        // Create a mock context
-        let graph = crate::graph::StateGraph::new("test");
+        // Create a mock context with a properly set up graph
+        let mut graph = crate::graph::StateGraph::new("test");
+        
+        // Add required nodes
+        graph.add_node(Node {
+            id: "__start__".to_string(),
+            node_type: NodeType::Start,
+            metadata: None,
+        });
+        graph.add_node(Node {
+            id: "__end__".to_string(),
+            node_type: NodeType::End,
+            metadata: None,
+        });
+        
+        // Add edge from start to end
+        use crate::graph::edge::{Edge, EdgeType};
+        graph.add_edge("__start__", "__end__", Edge {
+            edge_type: EdgeType::Direct,
+            metadata: None,
+        });
+        
+        // Set entry point
+        graph.set_entry_point("__start__").unwrap();
+        
         let compiled = graph.compile().unwrap();
         let context = ExecutionContext {
             graph: Arc::new(compiled),

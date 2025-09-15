@@ -1,6 +1,6 @@
 //! Graph execution engine implementation
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 use tokio::task::JoinHandle;
@@ -48,6 +48,7 @@ pub struct ExecutionMessage {
 }
 
 /// Execution context for a running graph
+#[derive(Clone)]
 pub struct ExecutionContext {
     /// Graph being executed
     pub graph: Arc<CompiledGraph>,
@@ -105,9 +106,6 @@ pub enum ExecutionStatus {
 
 /// Main execution engine for running graphs
 pub struct ExecutionEngine {
-    /// Runtime handle
-    runtime: Arc<tokio::runtime::Runtime>,
-    
     /// Active executions
     active_executions: Arc<RwLock<HashMap<String, ExecutionContext>>>,
     
@@ -118,10 +116,7 @@ pub struct ExecutionEngine {
 impl ExecutionEngine {
     /// Create a new execution engine
     pub fn new() -> Self {
-        let runtime = tokio::runtime::Runtime::new().unwrap();
-        
         Self {
-            runtime: Arc::new(runtime),
             active_executions: Arc::new(RwLock::new(HashMap::new())),
             history: Arc::new(RwLock::new(Vec::new())),
         }
@@ -265,8 +260,66 @@ impl ExecutionEngine {
     
     /// Execute the graph
     async fn execute_graph(&self, context: &ExecutionContext) -> Result<StateData> {
-        // TODO: Implement graph traversal
-        // For now, return current state
+        use crate::engine::node_executor::{DefaultNodeExecutor, NodeExecutor};
+        
+        let executor = DefaultNodeExecutor;
+        let mut current_node = "__start__".to_string();
+        let mut visited = std::collections::HashSet::new();
+        let max_iterations = 100; // Prevent infinite loops
+        let mut iterations = 0;
+        
+        while current_node != "__end__" && iterations < max_iterations {
+            iterations += 1;
+            
+            // Prevent cycles
+            if visited.contains(&current_node) {
+                return Err(ExecutionError::InvalidState(
+                    format!("Cycle detected at node: {}", current_node)
+                ).into());
+            }
+            visited.insert(current_node.clone());
+            
+            // Get the node from the graph
+            let node = context.graph.graph().get_node(&current_node)
+                .ok_or_else(|| ExecutionError::NodeExecutionFailed(
+                    format!("Node not found: {}", current_node)
+                ))?;
+            
+            // Execute the node
+            let mut state = context.state.write().await;
+            let mut state_data = state.snapshot();
+            let result = executor.execute(node, &mut state_data, context).await?;
+            state.update(result);
+            
+            // Find next node(s) based on edges
+            let edges = context.graph.graph().get_edges_from(&current_node);
+            
+            if edges.is_empty() {
+                // No more edges, we're done
+                break;
+            } else if edges.len() == 1 {
+                // Single edge, follow it
+                current_node = edges[0].0.id.clone();
+            } else {
+                // Multiple edges - would need conditional logic here
+                // For now, just take the first one
+                current_node = edges[0].0.id.clone();
+            }
+            
+            // Update context metadata
+            let mut active = self.active_executions.write().await;
+            if let Some(ctx) = active.get_mut(&context.execution_id) {
+                ctx.metadata.nodes_executed += 1;
+            }
+        }
+        
+        if iterations >= max_iterations {
+            return Err(ExecutionError::Timeout(
+                "Maximum iterations reached in graph execution".to_string()
+            ).into());
+        }
+        
+        // Return final state
         let state = context.state.read().await;
         Ok(state.snapshot())
     }
@@ -277,18 +330,82 @@ impl ExecutionEngine {
         context: &ExecutionContext,
         tx: mpsc::Sender<ExecutionMessage>,
     ) -> Result<()> {
-        // TODO: Implement streaming graph traversal
-        // For now, send a test message
-        let msg = ExecutionMessage {
-            from: "__start__".to_string(),
-            to: "__end__".to_string(),
-            payload: HashMap::new(),
-            metadata: None,
-        };
+        use crate::engine::node_executor::{DefaultNodeExecutor, NodeExecutor};
         
-        tx.send(msg).await.map_err(|e| {
-            ExecutionError::MessageError(e.to_string())
-        })?;
+        let executor = DefaultNodeExecutor;
+        let mut current_node = "__start__".to_string();
+        let mut visited = HashSet::new();
+        let max_iterations = 100;
+        let mut iterations = 0;
+        
+        while current_node != "__end__" && iterations < max_iterations {
+            iterations += 1;
+            
+            // Prevent cycles
+            if visited.contains(&current_node) {
+                return Err(ExecutionError::InvalidState(
+                    format!("Cycle detected at node: {}", current_node)
+                ).into());
+            }
+            visited.insert(current_node.clone());
+            
+            // Get the node from the graph
+            let node = context.graph.graph().get_node(&current_node)
+                .ok_or_else(|| ExecutionError::NodeExecutionFailed(
+                    format!("Node not found: {}", current_node)
+                ))?;
+            
+            // Execute the node
+            let mut state = context.state.write().await;
+            let mut state_data = state.snapshot();
+            let result = executor.execute(node, &mut state_data, context).await?;
+            state.update(result.clone());
+            
+            // Find next node(s) based on edges
+            let edges = context.graph.graph().get_edges_from(&current_node);
+            
+            let next_node = if edges.is_empty() {
+                "__end__".to_string()
+            } else if edges.len() == 1 {
+                edges[0].0.id.clone()
+            } else {
+                // Multiple edges - would need conditional logic here
+                edges[0].0.id.clone()
+            };
+            
+            // Send execution message
+            let msg = ExecutionMessage {
+                from: current_node.clone(),
+                to: next_node.clone(),
+                payload: result,
+                metadata: Some(serde_json::json!({
+                    "iteration": iterations,
+                    "node_type": format!("{:?}", node.node_type)
+                })),
+            };
+            
+            tx.send(msg).await.map_err(|e| {
+                ExecutionError::MessageError(e.to_string())
+            })?;
+            
+            // Update context metadata
+            let mut active = self.active_executions.write().await;
+            if let Some(ctx) = active.get_mut(&context.execution_id) {
+                ctx.metadata.nodes_executed += 1;
+            }
+            
+            if edges.is_empty() {
+                break;
+            }
+            
+            current_node = next_node;
+        }
+        
+        if iterations >= max_iterations {
+            return Err(ExecutionError::Timeout(
+                "Maximum iterations reached in streaming execution".to_string()
+            ).into());
+        }
         
         Ok(())
     }
@@ -301,7 +418,7 @@ impl ExecutionEngine {
     ) -> Result<()> {
         let mut active = self.active_executions.write().await;
         if let Some(context) = active.get_mut(execution_id) {
-            context.metadata.status = status;
+            context.metadata.status = status.clone();
             if status == ExecutionStatus::Completed || status == ExecutionStatus::Failed {
                 context.metadata.ended_at = Some(current_timestamp());
             }
@@ -313,7 +430,6 @@ impl ExecutionEngine {
 impl Clone for ExecutionEngine {
     fn clone(&self) -> Self {
         Self {
-            runtime: self.runtime.clone(),
             active_executions: self.active_executions.clone(),
             history: self.history.clone(),
         }
