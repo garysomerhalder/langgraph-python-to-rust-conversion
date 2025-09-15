@@ -11,10 +11,10 @@ async fn test_streaming_engine() {
     
     // Create a simple graph for testing
     let graph_builder = langgraph::graph::GraphBuilder::new("test_graph")
-        .add_node("start", langgraph::graph::NodeType::Start)
-        .add_node("end", langgraph::graph::NodeType::End)
-        .add_edge("start", "end")
-        .set_entry_point("start");
+        .add_node("__start__", langgraph::graph::NodeType::Start)
+        .add_node("__end__", langgraph::graph::NodeType::End)
+        .add_edge("__start__", "__end__")
+        .set_entry_point("__start__");
     
     let graph = graph_builder.build().unwrap().compile().unwrap();
     let graph_arc = Arc::new(graph);
@@ -51,14 +51,33 @@ async fn test_channel_registry() {
         ChannelType::Mpsc(10)
     ).await.unwrap();
     
-    // Test getting sender and receiver
-    let sender: ChannelSender<String> = registry.get_sender("test_broadcast").await.unwrap();
-    let mut receiver: ChannelReceiver<String> = registry.get_receiver("test_broadcast").await.unwrap();
+    // Test MPSC channel (more reliable for testing)
+    let sender: ChannelSender<String> = registry.get_sender("test_mpsc").await.unwrap();
+    let mut receiver: ChannelReceiver<String> = registry.get_receiver("test_mpsc").await.unwrap();
     
     // Test sending and receiving
     sender.send("Hello".to_string()).await.unwrap();
     let received = receiver.recv().await.unwrap();
     assert_eq!(received, "Hello");
+    
+    // Test broadcast channel with proper receiver setup
+    let mut broadcast_receiver: ChannelReceiver<String> = registry.get_receiver("test_broadcast").await.unwrap();
+    let broadcast_sender: ChannelSender<String> = registry.get_sender("test_broadcast").await.unwrap();
+    
+    // Spawn a task to handle the receiver to keep it alive
+    let handle = tokio::spawn(async move {
+        broadcast_receiver.recv().await
+    });
+    
+    // Small delay to ensure receiver is ready
+    tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+    
+    // Now send
+    broadcast_sender.send("Broadcast Hello".to_string()).await.unwrap();
+    
+    // Get the result
+    let broadcast_result = handle.await.unwrap().unwrap();
+    assert_eq!(broadcast_result, "Broadcast Hello");
 }
 
 #[tokio::test]
