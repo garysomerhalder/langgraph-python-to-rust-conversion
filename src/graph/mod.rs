@@ -23,6 +23,7 @@ pub mod state_graph;
 pub mod conditional;
 pub mod subgraph;
 pub mod condition_evaluator;
+pub mod subgraph_executor;
 
 pub use builder::GraphBuilder;
 pub use node::{Node, NodeType, NodeFunction};
@@ -31,6 +32,10 @@ pub use command::Command;
 pub use state_graph::{StateGraphManager, StateConditionalEdge};
 pub use conditional::{ConditionalRouter, ConditionalBranch};
 pub use subgraph::{Subgraph, StateMapper, PassthroughMapper, SelectiveMapper, SubgraphBuilder, RecursiveSubgraph};
+pub use subgraph_executor::{
+    SubgraphExecutor, RecursiveSubgraphExecutor, ParallelSubgraphExecutor,
+    ConditionalSubgraphExecutor, IsolationStrategy, MergeStrategy,
+};
 
 // Type alias for compatibility
 pub type Graph = CompiledGraph;
