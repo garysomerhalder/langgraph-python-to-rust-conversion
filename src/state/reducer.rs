@@ -72,8 +72,8 @@ impl Reducer for MergeReducer {
                 }
                 Value::Object(result)
             }
-            (Some(_), new_val) => new_val,
-            (None, new_val) => new_val,
+            (Some(_), _) => new,
+            (None, _) => new,
         }
     }
 }
@@ -93,8 +93,8 @@ impl Reducer for AddReducer {
                     new
                 }
             }
-            (Some(_), new_val) => new_val,
-            (None, new_val) => new_val,
+            (Some(_), _) => new,
+            (None, _) => new,
         }
     }
 }
@@ -114,15 +114,15 @@ impl Reducer for MaxReducer {
                     new
                 }
             }
-            (Some(existing_val), new_val) => {
+            (Some(existing_val), _) => {
                 // For non-numeric values, use string comparison
-                if existing_val.to_string() > new_val.to_string() {
+                if existing_val.to_string() > new.to_string() {
                     existing_val.clone()
                 } else {
-                    new_val.clone()
+                    new
                 }
             }
-            (None, new_val) => new_val,
+            (None, _) => new,
         }
     }
 }
@@ -142,15 +142,15 @@ impl Reducer for MinReducer {
                     new
                 }
             }
-            (Some(existing_val), new_val) => {
+            (Some(existing_val), _) => {
                 // For non-numeric values, use string comparison
-                if existing_val.to_string() < new_val.to_string() {
+                if existing_val.to_string() < new.to_string() {
                     existing_val.clone()
                 } else {
-                    new_val.clone()
+                    new
                 }
             }
-            (None, new_val) => new_val,
+            (None, _) => new,
         }
     }
 }

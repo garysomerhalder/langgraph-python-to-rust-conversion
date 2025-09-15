@@ -85,12 +85,11 @@ mod tests {
     
     #[test]
     fn test_state_initialization() {
-        let state = state::GraphState {
-            values: std::collections::HashMap::new(),
-            history: Vec::new(),
-        };
+        let state = state::GraphState::new();
         
         assert!(state.values.is_empty());
         assert!(state.history.is_empty());
+        assert!(state.current_node.is_none());
+        assert!(state.thread_id.is_none());
     }
 }

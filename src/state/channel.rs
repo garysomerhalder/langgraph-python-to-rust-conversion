@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::fmt;
 
 use crate::state::reducer::Reducer;
 
@@ -157,6 +158,30 @@ impl ChannelBuilder {
     /// Build the channel
     pub fn build(self) -> Channel {
         self.channel
+    }
+}
+
+impl fmt::Debug for Channel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Channel")
+            .field("channel_type", &self.channel_type)
+            .field("required", &self.required)
+            .field("reducer", &self.reducer.is_some())
+            .field("default", &self.default)
+            .field("metadata", &self.metadata)
+            .finish()
+    }
+}
+
+impl Clone for Channel {
+    fn clone(&self) -> Self {
+        Self {
+            channel_type: self.channel_type.clone(),
+            required: self.required,
+            reducer: None, // Can't clone Box<dyn Reducer>
+            default: self.default.clone(),
+            metadata: self.metadata.clone(),
+        }
     }
 }
 

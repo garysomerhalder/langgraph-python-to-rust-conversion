@@ -165,8 +165,10 @@ impl GraphBuilder {
             use petgraph::Direction;
             let neighbors: Vec<_> = self.graph.graph.neighbors_directed(start_idx, Direction::Outgoing).collect();
             if let Some(&target_idx) = neighbors.first() {
-                if let Some(target_node) = self.graph.graph.node_weight(target_idx) {
-                    self.graph.set_entry_point(&target_node.id)?;
+                let target_node_id = self.graph.graph.node_weight(target_idx)
+                    .map(|node| node.id.clone());
+                if let Some(node_id) = target_node_id {
+                    self.graph.set_entry_point(&node_id)?;
                 }
             }
         }

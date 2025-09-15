@@ -4,7 +4,8 @@ use tokio::sync::RwLock;
 use serde::{Deserialize, Serialize};
 use crate::graph::{StateGraph, Node, Edge};
 use crate::state::{StateChannels, Reducer};
-use crate::checkpoint::{Checkpointer, Checkpoint, GraphState as CheckpointGraphState};
+use crate::checkpoint::Checkpointer;
+use crate::state::GraphState as CheckpointGraphState;
 use async_trait::async_trait;
 
 #[async_trait]
@@ -16,7 +17,6 @@ where
     async fn load(&self, checkpoint_id: &str) -> Result<T, Box<dyn std::error::Error>>;
 }
 
-#[derive(Debug, Clone)]
 pub struct StateGraphManager<T> 
 where 
     T: Clone + Send + Sync + 'static
@@ -142,10 +142,62 @@ where
     }
 }
 
+impl<T> std::fmt::Debug for StateGraphManager<T> 
+where 
+    T: Clone + Send + Sync + 'static + std::fmt::Debug
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("StateGraphManager")
+            .field("graph", &"<StateGraph>")
+            .field("state", &self.state)
+            .field("channels", &"<StateChannels>")
+            .field("reducers", &self.reducers.keys().collect::<Vec<_>>())
+            .field("conditional_edges", &self.conditional_edges)
+            .field("checkpointer", &self.checkpointer.is_some())
+            .finish()
+    }
+}
+
+impl<T> Clone for StateGraphManager<T> 
+where 
+    T: Clone + Send + Sync + 'static
+{
+    fn clone(&self) -> Self {
+        Self {
+            graph: self.graph.clone(),
+            state: Arc::clone(&self.state),
+            channels: self.channels.clone(),
+            reducers: HashMap::new(), // Can't clone Box<dyn Reducer>
+            conditional_edges: self.conditional_edges.clone(),
+            checkpointer: None, // Can't clone Arc<dyn GenericCheckpointer<T>>
+        }
+    }
+}
+
 pub struct StateConditionalEdge<T> {
     pub source: String,
     pub target: String,
     pub condition: Box<dyn Fn(&T) -> bool + Send + Sync>,
+}
+
+impl<T> std::fmt::Debug for StateConditionalEdge<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("StateConditionalEdge")
+            .field("source", &self.source)
+            .field("target", &self.target)
+            .field("condition", &"<function>")
+            .finish()
+    }
+}
+
+impl<T> Clone for StateConditionalEdge<T> {
+    fn clone(&self) -> Self {
+        Self {
+            source: self.source.clone(),
+            target: self.target.clone(),
+            condition: Box::new(|_| false), // Can't clone closures
+        }
+    }
 }
 
 #[cfg(test)]

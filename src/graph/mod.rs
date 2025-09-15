@@ -214,9 +214,9 @@ impl CompiledGraph {
     }
     
     /// Stream execution of the graph
-    pub async fn stream(&self, input: StateData) -> Result<impl futures::Stream<Item = Result<StateData>>> {
+    pub async fn stream(&self, _input: StateData) -> Result<futures::stream::Empty<Result<StateData>>> {
         // TODO: Implement streaming execution
-        unimplemented!("Graph streaming not yet implemented")
+        Ok(futures::stream::empty())
     }
 }
 
