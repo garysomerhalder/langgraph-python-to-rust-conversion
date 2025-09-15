@@ -114,6 +114,14 @@ pub enum LangGraphError {
     /// Generic error for unexpected conditions
     #[error("Internal error: {0}")]
     Internal(String),
+    
+    /// Graph validation error
+    #[error("Graph validation error: {0}")]
+    GraphValidation(String),
+    
+    /// State error
+    #[error("State error: {0}")]
+    StateError(String),
 }
 
 /// Core graph module containing graph structures and algorithms
@@ -136,6 +144,9 @@ pub mod tools;
 
 /// Agent capabilities module
 pub mod agents;
+
+/// Utility functions and helpers
+pub mod utils;
 
 #[cfg(test)]
 mod tests {

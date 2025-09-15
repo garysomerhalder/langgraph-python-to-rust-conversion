@@ -63,10 +63,9 @@ path = "examples/multi_agent.rs"
 name = "state_management"
 path = "examples/state_management.rs"
 
-# Benchmarks will be added later
-# [[bench]]
-# name = "graph_benchmarks"
-# harness = false
+[[bench]]
+name = "graph_benchmark"
+harness = false
 
 [profile.release]
 opt-level = 3

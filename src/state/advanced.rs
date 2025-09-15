@@ -249,11 +249,34 @@ impl VersionedStateManager {
         
         for (key, value) in other {
             if let Some(base_value) = base.get(key) {
-                // Conflict resolution: prefer other's value for now
-                // TODO: Implement more sophisticated merge strategies
-                if base_value != value {
-                    // For now, just take the other value
-                    merged.insert(key.clone(), value.clone());
+                // Apply sophisticated merge strategies based on value types
+                match (base_value, value) {
+                    // Arrays: concatenate unique values
+                    (Value::Array(base_arr), Value::Array(branch_arr)) => {
+                        let mut merged_arr: Vec<Value> = base_arr.clone();
+                        for item in branch_arr {
+                            if !merged_arr.contains(item) {
+                                merged_arr.push(item.clone());
+                            }
+                        }
+                        merged.insert(key.clone(), Value::Array(merged_arr));
+                    }
+                    // Objects: deep merge
+                    (Value::Object(base_obj), Value::Object(branch_obj)) => {
+                        let mut merged_obj = base_obj.clone();
+                        for (k, v) in branch_obj {
+                            merged_obj.insert(k.clone(), v.clone());
+                        }
+                        merged.insert(key.clone(), Value::Object(merged_obj));
+                    }
+                    // Numbers: use the branch value (most recent)
+                    (Value::Number(_), Value::Number(_)) => {
+                        merged.insert(key.clone(), value.clone());
+                    }
+                    // Default: use branch value for other types
+                    _ => {
+                        merged.insert(key.clone(), value.clone());
+                    }
                 }
             } else {
                 merged.insert(key.clone(), value.clone());

@@ -256,14 +256,17 @@ impl CompiledGraph {
     
     /// Execute the graph with given input state
     pub async fn invoke(&self, input: StateData) -> Result<StateData> {
-        // TODO: Implement execution logic
-        unimplemented!("Graph execution not yet implemented")
+        // Create executor and run the graph
+        let executor = crate::engine::executor::ExecutionEngine::new();
+        executor.execute(self.clone(), input).await
     }
     
     /// Stream execution of the graph
-    pub async fn stream(&self, _input: StateData) -> Result<futures::stream::Empty<Result<StateData>>> {
-        // TODO: Implement streaming execution
-        Ok(futures::stream::empty())
+    pub async fn stream(&self, input: StateData) -> Result<impl futures::Stream<Item = Result<StateData>>> {
+        // For now, return a simple implementation
+        // Full streaming would need proper implementation in ExecutionEngine
+        let result = self.invoke(input).await;
+        Ok(futures::stream::once(async move { result }))
     }
 }
 
