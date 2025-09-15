@@ -1,8 +1,6 @@
 //! Builder pattern for constructing graphs
 
-use std::collections::HashMap;
-
-use crate::graph::{Edge, EdgeType, Node, NodeType, StateGraph};
+use crate::graph::{Edge, Node, NodeType, StateGraph};
 use crate::Result;
 
 /// Builder for constructing a StateGraph

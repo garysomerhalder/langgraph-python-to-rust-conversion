@@ -4,7 +4,6 @@
 //! and the graph itself, along with builder patterns and traversal algorithms.
 
 use std::collections::HashMap;
-use std::fmt;
 use std::sync::Arc;
 
 use petgraph::graph::{DiGraph, NodeIndex};

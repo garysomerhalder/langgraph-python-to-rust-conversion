@@ -305,7 +305,7 @@ impl ParallelSubgraphExecutor {
         let mut handles = Vec::new();
         
         for (i, (subgraph_id, subgraph)) in subgraphs.iter().enumerate() {
-            let executor = &self.executors[i % self.executors.len()];
+            let _executor = &self.executors[i % self.executors.len()];
             let state = parent_state.clone();
             let id = subgraph_id.to_string();
             let graph = (*subgraph).clone();

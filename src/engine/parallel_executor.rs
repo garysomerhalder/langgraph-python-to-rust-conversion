@@ -511,7 +511,7 @@ impl ParallelExecutor {
     async fn execute_node(
         node: &Node,
         state: &Arc<RwLock<StateData>>,
-        executor: Arc<crate::engine::DefaultNodeExecutor>,
+        _executor: Arc<crate::engine::DefaultNodeExecutor>,
     ) -> Result<()> {
         // Create isolated state copy for node execution
         let node_state = state.read().await.clone();
