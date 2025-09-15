@@ -13,9 +13,11 @@ use serde_json::Value;
 
 pub mod reducer;
 pub mod channel;
+pub mod state_channels;
 
 pub use reducer::{Reducer, ReducerFn, DefaultReducer, AppendReducer};
 pub use channel::{Channel, ChannelType};
+pub use state_channels::StateChannels;
 
 /// Type alias for state data
 pub type StateData = HashMap<String, Value>;

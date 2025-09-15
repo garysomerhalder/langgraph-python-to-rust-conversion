@@ -18,11 +18,13 @@ pub mod builder;
 pub mod node;
 pub mod edge;
 pub mod command;
+pub mod state_graph;
 
 pub use builder::GraphBuilder;
 pub use node::{Node, NodeType, NodeFunction};
 pub use edge::{Edge, EdgeType, ConditionalEdge};
 pub use command::Command;
+pub use state_graph::{StateGraphManager, StateConditionalEdge};
 
 /// Errors specific to graph operations
 #[derive(Error, Debug)]
