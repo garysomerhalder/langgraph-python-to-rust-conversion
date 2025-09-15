@@ -355,6 +355,11 @@ impl ParallelExecutor {
         }
     }
     
+    /// Get current execution metrics
+    pub async fn get_metrics(&self) -> ExecutionMetrics {
+        self.metrics.read().await.clone()
+    }
+    
     /// Execute graph with parallel node execution
     #[instrument(skip(self, graph, initial_state))]
     pub async fn execute_parallel(
@@ -412,7 +417,7 @@ impl ParallelExecutor {
         // Update metrics
         let duration = start_time.elapsed();
         let mut metrics = self.metrics.write().await;
-        metrics.total_duration_ms = duration.as_millis();
+        metrics.total_duration_ms = duration.as_millis().max(1); // At least 1ms
         metrics.total_nodes = graph.graph().node_count();
         metrics.parallel_batches = analyzer.num_levels();
         

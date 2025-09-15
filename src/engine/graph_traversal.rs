@@ -304,10 +304,6 @@ mod tests {
     use crate::graph::{StateGraph, Node, Edge};
     
     fn create_test_graph() -> CompiledGraph {
-        use crate::graph::GraphBuilder;
-        use std::sync::Arc;
-        use crate::state::StateManager;
-        
         let mut graph = StateGraph::new("test");
         
         // Add nodes
@@ -333,11 +329,11 @@ mod tests {
         graph.add_edge("__start__", "process", Edge::direct()).unwrap();
         graph.add_edge("process", "__end__", Edge::direct()).unwrap();
         
+        // Set entry point
+        graph.set_entry_point("__start__").unwrap();
+        
         // Compile
-        GraphBuilder::new(graph)
-            .with_state_manager(Arc::new(StateManager::new()))
-            .compile()
-            .unwrap()
+        graph.compile().unwrap()
     }
     
     #[test]
