@@ -1,0 +1,1 @@
+(dyn for<'a> Fn(&'a [std::collections::HashMap<std::string::String, serde_json::Value>]) -> std::collections::HashMap<std::string::String, serde_json::Value> + std::marker::Send + Sync + 'static)

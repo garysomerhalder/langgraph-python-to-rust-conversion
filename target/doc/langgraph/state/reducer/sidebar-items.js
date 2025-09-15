@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["AddReducer","AppendReducer","CustomReducer","DefaultReducer","MaxReducer","MergeReducer","MinReducer"],"trait":["Reducer"],"type":["ReducerFn"]};
