@@ -34,6 +34,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 dashmap = "6.1"
 arc-swap = "1.7"
 
+# For execution engine
+uuid = { version = "1.11", features = ["v4"] }
+
 [dev-dependencies]
 criterion = "0.5"
 proptest = "1.6"
