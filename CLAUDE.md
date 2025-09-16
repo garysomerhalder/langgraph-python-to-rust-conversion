@@ -51,6 +51,21 @@ cargo run --example state_management
 
 # Run benchmarks
 cargo bench
+
+# Debug build with verbose output
+RUST_LOG=debug cargo run --example simple_workflow
+
+# Run with tracing enabled
+RUST_LOG=langgraph=trace cargo test
+
+# Check for unused dependencies
+cargo machete
+
+# Analyze binary size
+cargo bloat --release
+
+# Security audit
+cargo audit
 ```
 
 ## Architecture Overview
@@ -72,6 +87,8 @@ The codebase implements a graph-based workflow engine with these core architectu
 - **`src/engine/`** - Execution strategies and runtime
   - `ExecutionEngine` orchestrates graph traversal
   - `ParallelExecutor` with semaphore-based concurrency control
+  - `ResilienceManager` with circuit breaker, retry, and bulkhead patterns
+  - `TracingManager` for distributed tracing with OpenTelemetry support
   - Deadlock detection and prevention mechanisms
   
 - **`src/stream/`** - Async streaming with backpressure
@@ -106,23 +123,32 @@ The codebase implements a graph-based workflow engine with these core architectu
 - **Semaphore-based** concurrency limiting in parallel executor
 - **Channel-based** communication between components
 
-### Error Handling Strategy
+### Error Handling & Resilience
 
 All errors use `thiserror` for structured error types:
 - `GraphError` for graph construction issues
 - `ExecutionError` for runtime failures
 - `StateError` for state management problems
-- Retry logic with exponential backoff built into execution engine
+- Built-in resilience patterns:
+  - **Circuit Breaker**: Prevents cascading failures
+  - **Retry with Exponential Backoff**: Automatic retry logic with jitter
+  - **Bulkhead**: Resource isolation to prevent system-wide failures
+  - **Timeout Management**: Configurable timeouts for all operations
 
 ## Development Patterns
 
 ### Testing Approach
 
-The codebase uses Integration-First testing:
+The codebase uses Integration-First testing with Traffic-Light Development:
+- **RED Phase**: Write failing tests that define the expected behavior
+- **YELLOW Phase**: Implement minimal code to make tests pass
+- **GREEN Phase**: Refactor and optimize while maintaining test coverage
+
+Key principles:
 - All tests run against real implementations (no mocks)
 - Comprehensive integration tests in `tests/` directory
 - Unit tests colocated with implementation in `src/`
-- Tests follow Traffic-Light Development phases
+- Tests must pass before merging to main branch
 
 ### State Management
 
@@ -160,11 +186,22 @@ The parallel executor manages concurrency:
 ## Code Standards
 
 - **Rust Edition**: 2021
+- **MSRV**: 1.75.0 (Minimum Supported Rust Version)
 - **Async Runtime**: Tokio with full features
 - **Error Handling**: Result types with anyhow/thiserror
 - **Logging**: tracing with structured logging
 - **Serialization**: serde with serde_json
 - **Testing**: Integration-first with real implementations
+
+### Key Dependencies
+
+- **petgraph**: Graph data structures and algorithms
+- **dashmap**: Concurrent HashMap implementation
+- **uuid**: Unique identifier generation
+- **criterion**: Benchmarking framework
+- **proptest**: Property-based testing (for advanced test scenarios)
+- **async-trait**: Trait support for async functions
+- **chrono**: Date and time handling
 
 ## Common Tasks
 
@@ -196,6 +233,37 @@ The parallel executor manages concurrency:
 3. Handle serialization/deserialization
 4. Add tests for persistence/recovery
 
+### Adding Resilience to Operations
+
+```rust
+// Use the resilience manager for fault-tolerant operations
+use crate::engine::resilience::{ResilienceManager, RetryConfig};
+
+let manager = ResilienceManager::new()
+    .with_circuit_breaker(5, Duration::from_secs(60))
+    .with_retry(RetryConfig::exponential(3, Duration::from_millis(100)));
+
+// Execute with automatic retry and circuit breaking
+let result = manager.execute("operation", || async {
+    // Your operation here
+}).await?;
+```
+
+### Enabling Distributed Tracing
+
+```rust
+// Add tracing to track execution flow
+use crate::engine::tracing::TracingManager;
+
+let tracing = TracingManager::new("my-service");
+let span = tracing.create_span("graph-execution");
+
+// Operations are automatically traced within the span
+span.execute(async {
+    // Your graph execution here
+}).await?;
+```
+
 ## Performance Considerations
 
 - Graph compilation pre-computes traversal order
@@ -206,13 +274,15 @@ The parallel executor manages concurrency:
 
 ## Current Status
 
-The project is 89% complete with all core features implemented:
+The project is production-ready with all core features implemented:
 - ✅ Graph construction and traversal
 - ✅ State management with versioning
 - ✅ Parallel and streaming execution
 - ✅ Conditional routing and subgraphs
 - ✅ Tool and agent integration
 - ✅ Checkpoint system
-- ✅ Comprehensive test coverage (94 tests passing)
+- ✅ Resilience patterns (circuit breaker, retry, bulkhead)
+- ✅ Distributed tracing with OpenTelemetry
+- ✅ Performance benchmarks (Criterion-based)
+- ✅ Comprehensive test coverage (99 tests passing)
 - 🚧 Documentation improvements ongoing
-- 🚧 Performance benchmarks to be added
