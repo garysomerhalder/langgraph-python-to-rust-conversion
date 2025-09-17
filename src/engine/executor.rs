@@ -10,6 +10,8 @@ use thiserror::Error;
 
 use crate::graph::{CompiledGraph, StateGraph, Node, NodeType};
 use crate::state::{GraphState, StateData};
+use crate::engine::resilience::ResilienceManager;
+use crate::engine::tracing::Tracer;
 use crate::Result;
 
 /// Errors specific to execution
@@ -64,6 +66,12 @@ pub struct ExecutionContext {
     
     /// Execution metadata
     pub metadata: ExecutionMetadata,
+    
+    /// Resilience manager for fault tolerance
+    pub resilience_manager: Arc<ResilienceManager>,
+    
+    /// Tracer for observability
+    pub tracer: Arc<Tracer>,
 }
 
 /// Metadata about an execution
@@ -195,12 +203,39 @@ impl ExecutionEngine {
             error: None,
         };
         
+        // Create resilience manager with default configuration
+        let circuit_config = crate::engine::resilience::CircuitBreakerConfig {
+            failure_threshold: 5,
+            timeout_duration: std::time::Duration::from_secs(60),
+            success_threshold: 3,
+            failure_window: std::time::Duration::from_secs(60),
+        };
+        
+        let retry_config = crate::engine::resilience::RetryConfig {
+            max_attempts: 3,
+            initial_delay: std::time::Duration::from_millis(100),
+            max_delay: std::time::Duration::from_secs(10),
+            backoff_multiplier: 2.0,
+            jitter: true,
+        };
+        
+        let resilience_manager = ResilienceManager::new(
+            circuit_config,
+            retry_config,
+            10  // max concurrent operations
+        );
+        
+        // Create tracer
+        let tracer = Tracer::new(&execution_id);
+        
         Ok(ExecutionContext {
             graph: Arc::new(graph),
             state: Arc::new(RwLock::new(state)),
             channels: HashMap::new(),
-            execution_id,
+            execution_id: execution_id.clone(),
             metadata,
+            resilience_manager: Arc::new(resilience_manager),
+            tracer: Arc::new(tracer),
         })
     }
     

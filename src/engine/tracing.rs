@@ -173,7 +173,7 @@ pub struct Tracer {
 
 impl Tracer {
     /// Create a new tracer
-    pub fn new() -> Self {
+    pub fn new(_name: &str) -> Self {
         Self {
             active_spans: Arc::new(RwLock::new(HashMap::new())),
             completed_spans: Arc::new(RwLock::new(Vec::new())),
@@ -181,9 +181,27 @@ impl Tracer {
         }
     }
     
-    /// Start a new span
+    /// Start a new span with a new trace context
+    pub fn start_span(&self, operation: &str) -> SpanHandle {
+        let context = TraceContext::new();
+        let span = Span::new(&context, operation.to_string());
+        let span_id = span.span_id.clone();
+        
+        // Use tokio::spawn to handle the async operation
+        let active_spans = self.active_spans.clone();
+        tokio::spawn(async move {
+            active_spans.write().await.insert(span_id.clone(), span);
+        });
+        
+        SpanHandle {
+            span_id: context.span_id,
+            tracer: self.clone(),
+        }
+    }
+    
+    /// Start a new span with provided context
     #[instrument(skip(self))]
-    pub async fn start_span(&self, context: &TraceContext, operation: String) -> SpanHandle {
+    pub async fn start_span_with_context(&self, context: &TraceContext, operation: String) -> SpanHandle {
         let span = Span::new(context, operation);
         let span_id = span.span_id.clone();
         
@@ -288,8 +306,12 @@ impl SpanHandle {
     }
     
     /// End the span
-    pub async fn end(self) {
-        self.tracer.end_span(self.span_id).await;
+    pub fn end(self) {
+        let tracer = self.tracer.clone();
+        let span_id = self.span_id.clone();
+        tokio::spawn(async move {
+            tracer.end_span(span_id).await;
+        });
     }
 }
 
@@ -392,7 +414,7 @@ impl<E> InstrumentedExecutor<E> {
         F: FnOnce(&E) -> Fut,
         Fut: std::future::Future<Output = Result<T, Box<dyn std::error::Error>>>,
     {
-        let span = self.tracer.start_span(&context, operation).await;
+        let span = self.tracer.start_span_with_context(&context, operation).await;
         
         let result = f(&self.inner).await;
         
@@ -401,7 +423,7 @@ impl<E> InstrumentedExecutor<E> {
             Err(e) => span.set_status(SpanStatus::Error(e.to_string())).await,
         }
         
-        span.end().await;
+        span.end();
         
         result
     }
