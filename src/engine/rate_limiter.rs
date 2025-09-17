@@ -20,6 +20,9 @@ pub enum RateLimitError {
     
     #[error("Rate limiter is shutting down")]
     ShuttingDown,
+    
+    #[error("Semaphore has been closed")]
+    SemaphoreClosed,
 }
 
 /// Rate limiter for controlling execution frequency
@@ -121,8 +124,10 @@ impl RateLimiter {
         let mut bucket = self.token_bucket.lock().await;
         
         if bucket.try_consume(1.0) {
+            let permit = self.semaphore.clone().acquire_owned().await
+                .map_err(|_| RateLimitError::SemaphoreClosed)?;
             return Ok(RateLimitPermit {
-                _permit: self.semaphore.clone().acquire_owned().await.unwrap(),
+                _permit: permit,
             });
         }
         
@@ -135,8 +140,10 @@ impl RateLimiter {
         
         let mut bucket = self.token_bucket.lock().await;
         if bucket.try_consume(1.0) {
+            let permit = self.semaphore.clone().acquire_owned().await
+                .map_err(|_| RateLimitError::SemaphoreClosed)?;
             Ok(RateLimitPermit {
-                _permit: self.semaphore.clone().acquire_owned().await.unwrap(),
+                _permit: permit,
             })
         } else {
             Err(RateLimitError::RateLimitExceeded(
@@ -150,8 +157,10 @@ impl RateLimiter {
         let mut bucket = self.token_bucket.lock().await;
         
         if bucket.try_consume(1.0) {
+            let permit = self.semaphore.clone().acquire_owned().await
+                .map_err(|_| RateLimitError::SemaphoreClosed)?;
             Ok(RateLimitPermit {
-                _permit: self.semaphore.clone().acquire_owned().await.unwrap(),
+                _permit: permit,
             })
         } else {
             Err(RateLimitError::RateLimitExceeded(

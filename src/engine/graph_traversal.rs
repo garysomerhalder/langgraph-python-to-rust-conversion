@@ -150,7 +150,13 @@ impl GraphTraverser {
         for node in &all_nodes {
             let edges = graph.graph().get_edges_from(node);
             for (next_node, _) in edges {
-                *in_degree.get_mut(&next_node.id).unwrap() += 1;
+                if let Some(degree) = in_degree.get_mut(&next_node.id) {
+                    *degree += 1;
+                } else {
+                    return Err(ExecutionError::InvalidState(
+                        format!("Graph inconsistency: node '{}' referenced in edges but not found in graph", next_node.id)
+                    ).into());
+                }
             }
         }
         
@@ -168,10 +174,15 @@ impl GraphTraverser {
             // Reduce in-degree of neighbors
             let edges = graph.graph().get_edges_from(&node);
             for (next_node, _) in edges {
-                let degree = in_degree.get_mut(&next_node.id).unwrap();
-                *degree -= 1;
-                if *degree == 0 {
-                    queue.push_back(next_node.id.clone());
+                if let Some(degree) = in_degree.get_mut(&next_node.id) {
+                    *degree -= 1;
+                    if *degree == 0 {
+                        queue.push_back(next_node.id.clone());
+                    }
+                } else {
+                    return Err(ExecutionError::InvalidState(
+                        format!("Graph inconsistency: node '{}' not found during topological traversal", next_node.id)
+                    ).into());
                 }
             }
         }

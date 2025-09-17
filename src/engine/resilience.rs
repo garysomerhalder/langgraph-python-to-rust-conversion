@@ -128,7 +128,7 @@ impl CircuitBreaker {
     }
     
     /// Record a successful operation
-    async fn record_success(&self) {
+    pub async fn record_success(&self) {
         let mut success_count = self.success_count.write().await;
         *success_count += 1;
         
@@ -142,7 +142,7 @@ impl CircuitBreaker {
     }
     
     /// Record a failed operation
-    async fn record_failure(&self) {
+    pub async fn record_failure(&self) {
         let now = Instant::now();
         
         // Add failure timestamp
@@ -458,13 +458,23 @@ impl ResilienceManager {
         Fut: std::future::Future<Output = Result<T, E>>,
         E: std::error::Error,
     {
-        // Apply bulkhead first
+        // Apply bulkhead first  
         self.bulkhead.execute(|| async {
             // Then apply circuit breaker protection
-            self.circuit_breaker.execute(|| async {
-                // Finally apply retry logic
-                self.retry_executor.execute(operation).await
-            }).await
+            // Note: Circuit breaker execute is sync and expects a Result-returning function
+            let retry_result = self.retry_executor.execute(operation).await;
+            match retry_result {
+                Ok(value) => {
+                    // Record success in circuit breaker manually
+                    self.circuit_breaker.record_success().await;
+                    Ok(value)
+                }
+                Err(e) => {
+                    // Record failure in circuit breaker manually
+                    self.circuit_breaker.record_failure().await;
+                    Err(e)
+                }
+            }
         }).await?
     }
     

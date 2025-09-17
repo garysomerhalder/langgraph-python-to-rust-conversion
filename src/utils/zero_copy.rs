@@ -85,12 +85,12 @@ impl ZeroCopyValue {
     }
     
     /// Create from a JSON value
-    pub fn from_value(value: Value) -> Self {
-        let bytes = Bytes::from(serde_json::to_vec(&value).unwrap());
-        Self {
+    pub fn from_value(value: Value) -> Result<Self, serde_json::Error> {
+        let bytes = Bytes::from(serde_json::to_vec(&value)?);
+        Ok(Self {
             bytes,
             value: Some(value),
-        }
+        })
     }
     
     /// Get the underlying bytes
@@ -103,7 +103,7 @@ impl ZeroCopyValue {
         if self.value.is_none() {
             self.value = Some(serde_json::from_slice(&self.bytes)?);
         }
-        Ok(self.value.as_ref().unwrap())
+        Ok(self.value.as_ref().expect("Value should be set after parsing"))
     }
     
     /// Take ownership of the bytes
@@ -216,7 +216,7 @@ impl<'a, T: Serialize> ZeroCopySerialize<'a, T> {
         if self.buffer.is_none() {
             self.buffer = Some(serde_json::to_vec(self.data)?);
         }
-        Ok(self.buffer.as_ref().unwrap())
+        Ok(self.buffer.as_ref().expect("Buffer should be set after serialization"))
     }
     
     /// Serialize to a writer without intermediate allocation

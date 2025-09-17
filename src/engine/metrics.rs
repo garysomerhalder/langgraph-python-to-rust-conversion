@@ -195,12 +195,16 @@ impl Timer {
 }
 
 /// Export metrics in Prometheus format
-pub fn export_metrics() -> String {
+pub fn export_metrics() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     let encoder = TextEncoder::new();
     let metric_families = prometheus::gather();
     let mut buffer = Vec::new();
-    encoder.encode(&metric_families, &mut buffer).unwrap();
-    String::from_utf8(buffer).unwrap()
+    
+    encoder.encode(&metric_families, &mut buffer)
+        .map_err(|e| format!("Failed to encode metrics: {}", e))?;
+    
+    String::from_utf8(buffer)
+        .map_err(|e| format!("Failed to convert metrics to UTF-8: {}", e).into())
 }
 
 /// Global metrics instance
