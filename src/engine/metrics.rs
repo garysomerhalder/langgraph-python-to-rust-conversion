@@ -251,7 +251,7 @@ mod tests {
         collector.record_execution_end("success", 1.5);
         
         // Export metrics
-        let metrics = export_metrics();
+        let metrics = export_metrics().expect("Failed to export metrics");
         assert!(metrics.contains("langgraph_executions_total"));
         assert!(metrics.contains("test_graph"));
     }
