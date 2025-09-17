@@ -13,6 +13,8 @@ pub mod graph_traversal;
 pub mod parallel_executor;
 pub mod resilience;
 pub mod tracing;
+pub mod rate_limiter;
+pub mod metrics;
 
 pub use executor::{
     ExecutionEngine, ExecutionContext, ExecutionMessage, 
@@ -33,6 +35,12 @@ pub use tracing::{
     TraceContext, Span, SpanEvent, SpanStatus, Tracer, SpanHandle,
     SpanExporter, ConsoleSpanExporter, JsonSpanExporter, TracingMetrics,
     InstrumentedExecutor, ContextPropagator
+};
+pub use rate_limiter::{
+    RateLimiter, RateLimitPermit, RateLimitError, AdaptiveRateLimiter
+};
+pub use metrics::{
+    MetricsCollector, Timer, GlobalMetrics, export_metrics
 };
 
 /// Trait for executable graph components

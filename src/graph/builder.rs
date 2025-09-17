@@ -114,12 +114,15 @@ impl GraphBuilder {
     pub fn set_entry_point(mut self, node: impl Into<String>) -> Self {
         let node_str = node.into();
         
-        // Add edge from __start__ to entry point
-        self.pending_edges.push(PendingEdge {
-            from: "__start__".to_string(),
-            to: node_str.clone(),
-            edge: Edge::direct(),
-        });
+        // Only add edge from __start__ to entry point if it's not __start__ itself
+        // This prevents self-loops that would be detected as cycles
+        if node_str != "__start__" {
+            self.pending_edges.push(PendingEdge {
+                from: "__start__".to_string(),
+                to: node_str.clone(),
+                edge: Edge::direct(),
+            });
+        }
         
         self
     }

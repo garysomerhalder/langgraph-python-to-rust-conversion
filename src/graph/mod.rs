@@ -130,7 +130,7 @@ impl StateGraph {
     pub fn new(name: impl Into<String>) -> Self {
         Self {
             graph: DiGraph::new(),
-            node_map: HashMap::new(),
+            node_map: HashMap::with_capacity(32),  // Pre-allocate for typical graph size
             entry_point: None,
             metadata: GraphMetadata {
                 name: name.into(),
@@ -184,13 +184,18 @@ impl StateGraph {
         petgraph::algo::is_cyclic_directed(&self.graph)
     }
     
-    /// Find all orphaned nodes (nodes with no incoming edges except entry point)
+    /// Find all orphaned nodes (nodes with no incoming edges except entry point and special nodes)
     pub fn find_orphaned_nodes(&self) -> Vec<String> {
         let mut orphaned = Vec::new();
         
         for (name, &idx) in &self.node_map {
             // Skip the entry point
             if Some(idx) == self.entry_point {
+                continue;
+            }
+            
+            // Skip special nodes that don't need incoming edges
+            if name == "__start__" || name == "__end__" {
                 continue;
             }
             

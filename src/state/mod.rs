@@ -131,11 +131,13 @@ impl GraphState {
     }
     
     /// Get a value from the state
+    #[inline]
     pub fn get(&self, key: &str) -> Option<&Value> {
         self.values.get(key)
     }
     
     /// Set a value in the state
+    #[inline]
     pub fn set(&mut self, key: impl Into<String>, value: Value) {
         self.values.insert(key.into(), value);
         self.update_timestamp();
@@ -177,6 +179,7 @@ impl GraphState {
     }
     
     /// Update the last modified timestamp
+    #[inline]
     fn update_timestamp(&mut self) {
         self.metadata.updated_at = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
