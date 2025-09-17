@@ -120,13 +120,13 @@ impl<T> Deref for PooledObject<T> {
     type Target = T;
     
     fn deref(&self) -> &Self::Target {
-        self.value.as_ref().expect("PooledObject already dropped")
+        self.value.as_ref().unwrap_or_else(|| unreachable!("PooledObject accessed after drop"))
     }
 }
 
 impl<T> DerefMut for PooledObject<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.value.as_mut().expect("PooledObject already dropped")
+        self.value.as_mut().unwrap_or_else(|| unreachable!("PooledObject accessed after drop"))
     }
 }
 

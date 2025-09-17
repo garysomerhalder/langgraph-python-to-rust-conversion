@@ -194,6 +194,143 @@ impl Timer {
     }
 }
 
+/// SIMD-optimized batch metrics processor for high-performance analytics
+pub struct BatchMetricsProcessor;
+
+impl BatchMetricsProcessor {
+    /// Process multiple timing measurements using SIMD optimizations
+    pub fn process_timings(timings: &[f64]) -> MetricsAnalysis {
+        if timings.is_empty() {
+            return MetricsAnalysis::default();
+        }
+        
+        let count = timings.len() as f64;
+        let sum = crate::utils::simd_ops::SimdMath::vector_sum(timings);
+        let mean = sum / count;
+        
+        // Calculate variance using SIMD
+        let mean_vec = vec![mean; timings.len()];
+        let diff_vec = crate::utils::simd_ops::SimdMath::vector_elementwise_op(
+            timings, 
+            &mean_vec, 
+            crate::utils::simd_ops::VectorOp::Subtract
+        );
+        let squared_diffs = crate::utils::simd_ops::SimdMath::vector_elementwise_op(
+            &diff_vec, 
+            &diff_vec, 
+            crate::utils::simd_ops::VectorOp::Multiply
+        );
+        let variance = crate::utils::simd_ops::SimdMath::vector_sum(&squared_diffs) / count;
+        let std_dev = variance.sqrt();
+        
+        let min = timings.iter().copied().fold(f64::INFINITY, f64::min);
+        let max = timings.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+        
+        // Calculate percentiles
+        let mut sorted_timings = timings.to_vec();
+        sorted_timings.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let len = sorted_timings.len();
+        let p50 = sorted_timings[len / 2];
+        let p95 = sorted_timings[(len as f64 * 0.95) as usize];
+        let p99 = sorted_timings[(len as f64 * 0.99) as usize];
+        
+        MetricsAnalysis {
+            count,
+            sum,
+            mean,
+            std_dev,
+            min,
+            max,
+            p50,
+            p95,
+            p99,
+        }
+    }
+    
+    /// Process multiple throughput measurements
+    pub fn process_throughput(values: &[f64], time_window_secs: f64) -> ThroughputMetrics {
+        let total_ops = crate::utils::simd_ops::SimdMath::vector_sum(values);
+        let avg_ops_per_sec = total_ops / time_window_secs;
+        
+        // Calculate moving average using SIMD
+        let window_size = 10.min(values.len());
+        let moving_avgs = if values.len() >= window_size {
+            values.windows(window_size)
+                .map(|window| crate::utils::simd_ops::SimdMath::vector_sum(window) / window_size as f64)
+                .collect()
+        } else {
+            vec![avg_ops_per_sec]
+        };
+        
+        ThroughputMetrics {
+            total_operations: total_ops,
+            avg_ops_per_sec,
+            peak_ops_per_sec: moving_avgs.iter().copied().fold(f64::NEG_INFINITY, f64::max),
+            moving_averages: moving_avgs,
+        }
+    }
+    
+    /// Batch normalize metrics for comparison
+    pub fn normalize_metrics(values: &[f64]) -> Vec<f64> {
+        crate::utils::simd_ops::SimdBatch::batch_process_values(
+            values, 
+            crate::utils::simd_ops::BatchOp::Normalize
+        )
+    }
+}
+
+/// Statistical analysis of metrics
+#[derive(Debug, Clone)]
+pub struct MetricsAnalysis {
+    /// Number of samples
+    pub count: f64,
+    /// Sum of all values
+    pub sum: f64,
+    /// Mean value
+    pub mean: f64,
+    /// Standard deviation
+    pub std_dev: f64,
+    /// Minimum value
+    pub min: f64,
+    /// Maximum value
+    pub max: f64,
+    /// 50th percentile (median)
+    pub p50: f64,
+    /// 95th percentile
+    pub p95: f64,
+    /// 99th percentile
+    pub p99: f64,
+}
+
+impl Default for MetricsAnalysis {
+    fn default() -> Self {
+        Self {
+            count: 0.0,
+            sum: 0.0,
+            mean: 0.0,
+            std_dev: 0.0,
+            min: 0.0,
+            max: 0.0,
+            p50: 0.0,
+            p95: 0.0,
+            p99: 0.0,
+        }
+    }
+}
+
+/// Throughput metrics analysis
+#[derive(Debug, Clone)]
+pub struct ThroughputMetrics {
+    /// Total number of operations
+    pub total_operations: f64,
+    /// Average operations per second
+    pub avg_ops_per_sec: f64,
+    /// Peak operations per second
+    pub peak_ops_per_sec: f64,
+    /// Moving averages over time windows
+    pub moving_averages: Vec<f64>,
+}
+
 /// Export metrics in Prometheus format
 pub fn export_metrics() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     let encoder = TextEncoder::new();
@@ -251,7 +388,10 @@ mod tests {
         collector.record_execution_end("success", 1.5);
         
         // Export metrics
-        let metrics = export_metrics().expect("Failed to export metrics");
+        let metrics = export_metrics().unwrap_or_else(|e| {
+            eprintln!("Warning: Failed to export metrics: {}", e);
+            String::new()
+        });
         assert!(metrics.contains("langgraph_executions_total"));
         assert!(metrics.contains("test_graph"));
     }

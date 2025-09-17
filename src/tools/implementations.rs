@@ -68,9 +68,9 @@ impl Tool for CalculatorTool {
             .collect();
         
         let result = match operation {
-            "add" => operands.iter().sum::<f64>(),
+            "add" => crate::utils::simd_ops::SimdMath::vector_sum(&operands),
             "subtract" => operands.iter().skip(1).fold(operands[0], |acc, x| acc - x),
-            "multiply" => operands.iter().product::<f64>(),
+            "multiply" => crate::utils::simd_ops::SimdMath::vector_product(&operands),
             "divide" => {
                 if operands[1] == 0.0 {
                     return Ok(ToolResult {

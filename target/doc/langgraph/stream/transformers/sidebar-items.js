@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["BatchTransformer","ChainTransformer","FilterTransformer","MapTransformer","WindowTransformer"],"trait":["StreamTransformer"]};

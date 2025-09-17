@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["advanced","channel","reducer","state_channels"],"struct":["GraphState","StateMetadata","StateSchema","StateTransition"],"trait":["State"],"type":["SharedState","StateData"]};

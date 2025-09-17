@@ -146,51 +146,50 @@
 <a href=#146 id=146 data-nosnippet>146</a><span class="attr">#[cfg(test)]
 <a href=#147 id=147 data-nosnippet>147</a></span><span class="kw">mod </span>tests {
 <a href=#148 id=148 data-nosnippet>148</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#149 id=149 data-nosnippet>149</a>    <span class="kw">use </span>std::collections::HashMap;
-<a href=#150 id=150 data-nosnippet>150</a>    
-<a href=#151 id=151 data-nosnippet>151</a>    <span class="attr">#[test]
-<a href=#152 id=152 data-nosnippet>152</a>    </span><span class="kw">fn </span>test_node_creation() {
-<a href=#153 id=153 data-nosnippet>153</a>        <span class="kw">let </span>node = Node {
-<a href=#154 id=154 data-nosnippet>154</a>            id: <span class="string">"test_node"</span>.to_string(),
-<a href=#155 id=155 data-nosnippet>155</a>            node_type: NodeType::Agent(<span class="string">"test_agent"</span>.to_string()),
-<a href=#156 id=156 data-nosnippet>156</a>            metadata: <span class="prelude-val">Some</span>(<span class="macro">serde_json::json!</span>({<span class="string">"key"</span>: <span class="string">"value"</span>})),
-<a href=#157 id=157 data-nosnippet>157</a>        };
-<a href=#158 id=158 data-nosnippet>158</a>        
-<a href=#159 id=159 data-nosnippet>159</a>        <span class="macro">assert_eq!</span>(node.id, <span class="string">"test_node"</span>);
-<a href=#160 id=160 data-nosnippet>160</a>        <span class="macro">assert_eq!</span>(node.node_type, NodeType::Agent(<span class="string">"test_agent"</span>.to_string()));
-<a href=#161 id=161 data-nosnippet>161</a>        <span class="macro">assert!</span>(node.metadata.is_some());
-<a href=#162 id=162 data-nosnippet>162</a>    }
-<a href=#163 id=163 data-nosnippet>163</a>    
-<a href=#164 id=164 data-nosnippet>164</a>    <span class="attr">#[test]
-<a href=#165 id=165 data-nosnippet>165</a>    </span><span class="kw">fn </span>test_node_type_equality() {
-<a href=#166 id=166 data-nosnippet>166</a>        <span class="macro">assert_eq!</span>(NodeType::Start, NodeType::Start);
-<a href=#167 id=167 data-nosnippet>167</a>        <span class="macro">assert_eq!</span>(NodeType::End, NodeType::End);
-<a href=#168 id=168 data-nosnippet>168</a>        <span class="macro">assert_eq!</span>(
-<a href=#169 id=169 data-nosnippet>169</a>            NodeType::Agent(<span class="string">"agent1"</span>.to_string()),
-<a href=#170 id=170 data-nosnippet>170</a>            NodeType::Agent(<span class="string">"agent1"</span>.to_string())
-<a href=#171 id=171 data-nosnippet>171</a>        );
-<a href=#172 id=172 data-nosnippet>172</a>        <span class="macro">assert_ne!</span>(
-<a href=#173 id=173 data-nosnippet>173</a>            NodeType::Agent(<span class="string">"agent1"</span>.to_string()),
-<a href=#174 id=174 data-nosnippet>174</a>            NodeType::Agent(<span class="string">"agent2"</span>.to_string())
-<a href=#175 id=175 data-nosnippet>175</a>        );
-<a href=#176 id=176 data-nosnippet>176</a>    }
-<a href=#177 id=177 data-nosnippet>177</a>    
-<a href=#178 id=178 data-nosnippet>178</a>    <span class="attr">#[tokio::test]
-<a href=#179 id=179 data-nosnippet>179</a>    </span><span class="kw">async fn </span>test_basic_node_execution() {
-<a href=#180 id=180 data-nosnippet>180</a>        <span class="kw">let </span>node = BasicNode {
-<a href=#181 id=181 data-nosnippet>181</a>            id: <span class="string">"test"</span>.to_string(),
-<a href=#182 id=182 data-nosnippet>182</a>            function: Box::new(|<span class="kw-2">mut </span>state| {
-<a href=#183 id=183 data-nosnippet>183</a>                Box::pin(<span class="kw">async move </span>{
-<a href=#184 id=184 data-nosnippet>184</a>                    state.insert(<span class="string">"result"</span>.to_string(), <span class="macro">serde_json::json!</span>(<span class="string">"success"</span>));
-<a href=#185 id=185 data-nosnippet>185</a>                    <span class="prelude-val">Ok</span>(state)
-<a href=#186 id=186 data-nosnippet>186</a>                })
-<a href=#187 id=187 data-nosnippet>187</a>            }),
-<a href=#188 id=188 data-nosnippet>188</a>        };
-<a href=#189 id=189 data-nosnippet>189</a>        
-<a href=#190 id=190 data-nosnippet>190</a>        <span class="kw">let </span><span class="kw-2">mut </span>state = StateData::new();
-<a href=#191 id=191 data-nosnippet>191</a>        state.insert(<span class="string">"input"</span>.to_string(), <span class="macro">serde_json::json!</span>(<span class="string">"test"</span>));
-<a href=#192 id=192 data-nosnippet>192</a>        
-<a href=#193 id=193 data-nosnippet>193</a>        <span class="kw">let </span>result = node.execute(state).<span class="kw">await</span>.unwrap();
-<a href=#194 id=194 data-nosnippet>194</a>        <span class="macro">assert_eq!</span>(result.get(<span class="string">"result"</span>), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="macro">serde_json::json!</span>(<span class="string">"success"</span>)));
-<a href=#195 id=195 data-nosnippet>195</a>    }
-<a href=#196 id=196 data-nosnippet>196</a>}</code></pre></div></section></main></body></html>
+<a href=#149 id=149 data-nosnippet>149</a>    
+<a href=#150 id=150 data-nosnippet>150</a>    <span class="attr">#[test]
+<a href=#151 id=151 data-nosnippet>151</a>    </span><span class="kw">fn </span>test_node_creation() {
+<a href=#152 id=152 data-nosnippet>152</a>        <span class="kw">let </span>node = Node {
+<a href=#153 id=153 data-nosnippet>153</a>            id: <span class="string">"test_node"</span>.to_string(),
+<a href=#154 id=154 data-nosnippet>154</a>            node_type: NodeType::Agent(<span class="string">"test_agent"</span>.to_string()),
+<a href=#155 id=155 data-nosnippet>155</a>            metadata: <span class="prelude-val">Some</span>(<span class="macro">serde_json::json!</span>({<span class="string">"key"</span>: <span class="string">"value"</span>})),
+<a href=#156 id=156 data-nosnippet>156</a>        };
+<a href=#157 id=157 data-nosnippet>157</a>        
+<a href=#158 id=158 data-nosnippet>158</a>        <span class="macro">assert_eq!</span>(node.id, <span class="string">"test_node"</span>);
+<a href=#159 id=159 data-nosnippet>159</a>        <span class="macro">assert_eq!</span>(node.node_type, NodeType::Agent(<span class="string">"test_agent"</span>.to_string()));
+<a href=#160 id=160 data-nosnippet>160</a>        <span class="macro">assert!</span>(node.metadata.is_some());
+<a href=#161 id=161 data-nosnippet>161</a>    }
+<a href=#162 id=162 data-nosnippet>162</a>    
+<a href=#163 id=163 data-nosnippet>163</a>    <span class="attr">#[test]
+<a href=#164 id=164 data-nosnippet>164</a>    </span><span class="kw">fn </span>test_node_type_equality() {
+<a href=#165 id=165 data-nosnippet>165</a>        <span class="macro">assert_eq!</span>(NodeType::Start, NodeType::Start);
+<a href=#166 id=166 data-nosnippet>166</a>        <span class="macro">assert_eq!</span>(NodeType::End, NodeType::End);
+<a href=#167 id=167 data-nosnippet>167</a>        <span class="macro">assert_eq!</span>(
+<a href=#168 id=168 data-nosnippet>168</a>            NodeType::Agent(<span class="string">"agent1"</span>.to_string()),
+<a href=#169 id=169 data-nosnippet>169</a>            NodeType::Agent(<span class="string">"agent1"</span>.to_string())
+<a href=#170 id=170 data-nosnippet>170</a>        );
+<a href=#171 id=171 data-nosnippet>171</a>        <span class="macro">assert_ne!</span>(
+<a href=#172 id=172 data-nosnippet>172</a>            NodeType::Agent(<span class="string">"agent1"</span>.to_string()),
+<a href=#173 id=173 data-nosnippet>173</a>            NodeType::Agent(<span class="string">"agent2"</span>.to_string())
+<a href=#174 id=174 data-nosnippet>174</a>        );
+<a href=#175 id=175 data-nosnippet>175</a>    }
+<a href=#176 id=176 data-nosnippet>176</a>    
+<a href=#177 id=177 data-nosnippet>177</a>    <span class="attr">#[tokio::test]
+<a href=#178 id=178 data-nosnippet>178</a>    </span><span class="kw">async fn </span>test_basic_node_execution() {
+<a href=#179 id=179 data-nosnippet>179</a>        <span class="kw">let </span>node = BasicNode {
+<a href=#180 id=180 data-nosnippet>180</a>            id: <span class="string">"test"</span>.to_string(),
+<a href=#181 id=181 data-nosnippet>181</a>            function: Box::new(|<span class="kw-2">mut </span>state| {
+<a href=#182 id=182 data-nosnippet>182</a>                Box::pin(<span class="kw">async move </span>{
+<a href=#183 id=183 data-nosnippet>183</a>                    state.insert(<span class="string">"result"</span>.to_string(), <span class="macro">serde_json::json!</span>(<span class="string">"success"</span>));
+<a href=#184 id=184 data-nosnippet>184</a>                    <span class="prelude-val">Ok</span>(state)
+<a href=#185 id=185 data-nosnippet>185</a>                })
+<a href=#186 id=186 data-nosnippet>186</a>            }),
+<a href=#187 id=187 data-nosnippet>187</a>        };
+<a href=#188 id=188 data-nosnippet>188</a>        
+<a href=#189 id=189 data-nosnippet>189</a>        <span class="kw">let </span><span class="kw-2">mut </span>state = StateData::new();
+<a href=#190 id=190 data-nosnippet>190</a>        state.insert(<span class="string">"input"</span>.to_string(), <span class="macro">serde_json::json!</span>(<span class="string">"test"</span>));
+<a href=#191 id=191 data-nosnippet>191</a>        
+<a href=#192 id=192 data-nosnippet>192</a>        <span class="kw">let </span>result = node.execute(state).<span class="kw">await</span>.unwrap();
+<a href=#193 id=193 data-nosnippet>193</a>        <span class="macro">assert_eq!</span>(result.get(<span class="string">"result"</span>), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="macro">serde_json::json!</span>(<span class="string">"success"</span>)));
+<a href=#194 id=194 data-nosnippet>194</a>    }
+<a href=#195 id=195 data-nosnippet>195</a>}</code></pre></div></section></main></body></html>

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["StateError"],"struct":["SnapshotManager","StateBranch","StateDiff","StateSnapshot","StateVersion","VersionedStateManager"]};

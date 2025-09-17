@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["AgentError","CoordinationStrategy","ReasoningStrategy"],"struct":["AgentDecision","AgentMemory","MemoryEntry","MemoryLimits","MultiAgentCoordinator","ReasoningAgent"],"trait":["Agent"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["PassthroughMapper","RecursiveSubgraph","SelectiveMapper","Subgraph","SubgraphBuilder"],"trait":["StateMapper"]};

@@ -5,9 +5,9 @@
 <a href=#5 id=5 data-nosnippet>5</a><span class="kw">use </span>async_trait::async_trait;
 <a href=#6 id=6 data-nosnippet>6</a><span class="kw">use </span>serde_json::Value;
 <a href=#7 id=7 data-nosnippet>7</a>
-<a href=#8 id=8 data-nosnippet>8</a><span class="kw">use </span><span class="kw">crate</span>::graph::{Node, NodeType, NodeFunction};
-<a href=#9 id=9 data-nosnippet>9</a><span class="kw">use </span><span class="kw">crate</span>::state::{GraphState, StateData};
-<a href=#10 id=10 data-nosnippet>10</a><span class="kw">use </span><span class="kw">crate</span>::engine::executor::{ExecutionContext, ExecutionMessage, ExecutionError};
+<a href=#8 id=8 data-nosnippet>8</a><span class="kw">use </span><span class="kw">crate</span>::graph::{Node, NodeType};
+<a href=#9 id=9 data-nosnippet>9</a><span class="kw">use </span><span class="kw">crate</span>::state::StateData;
+<a href=#10 id=10 data-nosnippet>10</a><span class="kw">use </span><span class="kw">crate</span>::engine::executor::{ExecutionContext, ExecutionError};
 <a href=#11 id=11 data-nosnippet>11</a><span class="kw">use </span><span class="kw">crate</span>::Result;
 <a href=#12 id=12 data-nosnippet>12</a>
 <a href=#13 id=13 data-nosnippet>13</a><span class="doccomment">/// Node executor trait
@@ -257,60 +257,75 @@
 <a href=#257 id=257 data-nosnippet>257</a></span><span class="kw">mod </span>tests {
 <a href=#258 id=258 data-nosnippet>258</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <a href=#259 id=259 data-nosnippet>259</a>    <span class="kw">use </span>std::collections::HashMap;
-<a href=#260 id=260 data-nosnippet>260</a>    
-<a href=#261 id=261 data-nosnippet>261</a>    <span class="attr">#[tokio::test]
-<a href=#262 id=262 data-nosnippet>262</a>    </span><span class="kw">async fn </span>test_default_executor_start_node() {
-<a href=#263 id=263 data-nosnippet>263</a>        <span class="kw">let </span>executor = DefaultNodeExecutor;
-<a href=#264 id=264 data-nosnippet>264</a>        <span class="kw">let </span>node = Node {
-<a href=#265 id=265 data-nosnippet>265</a>            id: <span class="string">"start"</span>.to_string(),
-<a href=#266 id=266 data-nosnippet>266</a>            node_type: NodeType::Start,
-<a href=#267 id=267 data-nosnippet>267</a>            metadata: <span class="prelude-val">None</span>,
-<a href=#268 id=268 data-nosnippet>268</a>        };
-<a href=#269 id=269 data-nosnippet>269</a>        
-<a href=#270 id=270 data-nosnippet>270</a>        <span class="kw">let </span><span class="kw-2">mut </span>state = HashMap::new();
-<a href=#271 id=271 data-nosnippet>271</a>        state.insert(<span class="string">"test"</span>.to_string(), Value::String(<span class="string">"value"</span>.to_string()));
-<a href=#272 id=272 data-nosnippet>272</a>        
-<a href=#273 id=273 data-nosnippet>273</a>        <span class="comment">// Create a mock context with a properly set up graph
-<a href=#274 id=274 data-nosnippet>274</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>graph = <span class="kw">crate</span>::graph::StateGraph::new(<span class="string">"test"</span>);
-<a href=#275 id=275 data-nosnippet>275</a>        
-<a href=#276 id=276 data-nosnippet>276</a>        <span class="comment">// Add required nodes
-<a href=#277 id=277 data-nosnippet>277</a>        </span>graph.add_node(Node {
-<a href=#278 id=278 data-nosnippet>278</a>            id: <span class="string">"__start__"</span>.to_string(),
-<a href=#279 id=279 data-nosnippet>279</a>            node_type: NodeType::Start,
-<a href=#280 id=280 data-nosnippet>280</a>            metadata: <span class="prelude-val">None</span>,
-<a href=#281 id=281 data-nosnippet>281</a>        });
-<a href=#282 id=282 data-nosnippet>282</a>        graph.add_node(Node {
-<a href=#283 id=283 data-nosnippet>283</a>            id: <span class="string">"__end__"</span>.to_string(),
-<a href=#284 id=284 data-nosnippet>284</a>            node_type: NodeType::End,
-<a href=#285 id=285 data-nosnippet>285</a>            metadata: <span class="prelude-val">None</span>,
-<a href=#286 id=286 data-nosnippet>286</a>        });
-<a href=#287 id=287 data-nosnippet>287</a>        
-<a href=#288 id=288 data-nosnippet>288</a>        <span class="comment">// Add edge from start to end
-<a href=#289 id=289 data-nosnippet>289</a>        </span><span class="kw">use </span><span class="kw">crate</span>::graph::edge::{Edge, EdgeType};
-<a href=#290 id=290 data-nosnippet>290</a>        graph.add_edge(<span class="string">"__start__"</span>, <span class="string">"__end__"</span>, Edge {
-<a href=#291 id=291 data-nosnippet>291</a>            edge_type: EdgeType::Direct,
-<a href=#292 id=292 data-nosnippet>292</a>            metadata: <span class="prelude-val">None</span>,
-<a href=#293 id=293 data-nosnippet>293</a>        });
-<a href=#294 id=294 data-nosnippet>294</a>        
-<a href=#295 id=295 data-nosnippet>295</a>        <span class="comment">// Set entry point
-<a href=#296 id=296 data-nosnippet>296</a>        </span>graph.set_entry_point(<span class="string">"__start__"</span>).unwrap();
-<a href=#297 id=297 data-nosnippet>297</a>        
-<a href=#298 id=298 data-nosnippet>298</a>        <span class="kw">let </span>compiled = graph.compile().unwrap();
-<a href=#299 id=299 data-nosnippet>299</a>        <span class="kw">let </span>context = ExecutionContext {
-<a href=#300 id=300 data-nosnippet>300</a>            graph: Arc::new(compiled),
-<a href=#301 id=301 data-nosnippet>301</a>            state: Arc::new(RwLock::new(GraphState::new())),
-<a href=#302 id=302 data-nosnippet>302</a>            channels: HashMap::new(),
-<a href=#303 id=303 data-nosnippet>303</a>            execution_id: <span class="string">"test-exec"</span>.to_string(),
-<a href=#304 id=304 data-nosnippet>304</a>            metadata: <span class="kw">crate</span>::engine::executor::ExecutionMetadata {
-<a href=#305 id=305 data-nosnippet>305</a>                started_at: <span class="number">0</span>,
-<a href=#306 id=306 data-nosnippet>306</a>                ended_at: <span class="prelude-val">None</span>,
-<a href=#307 id=307 data-nosnippet>307</a>                nodes_executed: <span class="number">0</span>,
-<a href=#308 id=308 data-nosnippet>308</a>                status: <span class="kw">crate</span>::engine::executor::ExecutionStatus::Running,
-<a href=#309 id=309 data-nosnippet>309</a>                error: <span class="prelude-val">None</span>,
-<a href=#310 id=310 data-nosnippet>310</a>            },
-<a href=#311 id=311 data-nosnippet>311</a>        };
-<a href=#312 id=312 data-nosnippet>312</a>        
-<a href=#313 id=313 data-nosnippet>313</a>        <span class="kw">let </span>result = executor.execute(<span class="kw-2">&amp;</span>node, <span class="kw-2">&amp;mut </span>state, <span class="kw-2">&amp;</span>context).<span class="kw">await</span>.unwrap();
-<a href=#314 id=314 data-nosnippet>314</a>        <span class="macro">assert_eq!</span>(result, state);
-<a href=#315 id=315 data-nosnippet>315</a>    }
-<a href=#316 id=316 data-nosnippet>316</a>}</code></pre></div></section></main></body></html>
+<a href=#260 id=260 data-nosnippet>260</a>    <span class="kw">use </span><span class="kw">crate</span>::state::GraphState;
+<a href=#261 id=261 data-nosnippet>261</a>    
+<a href=#262 id=262 data-nosnippet>262</a>    <span class="attr">#[tokio::test]
+<a href=#263 id=263 data-nosnippet>263</a>    </span><span class="kw">async fn </span>test_default_executor_start_node() {
+<a href=#264 id=264 data-nosnippet>264</a>        <span class="kw">let </span>executor = DefaultNodeExecutor;
+<a href=#265 id=265 data-nosnippet>265</a>        <span class="kw">let </span>node = Node {
+<a href=#266 id=266 data-nosnippet>266</a>            id: <span class="string">"start"</span>.to_string(),
+<a href=#267 id=267 data-nosnippet>267</a>            node_type: NodeType::Start,
+<a href=#268 id=268 data-nosnippet>268</a>            metadata: <span class="prelude-val">None</span>,
+<a href=#269 id=269 data-nosnippet>269</a>        };
+<a href=#270 id=270 data-nosnippet>270</a>        
+<a href=#271 id=271 data-nosnippet>271</a>        <span class="kw">let </span><span class="kw-2">mut </span>state = HashMap::new();
+<a href=#272 id=272 data-nosnippet>272</a>        state.insert(<span class="string">"test"</span>.to_string(), Value::String(<span class="string">"value"</span>.to_string()));
+<a href=#273 id=273 data-nosnippet>273</a>        
+<a href=#274 id=274 data-nosnippet>274</a>        <span class="comment">// Create a mock context with a properly set up graph
+<a href=#275 id=275 data-nosnippet>275</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>graph = <span class="kw">crate</span>::graph::StateGraph::new(<span class="string">"test"</span>);
+<a href=#276 id=276 data-nosnippet>276</a>        
+<a href=#277 id=277 data-nosnippet>277</a>        <span class="comment">// Add required nodes
+<a href=#278 id=278 data-nosnippet>278</a>        </span>graph.add_node(Node {
+<a href=#279 id=279 data-nosnippet>279</a>            id: <span class="string">"__start__"</span>.to_string(),
+<a href=#280 id=280 data-nosnippet>280</a>            node_type: NodeType::Start,
+<a href=#281 id=281 data-nosnippet>281</a>            metadata: <span class="prelude-val">None</span>,
+<a href=#282 id=282 data-nosnippet>282</a>        });
+<a href=#283 id=283 data-nosnippet>283</a>        graph.add_node(Node {
+<a href=#284 id=284 data-nosnippet>284</a>            id: <span class="string">"__end__"</span>.to_string(),
+<a href=#285 id=285 data-nosnippet>285</a>            node_type: NodeType::End,
+<a href=#286 id=286 data-nosnippet>286</a>            metadata: <span class="prelude-val">None</span>,
+<a href=#287 id=287 data-nosnippet>287</a>        });
+<a href=#288 id=288 data-nosnippet>288</a>        
+<a href=#289 id=289 data-nosnippet>289</a>        <span class="comment">// Add edge from start to end
+<a href=#290 id=290 data-nosnippet>290</a>        </span><span class="kw">use </span><span class="kw">crate</span>::graph::edge::{Edge, EdgeType};
+<a href=#291 id=291 data-nosnippet>291</a>        graph.add_edge(<span class="string">"__start__"</span>, <span class="string">"__end__"</span>, Edge {
+<a href=#292 id=292 data-nosnippet>292</a>            edge_type: EdgeType::Direct,
+<a href=#293 id=293 data-nosnippet>293</a>            metadata: <span class="prelude-val">None</span>,
+<a href=#294 id=294 data-nosnippet>294</a>        });
+<a href=#295 id=295 data-nosnippet>295</a>        
+<a href=#296 id=296 data-nosnippet>296</a>        <span class="comment">// Set entry point
+<a href=#297 id=297 data-nosnippet>297</a>        </span>graph.set_entry_point(<span class="string">"__start__"</span>).unwrap();
+<a href=#298 id=298 data-nosnippet>298</a>        
+<a href=#299 id=299 data-nosnippet>299</a>        <span class="kw">let </span>compiled = graph.compile().unwrap();
+<a href=#300 id=300 data-nosnippet>300</a>        <span class="comment">// Create default resilience manager for testing
+<a href=#301 id=301 data-nosnippet>301</a>        </span><span class="kw">let </span>circuit_config = <span class="kw">crate</span>::engine::resilience::CircuitBreakerConfig::default();
+<a href=#302 id=302 data-nosnippet>302</a>        <span class="kw">let </span>retry_config = <span class="kw">crate</span>::engine::resilience::RetryConfig::default();
+<a href=#303 id=303 data-nosnippet>303</a>        <span class="kw">let </span>resilience_manager = <span class="kw">crate</span>::engine::resilience::ResilienceManager::new(
+<a href=#304 id=304 data-nosnippet>304</a>            circuit_config,
+<a href=#305 id=305 data-nosnippet>305</a>            retry_config,
+<a href=#306 id=306 data-nosnippet>306</a>            <span class="number">10
+<a href=#307 id=307 data-nosnippet>307</a>        </span>);
+<a href=#308 id=308 data-nosnippet>308</a>        
+<a href=#309 id=309 data-nosnippet>309</a>        <span class="comment">// Create tracer for testing
+<a href=#310 id=310 data-nosnippet>310</a>        </span><span class="kw">let </span>tracer = <span class="kw">crate</span>::engine::tracing::Tracer::new(<span class="string">"test"</span>);
+<a href=#311 id=311 data-nosnippet>311</a>        
+<a href=#312 id=312 data-nosnippet>312</a>        <span class="kw">let </span>context = ExecutionContext {
+<a href=#313 id=313 data-nosnippet>313</a>            graph: Arc::new(compiled),
+<a href=#314 id=314 data-nosnippet>314</a>            state: Arc::new(RwLock::new(GraphState::new())),
+<a href=#315 id=315 data-nosnippet>315</a>            channels: HashMap::new(),
+<a href=#316 id=316 data-nosnippet>316</a>            execution_id: <span class="string">"test-exec"</span>.to_string(),
+<a href=#317 id=317 data-nosnippet>317</a>            metadata: <span class="kw">crate</span>::engine::executor::ExecutionMetadata {
+<a href=#318 id=318 data-nosnippet>318</a>                started_at: <span class="number">0</span>,
+<a href=#319 id=319 data-nosnippet>319</a>                ended_at: <span class="prelude-val">None</span>,
+<a href=#320 id=320 data-nosnippet>320</a>                nodes_executed: <span class="number">0</span>,
+<a href=#321 id=321 data-nosnippet>321</a>                status: <span class="kw">crate</span>::engine::executor::ExecutionStatus::Running,
+<a href=#322 id=322 data-nosnippet>322</a>                error: <span class="prelude-val">None</span>,
+<a href=#323 id=323 data-nosnippet>323</a>            },
+<a href=#324 id=324 data-nosnippet>324</a>            resilience_manager: Arc::new(resilience_manager),
+<a href=#325 id=325 data-nosnippet>325</a>            tracer: Arc::new(tracer),
+<a href=#326 id=326 data-nosnippet>326</a>        };
+<a href=#327 id=327 data-nosnippet>327</a>        
+<a href=#328 id=328 data-nosnippet>328</a>        <span class="kw">let </span>result = executor.execute(<span class="kw-2">&amp;</span>node, <span class="kw-2">&amp;mut </span>state, <span class="kw-2">&amp;</span>context).<span class="kw">await</span>.unwrap();
+<a href=#329 id=329 data-nosnippet>329</a>        <span class="macro">assert_eq!</span>(result, state);
+<a href=#330 id=330 data-nosnippet>330</a>    }
+<a href=#331 id=331 data-nosnippet>331</a>}</code></pre></div></section></main></body></html>

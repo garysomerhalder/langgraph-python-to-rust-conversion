@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["ToolError"],"struct":["FunctionTool","HttpTool","ToolAuth","ToolChain","ToolContext","ToolExample","ToolParameter","ToolRegistry","ToolResult","ToolSpec"],"trait":["Tool"]};

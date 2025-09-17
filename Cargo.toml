@@ -49,6 +49,7 @@ rand = "0.8"
 # For performance optimizations
 string_cache = "0.8"
 smallvec = { version = "1.13", features = ["serde"] }
+wide = "0.7"  # SIMD operations for performance
 
 # For validation
 regex = "1.10"

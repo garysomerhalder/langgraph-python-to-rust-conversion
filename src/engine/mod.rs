@@ -15,6 +15,7 @@ pub mod resilience;
 pub mod tracing;
 pub mod rate_limiter;
 pub mod metrics;
+pub mod traits;
 
 pub use executor::{
     ExecutionEngine, ExecutionContext, ExecutionMessage, 
@@ -41,6 +42,12 @@ pub use rate_limiter::{
 };
 pub use metrics::{
     MetricsCollector, Timer, GlobalMetrics, export_metrics
+};
+pub use traits::{
+    ExecutionEngine as ExecutionEngineTrait, StateManager, MetricsCollector as MetricsCollectorTrait,
+    ResilienceProvider, StreamProcessor, GraphTraverser, ToolExecutor,
+    ExecutionStrategy, ExecutionContext as TraitExecutionContext, ExecutionResult,
+    ExecutionCapabilities, ValidationResult, RetryConfig as TraitRetryConfig
 };
 
 /// Trait for executable graph components

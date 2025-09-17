@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["context","executor","node_executor"],"trait":["Executable"]};

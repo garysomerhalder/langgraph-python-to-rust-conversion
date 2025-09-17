@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["ConditionalBranch","ConditionalEdge","ConditionalRouter","MultiConditionalRouter"],"type":["ConditionFn","RoutingFn"]};

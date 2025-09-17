@@ -103,7 +103,8 @@ impl ZeroCopyValue {
         if self.value.is_none() {
             self.value = Some(serde_json::from_slice(&self.bytes)?);
         }
-        Ok(self.value.as_ref().expect("Value should be set after parsing"))
+        // SAFETY: We just ensured value is Some above
+        Ok(self.value.as_ref().unwrap_or_else(|| unreachable!("Value is guaranteed to be Some after parsing")))
     }
     
     /// Take ownership of the bytes
@@ -216,7 +217,8 @@ impl<'a, T: Serialize> ZeroCopySerialize<'a, T> {
         if self.buffer.is_none() {
             self.buffer = Some(serde_json::to_vec(self.data)?);
         }
-        Ok(self.buffer.as_ref().expect("Buffer should be set after serialization"))
+        // SAFETY: We just ensured buffer is Some above
+        Ok(self.buffer.as_ref().unwrap_or_else(|| unreachable!("Buffer is guaranteed to be Some after serialization")))
     }
     
     /// Serialize to a writer without intermediate allocation

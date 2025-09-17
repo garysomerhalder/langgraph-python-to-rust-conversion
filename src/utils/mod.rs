@@ -7,6 +7,7 @@ use std::collections::HashMap;
 
 pub mod object_pool;
 pub mod zero_copy;
+pub mod simd_ops;
 
 /// State manipulation utilities
 pub mod state {
@@ -119,7 +120,7 @@ pub mod testing {
     pub fn assert_state_contains(state: &StateData, expected: &[(&str, Value)]) {
         for (key, expected_value) in expected {
             let actual = state.get(*key)
-                .expect(&format!("State missing key: {}", key));
+                .unwrap_or_else(|| panic!("State missing expected key: {}", key));
             assert_eq!(actual, expected_value, "Value mismatch for key: {}", key);
         }
     }

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["ChannelType"],"struct":["ChannelReceiver","ChannelRegistry","ChannelSender","RoundRobinSelector"],"trait":["ChannelSelector"]};
