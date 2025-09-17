@@ -534,13 +534,22 @@ impl ParallelExecutor {
                 detector.register_start(node_id_clone.clone()).await;
                 
                 // Execute with resilience patterns
-                let result = resilience_mgr.execute_with_resilience(|| async {
-                    Self::execute_node_with_tracing(
-                        &node_clone,
-                        &state_clone,
-                        executor_clone,
-                        tracer_clone.clone(),
-                    ).await
+                let node_ref = &node_clone;
+                let state_ref = &state_clone;
+                let executor_ref = executor_clone.clone();
+                let tracer_ref = tracer_clone.clone();
+                
+                let result = resilience_mgr.execute_with_resilience(move || {
+                    let executor_copy = executor_ref.clone();
+                    let tracer_copy = tracer_ref.clone();
+                    async move {
+                        Self::execute_node_with_tracing(
+                            node_ref,
+                            state_ref,
+                            executor_copy,
+                            tracer_copy,
+                        ).await
+                    }
                 }).await;
                 
                 detector.register_complete(node_id_clone).await;
