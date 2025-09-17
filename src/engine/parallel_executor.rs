@@ -17,6 +17,8 @@ use crate::graph::{CompiledGraph, Node, NodeType};
 use crate::state::StateData;
 use crate::engine::executor::{ExecutionContext, ExecutionError};
 use crate::engine::NodeExecutor;
+use crate::engine::resilience::ResilienceManager;
+use crate::engine::tracing::Tracer;
 use crate::Result;
 
 /// Parallel executor for concurrent node execution
@@ -35,6 +37,12 @@ pub struct ParallelExecutor {
     
     /// Deadlock detector
     deadlock_detector: Arc<DeadlockDetector>,
+    
+    /// Resilience manager for fault tolerance
+    resilience_manager: Arc<ResilienceManager>,
+    
+    /// Tracer for observability
+    tracer: Arc<Tracer>,
 }
 
 /// Execution metrics for performance tracking
@@ -363,12 +371,39 @@ impl DeadlockDetector {
 impl ParallelExecutor {
     /// Create new parallel executor
     pub fn new(max_concurrency: usize) -> Self {
+        // Create resilience manager with production-ready defaults
+        let circuit_config = crate::engine::resilience::CircuitBreakerConfig {
+            failure_threshold: 5,
+            timeout_duration: Duration::from_secs(60),
+            success_threshold: 3,
+            failure_window: Duration::from_secs(60),
+        };
+        
+        let retry_config = crate::engine::resilience::RetryConfig {
+            max_attempts: 3,
+            initial_delay: Duration::from_millis(100),
+            max_delay: Duration::from_secs(10),
+            backoff_multiplier: 2.0,
+            jitter: true,
+        };
+        
+        let resilience_manager = ResilienceManager::new(
+            circuit_config,
+            retry_config,
+            max_concurrency  // use same limit as parallel executor
+        );
+        
+        // Create tracer for observability
+        let tracer = Tracer::new("parallel-executor");
+        
         Self {
             max_concurrency,
             semaphore: Arc::new(Semaphore::new(max_concurrency)),
             metrics: Arc::new(RwLock::new(ExecutionMetrics::default())),
             version_manager: Arc::new(StateVersionManager::new(10)),
             deadlock_detector: Arc::new(DeadlockDetector::new(Duration::from_secs(5))),
+            resilience_manager: Arc::new(resilience_manager),
+            tracer: Arc::new(tracer),
         }
     }
     
@@ -384,6 +419,9 @@ impl ParallelExecutor {
         graph: &CompiledGraph,
         initial_state: StateData,
     ) -> Result<StateData> {
+        // Create root tracing span for the entire execution
+        let root_span = self.tracer.start_span("parallel_execution");
+        
         let start_time = Instant::now();
         let analyzer = DependencyAnalyzer::analyze(graph)?;
         
@@ -449,6 +487,10 @@ impl ParallelExecutor {
         );
         
         let final_state = state.read().await.clone();
+        
+        // End root tracing span
+        root_span.end();
+        
         Ok(final_state)
     }
     
@@ -460,6 +502,9 @@ impl ParallelExecutor {
         state: &Arc<RwLock<StateData>>,
         node_executor: Arc<crate::engine::DefaultNodeExecutor>,
     ) -> Result<()> {
+        // Create a tracing span for batch execution
+        let batch_span = self.tracer.start_span(&format!("batch_{:?}", batch));
+        
         let mut futures = FuturesUnordered::new();
         
         for node_id in batch {
@@ -482,15 +527,30 @@ impl ParallelExecutor {
             let executor_clone = node_executor.clone();
             let detector = self.deadlock_detector.clone();
             let node_id_clone = node_id.clone();
+            let resilience_mgr = self.resilience_manager.clone();
+            let tracer_clone = self.tracer.clone();
             
             futures.push(tokio::spawn(async move {
                 detector.register_start(node_id_clone.clone()).await;
                 
-                let result = Self::execute_node(
-                    &node_clone,
-                    &state_clone,
-                    executor_clone,
-                ).await;
+                // Execute with resilience patterns
+                let node_ref = &node_clone;
+                let state_ref = &state_clone;
+                let executor_ref = executor_clone.clone();
+                let tracer_ref = tracer_clone.clone();
+                
+                let result = resilience_mgr.execute_with_resilience(move || {
+                    let executor_copy = executor_ref.clone();
+                    let tracer_copy = tracer_ref.clone();
+                    async move {
+                        Self::execute_node_with_tracing(
+                            node_ref,
+                            state_ref,
+                            executor_copy,
+                            tracer_copy,
+                        ).await
+                    }
+                }).await;
                 
                 detector.register_complete(node_id_clone).await;
                 drop(permit);
@@ -501,10 +561,40 @@ impl ParallelExecutor {
         
         // Wait for all nodes in batch to complete
         while let Some(result) = futures.next().await {
-            result??;
+            // Handle both JoinError and ResilienceError
+            match result {
+                Ok(Ok(())) => {},  // Success
+                Ok(Err(resilience_err)) => {
+                    return Err(ExecutionError::NodeExecutionFailed(
+                        format!("Resilience error: {}", resilience_err)
+                    ).into());
+                }
+                Err(join_err) => {
+                    return Err(ExecutionError::NodeExecutionFailed(
+                        format!("Task join error: {}", join_err)
+                    ).into());
+                }
+            }
         }
         
+        batch_span.end();
         Ok(())
+    }
+    
+    /// Execute a single node with tracing
+    async fn execute_node_with_tracing(
+        node: &Node,
+        state: &Arc<RwLock<StateData>>,
+        executor: Arc<crate::engine::DefaultNodeExecutor>,
+        tracer: Arc<Tracer>,
+    ) -> Result<()> {
+        // Create a tracing span for node execution
+        let node_span = tracer.start_span(&format!("node_{}", node.id));
+        
+        let result = Self::execute_node(node, state, executor).await;
+        
+        node_span.end();
+        result
     }
     
     /// Execute a single node with state isolation
