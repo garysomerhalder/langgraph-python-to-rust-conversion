@@ -10,6 +10,7 @@ use std::sync::Arc;
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use smallvec::SmallVec;
 
 pub mod reducer;
 pub mod channel;
@@ -51,8 +52,8 @@ pub struct GraphState {
     /// Current state values
     pub values: StateData,
     
-    /// Execution history
-    pub history: Vec<StateTransition>,
+    /// Execution history (using SmallVec for better performance with small histories)
+    pub history: SmallVec<[StateTransition; 8]>,
     
     /// Current node being executed
     pub current_node: Option<String>,
@@ -112,7 +113,7 @@ impl GraphState {
         
         Self {
             values: HashMap::new(),
-            history: Vec::new(),
+            history: SmallVec::new(),
             current_node: None,
             thread_id: None,
             metadata: StateMetadata {

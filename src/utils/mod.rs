@@ -6,6 +6,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 pub mod object_pool;
+pub mod zero_copy;
 
 /// State manipulation utilities
 pub mod state {

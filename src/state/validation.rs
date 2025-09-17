@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use thiserror::Error;
+use smallvec::SmallVec;
 
 /// Validation errors
 #[derive(Error, Debug)]
@@ -55,7 +56,7 @@ pub enum ValidationType {
     Length { min: Option<usize>, max: Option<usize> },
     
     /// Ensure value is one of allowed values
-    Enum(Vec<Value>),
+    Enum(SmallVec<[Value; 4]>),
     
     /// Field is required
     Required,
@@ -81,8 +82,8 @@ pub struct ValidationRule {
     /// Field path (e.g., "user.email")
     pub field: String,
     
-    /// Validations to apply
-    pub validations: Vec<ValidationType>,
+    /// Validations to apply (using SmallVec for typical small sets)
+    pub validations: SmallVec<[ValidationType; 4]>,
     
     /// Whether to sanitize the value
     pub sanitize: bool,
@@ -351,7 +352,7 @@ impl StateValidator {
 /// Builder for creating validation rules
 pub struct ValidationRuleBuilder {
     field: String,
-    validations: Vec<ValidationType>,
+    validations: SmallVec<[ValidationType; 4]>,
     sanitize: bool,
     allow_field: bool,
 }
@@ -361,7 +362,7 @@ impl ValidationRuleBuilder {
     pub fn new(field: impl Into<String>) -> Self {
         Self {
             field: field.into(),
-            validations: Vec::new(),
+            validations: SmallVec::new(),
             sanitize: true,
             allow_field: true,
         }
@@ -392,7 +393,7 @@ impl ValidationRuleBuilder {
     }
     
     /// Add enum validation
-    pub fn with_enum(mut self, values: Vec<Value>) -> Self {
+    pub fn with_enum(mut self, values: SmallVec<[Value; 4]>) -> Self {
         self.validations.push(ValidationType::Enum(values));
         self
     }
