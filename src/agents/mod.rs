@@ -584,11 +584,20 @@ impl MultiAgentCoordinator {
 }
 
 pub mod implementations;
+pub mod multi_agent;
 
 // Re-export concrete implementations
 pub use implementations::{
     ChainOfThoughtAgent, ReActAgent, MemoryAgent,
     ReasoningStep, ReActStep, ActionSpec, MemoryItem,
+};
+
+// Re-export multi-agent system components
+pub use multi_agent::{
+    MultiAgentSystem, SpecializedAgent, AgentRole, AgentMessage,
+    ResearchAgent, ArchitectAgent, CodeAgent, QAAgent,
+    DevOpsAgent, SecurityAgent, DataAgent, ProductAgent,
+    OrchestratorAgent, MessageType, AgentCapability,
 };
 
 #[cfg(test)]

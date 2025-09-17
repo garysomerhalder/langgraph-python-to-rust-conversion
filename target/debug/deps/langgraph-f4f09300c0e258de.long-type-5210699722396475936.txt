@@ -1,0 +1,1 @@
+std::collections::HashMap<multi_agent::AgentRole, std::sync::Arc<(dyn SpecializedAgent + 'static)>>

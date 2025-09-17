@@ -159,7 +159,7 @@ impl ZeroCopyBuffer {
 }
 
 /// Shared immutable data structure using Arc
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SharedData<T> {
     inner: Arc<T>,
 }

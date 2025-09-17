@@ -41,7 +41,7 @@ pub enum ValidationError {
 }
 
 /// Type of validation to perform
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ValidationType {
     /// Ensure value is of specific type
     Type(ValueType),
@@ -66,7 +66,7 @@ pub enum ValidationType {
 }
 
 /// Value types for type validation
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ValueType {
     String,
     Number,
