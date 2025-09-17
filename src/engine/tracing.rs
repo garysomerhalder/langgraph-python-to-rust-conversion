@@ -496,10 +496,9 @@ mod tests {
     
     #[tokio::test]
     async fn test_span_lifecycle() {
-        let tracer = Tracer::new();
-        let context = TraceContext::new();
+        let tracer = Tracer::new("test");
         
-        let span = tracer.start_span(&context, "test_operation".to_string()).await;
+        let span = tracer.start_span("test_operation");
         
         span.add_tag("key".to_string(), "value".to_string()).await;
         
@@ -508,7 +507,10 @@ mod tests {
         span.add_event(event).await;
         
         span.set_status(SpanStatus::Ok).await;
-        span.end().await;
+        span.end();
+        
+        // Give time for the async operations to complete
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
         
         let metrics = tracer.get_metrics().await;
         assert_eq!(metrics.completed_spans, 1);

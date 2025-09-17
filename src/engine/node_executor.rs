@@ -296,6 +296,18 @@ mod tests {
         graph.set_entry_point("__start__").unwrap();
         
         let compiled = graph.compile().unwrap();
+        // Create default resilience manager for testing
+        let circuit_config = crate::engine::resilience::CircuitBreakerConfig::default();
+        let retry_config = crate::engine::resilience::RetryConfig::default();
+        let resilience_manager = crate::engine::resilience::ResilienceManager::new(
+            circuit_config,
+            retry_config,
+            10
+        );
+        
+        // Create tracer for testing
+        let tracer = crate::engine::tracing::Tracer::new("test");
+        
         let context = ExecutionContext {
             graph: Arc::new(compiled),
             state: Arc::new(RwLock::new(GraphState::new())),
@@ -308,6 +320,8 @@ mod tests {
                 status: crate::engine::executor::ExecutionStatus::Running,
                 error: None,
             },
+            resilience_manager: Arc::new(resilience_manager),
+            tracer: Arc::new(tracer),
         };
         
         let result = executor.execute(&node, &mut state, &context).await.unwrap();
