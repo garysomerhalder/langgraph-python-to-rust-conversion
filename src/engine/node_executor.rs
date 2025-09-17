@@ -5,9 +5,9 @@ use tokio::sync::RwLock;
 use async_trait::async_trait;
 use serde_json::Value;
 
-use crate::graph::{Node, NodeType, NodeFunction};
-use crate::state::{GraphState, StateData};
-use crate::engine::executor::{ExecutionContext, ExecutionMessage, ExecutionError};
+use crate::graph::{Node, NodeType};
+use crate::state::StateData;
+use crate::engine::executor::{ExecutionContext, ExecutionError};
 use crate::Result;
 
 /// Node executor trait
@@ -257,6 +257,7 @@ impl RetryNodeExecutor {
 mod tests {
     use super::*;
     use std::collections::HashMap;
+    use crate::state::GraphState;
     
     #[tokio::test]
     async fn test_default_executor_start_node() {

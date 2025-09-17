@@ -6,17 +6,14 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use async_trait::async_trait;
 use futures::stream::{FuturesUnordered, StreamExt};
 use serde::{Deserialize, Serialize};
-use tokio::sync::{RwLock, Semaphore, Mutex};
-use tokio::task::JoinHandle;
-use tracing::{debug, error, info, instrument, warn};
+use tokio::sync::{RwLock, Semaphore};
+use tracing::{debug, error, info, instrument};
 
 use crate::graph::{CompiledGraph, Node, NodeType};
 use crate::state::StateData;
-use crate::engine::executor::{ExecutionContext, ExecutionError};
-use crate::engine::NodeExecutor;
+use crate::engine::executor::ExecutionError;
 use crate::engine::resilience::ResilienceManager;
 use crate::engine::tracing::Tracer;
 use crate::Result;
@@ -309,6 +306,11 @@ impl DeadlockDetector {
         }
     }
     
+    /// Get the check interval
+    pub fn check_interval(&self) -> Duration {
+        self.check_interval
+    }
+    
     /// Register node execution start
     pub async fn register_start(&self, node_id: String) {
         let mut active = self.active_nodes.write().await;
@@ -410,6 +412,11 @@ impl ParallelExecutor {
     /// Get current execution metrics
     pub async fn get_metrics(&self) -> ExecutionMetrics {
         self.metrics.read().await.clone()
+    }
+    
+    /// Get maximum concurrency setting
+    pub fn max_concurrency(&self) -> usize {
+        self.max_concurrency
     }
     
     /// Execute graph with parallel node execution

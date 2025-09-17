@@ -228,7 +228,7 @@ impl StateGraph {
         
         // Check for special nodes
         let has_start = self.node_map.contains_key("__start__");
-        let has_end = self.node_map.contains_key("__end__");
+        let _has_end = self.node_map.contains_key("__end__");
         
         if !has_start {
             return Err(GraphError::InvalidStructure("Missing __start__ node".to_string()).into());
@@ -262,6 +262,11 @@ impl CompiledGraph {
     /// Get the underlying graph
     pub fn graph(&self) -> &StateGraph {
         &self.graph
+    }
+    
+    /// Get the checkpointer if set
+    pub fn checkpointer(&self) -> Option<&Arc<dyn crate::checkpoint::Checkpointer>> {
+        self.checkpointer.as_ref()
     }
     
     /// Execute the graph with given input state
@@ -300,7 +305,7 @@ mod tests {
             metadata: None,
         };
         
-        let idx = graph.add_node(node);
+        let _idx = graph.add_node(node);
         assert!(graph.get_node("test_node").is_some());
     }
     

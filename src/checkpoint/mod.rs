@@ -1,14 +1,12 @@
 //! Checkpointing and state persistence for LangGraph
 
-use std::collections::HashMap;
-use std::fmt;
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::state::{GraphState, StateData};
+use crate::state::GraphState;
 
 /// Errors related to checkpointing
 #[derive(Error, Debug)]

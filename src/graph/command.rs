@@ -1,6 +1,5 @@
 //! Command pattern for combined state updates and control flow
 
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::state::StateData;

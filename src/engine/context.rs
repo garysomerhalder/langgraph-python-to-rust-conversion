@@ -5,8 +5,7 @@ use std::sync::Arc;
 use tokio::sync::{RwLock, mpsc};
 use serde::{Deserialize, Serialize};
 
-use crate::graph::CompiledGraph;
-use crate::state::{GraphState, StateData};
+use crate::state::StateData;
 use crate::engine::executor::ExecutionMessage;
 
 /// Shared execution context for all nodes
@@ -90,9 +89,6 @@ pub struct MessageBus {
     
     /// Broadcast channel for all nodes
     broadcast: mpsc::Sender<ExecutionMessage>,
-    
-    /// Receivers for nodes
-    receivers: RwLock<HashMap<String, mpsc::Receiver<ExecutionMessage>>>,
 }
 
 impl MessageBus {
@@ -103,7 +99,6 @@ impl MessageBus {
         Self {
             channels: RwLock::new(HashMap::new()),
             broadcast: broadcast_tx,
-            receivers: RwLock::new(HashMap::new()),
         }
     }
     

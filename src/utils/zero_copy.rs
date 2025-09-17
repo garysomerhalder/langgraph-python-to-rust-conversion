@@ -6,7 +6,7 @@
 use std::borrow::Cow;
 use std::sync::Arc;
 use bytes::{Bytes, BytesMut};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::Value;
 use dashmap::{DashMap, DashSet};
 
@@ -283,6 +283,177 @@ impl Default for ZeroCopyStateData {
     }
 }
 
+/// Memory-efficient state diff for version control
+#[derive(Clone, Debug)]
+pub struct StateDiff {
+    /// Added or modified keys
+    pub changed: DashMap<Arc<str>, SharedData<Value>>,
+    
+    /// Removed keys
+    pub removed: DashSet<Arc<str>>,
+    
+    /// Timestamp of this diff
+    pub timestamp: u64,
+}
+
+impl StateDiff {
+    /// Create a new empty diff
+    pub fn new() -> Self {
+        Self {
+            changed: DashMap::new(),
+            removed: DashSet::new(),
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        }
+    }
+    
+    /// Add a changed value
+    pub fn add_change(&self, key: Arc<str>, value: SharedData<Value>) {
+        self.changed.insert(key, value);
+    }
+    
+    /// Add a removed key
+    pub fn add_removal(&self, key: Arc<str>) {
+        self.removed.insert(key);
+    }
+    
+    /// Apply this diff to state data
+    pub fn apply_to(&self, state: &ZeroCopyStateData) {
+        // Apply changes
+        for entry in self.changed.iter() {
+            state.data.insert(entry.key().clone(), entry.value().clone());
+        }
+        
+        // Apply removals
+        for key in self.removed.iter() {
+            state.data.remove(key.as_ref());
+        }
+    }
+    
+    /// Check if this diff is empty
+    pub fn is_empty(&self) -> bool {
+        self.changed.is_empty() && self.removed.is_empty()
+    }
+}
+
+/// Copy-on-write state data for efficient branching
+#[derive(Clone)]
+pub struct CowStateData {
+    /// Base state data
+    base: Arc<ZeroCopyStateData>,
+    
+    /// Local modifications (copy-on-write)
+    modifications: Option<Arc<DashMap<Arc<str>, SharedData<Value>>>>,
+    
+    /// Local removals
+    removals: Option<Arc<DashSet<Arc<str>>>>,
+}
+
+impl CowStateData {
+    /// Create new cow state from base
+    pub fn new(base: ZeroCopyStateData) -> Self {
+        Self {
+            base: Arc::new(base),
+            modifications: None,
+            removals: None,
+        }
+    }
+    
+    /// Insert a value (triggers copy-on-write)
+    pub fn insert(&mut self, key: &str, value: Value) {
+        let interned_key = self.base.interner.intern(key);
+        
+        if self.modifications.is_none() {
+            self.modifications = Some(Arc::new(DashMap::new()));
+        }
+        
+        self.modifications
+            .as_ref()
+            .unwrap()
+            .insert(interned_key, SharedData::new(value));
+    }
+    
+    /// Get a value (checks modifications first, then base)
+    pub fn get(&self, key: &str) -> Option<SharedData<Value>> {
+        // Check if removed
+        if let Some(ref removals) = self.removals {
+            if removals.contains(key) {
+                return None;
+            }
+        }
+        
+        // Check modifications first
+        if let Some(ref mods) = self.modifications {
+            if let Some(value) = mods.get(key) {
+                return Some(value.clone());
+            }
+        }
+        
+        // Fall back to base
+        self.base.get(key)
+    }
+    
+    /// Remove a value (triggers copy-on-write for removals)
+    pub fn remove(&mut self, key: &str) -> Option<SharedData<Value>> {
+        let interned_key = self.base.interner.intern(key);
+        
+        // Add to removals set
+        if self.removals.is_none() {
+            self.removals = Some(Arc::new(DashSet::new()));
+        }
+        self.removals.as_ref().unwrap().insert(interned_key.clone());
+        
+        // Remove from modifications if present
+        if let Some(ref mods) = self.modifications {
+            mods.remove(&interned_key).map(|(_, v)| v)
+        } else {
+            self.base.get(key)
+        }
+    }
+    
+    /// Materialize into a full state (merge base + modifications)
+    pub fn materialize(self) -> ZeroCopyStateData {
+        let result = (*self.base).clone();
+        
+        // Apply modifications
+        if let Some(mods) = self.modifications {
+            for entry in mods.iter() {
+                result.data.insert(entry.key().clone(), entry.value().clone());
+            }
+        }
+        
+        // Apply removals
+        if let Some(removals) = self.removals {
+            for key in removals.iter() {
+                result.data.remove(key.as_ref());
+            }
+        }
+        
+        result
+    }
+    
+    /// Generate a diff from this COW state
+    pub fn create_diff(&self) -> StateDiff {
+        let diff = StateDiff::new();
+        
+        if let Some(ref mods) = self.modifications {
+            for entry in mods.iter() {
+                diff.add_change(entry.key().clone(), entry.value().clone());
+            }
+        }
+        
+        if let Some(ref removals) = self.removals {
+            for key in removals.iter() {
+                diff.add_removal(key.clone());
+            }
+        }
+        
+        diff
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -345,5 +516,61 @@ mod tests {
         
         state.remove("key1");
         assert_eq!(state.len(), 1);
+    }
+    
+    #[test]
+    fn test_state_diff() {
+        let base_state = ZeroCopyStateData::new();
+        base_state.insert("original", serde_json::json!("value"));
+        
+        let diff = StateDiff::new();
+        let interner = StringInterner::new();
+        
+        // Add changes and removals
+        diff.add_change(
+            interner.intern("new_key"), 
+            SharedData::new(serde_json::json!("new_value"))
+        );
+        diff.add_removal(interner.intern("original"));
+        
+        // Apply diff
+        diff.apply_to(&base_state);
+        
+        assert!(base_state.get("original").is_none());
+        assert_eq!(
+            base_state.get("new_key").unwrap().get(),
+            &serde_json::json!("new_value")
+        );
+    }
+    
+    #[test]
+    fn test_cow_state_data() {
+        let mut base_state = ZeroCopyStateData::new();
+        base_state.insert("base_key", serde_json::json!("base_value"));
+        
+        let mut cow_state = CowStateData::new(base_state);
+        
+        // Should read from base
+        assert_eq!(
+            cow_state.get("base_key").unwrap().get(),
+            &serde_json::json!("base_value")
+        );
+        
+        // Modify (triggers COW)
+        cow_state.insert("new_key", serde_json::json!("new_value"));
+        cow_state.remove("base_key");
+        
+        // Should reflect modifications
+        assert!(cow_state.get("base_key").is_none());
+        assert_eq!(
+            cow_state.get("new_key").unwrap().get(),
+            &serde_json::json!("new_value")
+        );
+        
+        // Create diff
+        let diff = cow_state.create_diff();
+        assert!(!diff.is_empty());
+        assert!(diff.changed.contains_key("new_key"));
+        assert!(diff.removed.contains("base_key"));
     }
 }

@@ -5,14 +5,11 @@
 
 use std::sync::Arc;
 use std::collections::HashMap;
-use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use tokio::sync::RwLock;
 
-use crate::graph::{CompiledGraph, GraphBuilder, StateGraph, Node, NodeType};
+use crate::graph::{CompiledGraph, StateGraph};
 use crate::state::StateData;
-use crate::engine::executor::{ExecutionEngine, ExecutionContext};
+use crate::engine::executor::ExecutionEngine;
 use crate::Result;
 
 /// Subgraph executor for running nested graphs
@@ -240,7 +237,7 @@ impl RecursiveSubgraphExecutor {
     }
     
     /// Check if a graph contains recursive subgraphs
-    pub fn contains_recursion(graph: &StateGraph) -> bool {
+    pub fn contains_recursion(_graph: &StateGraph) -> bool {
         // Simple check: look for nodes that reference the same graph
         // In production, this would need cycle detection
         false // Placeholder implementation
@@ -456,7 +453,7 @@ impl ConditionalSubgraphExecutor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::graph::{Node, Edge};
+    use crate::graph::{Node, Edge, NodeType};
     
     async fn create_test_subgraph() -> StateGraph {
         let mut graph = StateGraph::new("test_subgraph");

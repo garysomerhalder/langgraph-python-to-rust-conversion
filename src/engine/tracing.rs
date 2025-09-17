@@ -3,10 +3,10 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime};
 use tokio::sync::RwLock;
 use uuid::Uuid;
-use tracing::{debug, error, info, warn, instrument, span, Level};
+use tracing::{debug, error, info, instrument};
 use serde::{Deserialize, Serialize};
 
 /// Trace context for distributed tracing

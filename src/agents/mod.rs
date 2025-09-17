@@ -314,7 +314,7 @@ impl ReasoningAgent {
     }
     
     /// Perform ReAct pattern reasoning
-    fn react_reasoning(&self, state: &StateData) -> AgentDecision {
+    fn react_reasoning(&self, _state: &StateData) -> AgentDecision {
         let mut reasoning = String::new();
         
         // Thought
@@ -507,7 +507,7 @@ impl MultiAgentCoordinator {
     }
     
     /// Add an agent to the system
-    pub fn add_agent(&mut self, agent: Arc<tokio::sync::Mutex<dyn Agent>>) {
+    pub fn add_agent(&mut self, _agent: Arc<tokio::sync::Mutex<dyn Agent>>) {
         // TODO: Get agent name from locked agent
         // self.agents.insert(agent.name().to_string(), agent);
     }

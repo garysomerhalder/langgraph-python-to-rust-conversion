@@ -4,8 +4,6 @@ use tokio::sync::RwLock;
 use serde::{Deserialize, Serialize};
 use crate::graph::{StateGraph, Node, Edge};
 use crate::state::{StateChannels, Reducer};
-use crate::checkpoint::Checkpointer;
-use crate::state::GraphState as CheckpointGraphState;
 use async_trait::async_trait;
 
 #[async_trait]

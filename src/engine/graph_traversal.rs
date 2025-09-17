@@ -1,7 +1,7 @@
 //! Graph traversal algorithms for execution
 
 use std::collections::{HashMap, HashSet, VecDeque};
-use crate::graph::{CompiledGraph, Node, NodeType, EdgeType};
+use crate::graph::{CompiledGraph, EdgeType};
 use crate::state::StateData;
 use crate::Result;
 use crate::engine::ExecutionError;
@@ -124,7 +124,7 @@ impl GraphTraverser {
         all_nodes.insert("__end__".to_string());
         
         // Add nodes from edges
-        let mut current = "__start__".to_string();
+        let current = "__start__".to_string();
         let mut visited = HashSet::new();
         let mut to_visit = vec![current.clone()];
         
@@ -191,7 +191,7 @@ impl GraphTraverser {
         &self,
         graph: &CompiledGraph,
         current_node: &str,
-        state: &StateData,
+        _state: &StateData,
     ) -> Result<Vec<String>> {
         let mut next_nodes = Vec::new();
         
@@ -210,7 +210,7 @@ impl GraphTraverser {
         
         if has_conditions {
             // Evaluate conditions
-            for (node, edge) in edges {
+            for (_node, edge) in edges {
                 if let EdgeType::Conditional(cond_edge) = &edge.edge_type {
                     // TODO: Implement condition evaluation
                     // For now, just take the first matching condition
@@ -288,7 +288,7 @@ impl ParallelExecutor {
     /// Check if all dependencies of a node have been executed
     fn dependencies_satisfied(
         &self,
-        graph: &CompiledGraph,
+        _graph: &CompiledGraph,
         node: &str,
         executed: &HashSet<String>,
     ) -> bool {
@@ -301,7 +301,7 @@ impl ParallelExecutor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::graph::{StateGraph, Node, Edge};
+    use crate::graph::{StateGraph, Node, Edge, NodeType};
     
     fn create_test_graph() -> CompiledGraph {
         let mut graph = StateGraph::new("test");

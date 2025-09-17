@@ -2,14 +2,14 @@
 //!
 //! This module provides state versioning, branching, merging, and snapshot capabilities.
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use thiserror::Error;
 
-use crate::state::{StateData, GraphState};
+use crate::state::StateData;
 use crate::Result;
 
 /// Errors related to advanced state operations

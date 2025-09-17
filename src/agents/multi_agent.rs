@@ -10,14 +10,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use dashmap::DashMap;
-use smallvec::SmallVec;
 
 use crate::{
     Result, LangGraphError,
-    state::{GraphState, StateData},
-    agents::{Agent, AgentMemory},
-    tools::{Tool, ToolSpec},
-    engine::{ExecutionEngine, ExecutionContext},
+    agents::AgentMemory,
 };
 
 /// Context for agent execution
@@ -198,7 +194,7 @@ impl SpecializedAgent for ResearchAgent {
         self.gather_information(topic).await
     }
     
-    async fn collaborate(&self, agents: &[AgentRole], task: Value) -> Result<Value> {
+    async fn collaborate(&self, agents: &[AgentRole], _task: Value) -> Result<Value> {
         let mut results = Vec::new();
         for agent in agents {
             if *agent == AgentRole::Architect {

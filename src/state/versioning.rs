@@ -9,8 +9,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tokio::sync::{RwLock, Mutex};
-use tracing::{debug, error, info, instrument, warn};
+use tokio::sync::RwLock;
+use tracing::{debug, info, instrument};
 
 use crate::state::StateData;
 use crate::Result;

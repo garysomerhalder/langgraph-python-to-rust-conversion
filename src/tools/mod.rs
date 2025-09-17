@@ -149,7 +149,7 @@ pub trait Tool: Send + Sync {
     async fn execute(&self, params: Value, context: ToolContext) -> Result<ToolResult>;
     
     /// Check if the tool can be executed in the given context
-    async fn can_execute(&self, context: &ToolContext) -> bool {
+    async fn can_execute(&self, _context: &ToolContext) -> bool {
         true
     }
 }

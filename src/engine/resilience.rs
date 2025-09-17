@@ -460,9 +460,17 @@ impl ResilienceManager {
     {
         // Apply bulkhead first
         self.bulkhead.execute(|| async {
-            // Then apply retry logic
-            self.retry_executor.execute(operation).await
+            // Then apply circuit breaker protection
+            self.circuit_breaker.execute(|| async {
+                // Finally apply retry logic
+                self.retry_executor.execute(operation).await
+            }).await
         }).await?
+    }
+    
+    /// Get circuit breaker state
+    pub async fn circuit_breaker_state(&self) -> CircuitState {
+        self.circuit_breaker.get_state().await
     }
 }
 

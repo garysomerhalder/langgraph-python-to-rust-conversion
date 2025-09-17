@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use tokio::sync::mpsc;
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug)]
 pub struct StateChannels<T> 

@@ -1,14 +1,12 @@
 //! Graph execution engine implementation
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
-use tokio::task::JoinHandle;
-use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::graph::{CompiledGraph, StateGraph, Node, NodeType};
+use crate::graph::CompiledGraph;
 use crate::state::{GraphState, StateData};
 use crate::engine::resilience::ResilienceManager;
 use crate::engine::tracing::Tracer;

@@ -4,7 +4,6 @@
 //! for maintaining state across graph execution.
 
 use std::collections::HashMap;
-use std::fmt;
 use std::sync::Arc;
 
 use dashmap::DashMap;

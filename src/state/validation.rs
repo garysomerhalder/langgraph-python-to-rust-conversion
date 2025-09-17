@@ -138,7 +138,7 @@ impl StateValidator {
     }
     
     /// Validate a state update
-    pub fn validate(&self, current: &HashMap<String, Value>, updates: &HashMap<String, Value>) -> Result<(), ValidationError> {
+    pub fn validate(&self, _current: &HashMap<String, Value>, updates: &HashMap<String, Value>) -> Result<(), ValidationError> {
         // Check for unauthorized fields
         if !self.allow_unknown_fields {
             for key in updates.keys() {
@@ -170,7 +170,7 @@ impl StateValidator {
     }
     
     /// Validate a single field
-    fn validate_field(&self, field: &str, value: &Value, rule: &ValidationRule) -> Result<(), ValidationError> {
+    fn validate_field(&self, _field: &str, value: &Value, rule: &ValidationRule) -> Result<(), ValidationError> {
         for validation in &rule.validations {
             match validation {
                 ValidationType::Type(expected_type) => {
@@ -249,7 +249,7 @@ impl StateValidator {
                 ValidationType::Required => {
                     // Already handled in validate()
                 }
-                ValidationType::Custom(name) => {
+                ValidationType::Custom(_name) => {
                     // Custom validation would be implemented via global rules
                 }
             }

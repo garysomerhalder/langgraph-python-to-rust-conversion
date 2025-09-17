@@ -17,7 +17,7 @@ pub trait StreamTransformer: Send + Sync {
     
     async fn transform_stream(
         &self,
-        input_stream: Pin<Box<dyn Stream<Item = Self::Input> + Send>>,
+        _input_stream: Pin<Box<dyn Stream<Item = Self::Input> + Send>>,
     ) -> Result<Pin<Box<dyn Stream<Item = Self::Output> + Send>>, GraphError> 
     where
         Self: Sized + 'static,

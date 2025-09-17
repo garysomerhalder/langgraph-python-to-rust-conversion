@@ -1,9 +1,8 @@
 //! Conditional edge implementation for dynamic graph routing
 
 use std::sync::Arc;
-use serde::{Deserialize, Serialize};
-use crate::state::{StateData, GraphState};
-use crate::graph::{GraphError, Node};
+use crate::state::StateData;
+use crate::graph::GraphError;
 use crate::Result;
 
 /// Type alias for conditional functions

@@ -10,9 +10,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tokio::sync::RwLock;
 
-use crate::agents::{AgentConfig, AgentError, Conversation, Message, MessageRole};
+use crate::agents::{AgentConfig, Conversation, Message, MessageRole};
 use crate::state::StateData;
-use crate::tools::{Tool, ToolContext, ToolRegistry, ToolResult};
+use crate::tools::{ToolContext, ToolRegistry};
 use crate::Result;
 
 /// Trait for concrete agent implementations
@@ -778,7 +778,7 @@ impl Agent for MemoryAgent {
         Ok(new_state)
     }
     
-    async fn chat(&self, conversation: Conversation, state: StateData) -> Result<Conversation> {
+    async fn chat(&self, conversation: Conversation, _state: StateData) -> Result<Conversation> {
         let mut new_conversation = conversation.clone();
         
         if let Some(last_message) = conversation.messages.last() {

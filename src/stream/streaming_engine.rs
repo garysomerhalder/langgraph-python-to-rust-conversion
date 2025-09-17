@@ -1,8 +1,7 @@
 use async_trait::async_trait;
-use futures::stream::{Stream, StreamExt};
+use futures::stream::Stream;
 use std::pin::Pin;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use crate::graph::{Graph, GraphError};
 use crate::state::State;
 use serde::{Serialize, Deserialize};
@@ -59,7 +58,7 @@ impl StreamingEngine for DefaultStreamingEngine {
     async fn stream_execution<S: State>(
         &self,
         graph: Arc<Graph>,
-        initial_state: S,
+        _initial_state: S,
     ) -> Result<Pin<Box<dyn Stream<Item = StreamOutput<Self::Output>> + Send>>, GraphError> {
         let (tx, rx) = tokio::sync::mpsc::channel(self.buffer_size);
         
@@ -92,7 +91,7 @@ impl StreamingEngine for DefaultStreamingEngine {
     async fn stream_with_backpressure<S: State>(
         &self,
         graph: Arc<Graph>,
-        initial_state: S,
+        _initial_state: S,
         buffer_size: usize,
     ) -> Result<Pin<Box<dyn Stream<Item = StreamOutput<Self::Output>> + Send>>, GraphError> {
         let (tx, rx) = tokio::sync::mpsc::channel(buffer_size);

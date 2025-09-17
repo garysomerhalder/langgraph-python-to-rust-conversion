@@ -162,6 +162,82 @@ pub mod pools {
             |buf| buf.clear(),
             50
         );
+        
+        /// Pool for agent memory entries
+        pub static ref MEMORY_ENTRY_POOL: ObjectPool<Vec<crate::agents::MemoryEntry>> = ObjectPool::new(
+            || Vec::with_capacity(50),
+            |vec| vec.clear(),
+            20
+        );
+        
+        /// Pool for tool parameter maps
+        pub static ref TOOL_PARAMS_POOL: ObjectPool<HashMap<String, Value>> = ObjectPool::new(
+            || HashMap::with_capacity(16),
+            |map| map.clear(),
+            75
+        );
+        
+        /// Pool for execution metadata
+        pub static ref EXEC_METADATA_POOL: ObjectPool<HashMap<String, String>> = ObjectPool::new(
+            || HashMap::with_capacity(8),
+            |map| map.clear(),
+            30
+        );
+        
+        /// Pool for node collections
+        pub static ref NODE_VEC_POOL: ObjectPool<Vec<String>> = ObjectPool::new(
+            || Vec::with_capacity(20),
+            |vec| vec.clear(),
+            40
+        );
+        
+        /// Pool for stream message buffers
+        pub static ref STREAM_MESSAGE_POOL: ObjectPool<Vec<serde_json::Value>> = ObjectPool::new(
+            || Vec::with_capacity(100),
+            |vec| vec.clear(),
+            25
+        );
+    }
+}
+
+/// Specialized pool for execution contexts
+pub struct ExecutionContextPool {
+    pool: ObjectPool<ExecutionContextBuffer>,
+}
+
+/// Buffer for execution context data
+pub struct ExecutionContextBuffer {
+    pub execution_id: String,
+    pub metadata: HashMap<String, String>,
+    pub start_time: u64,
+    pub node_stack: Vec<String>,
+}
+
+impl ExecutionContextPool {
+    /// Create a new execution context pool
+    pub fn new(max_size: usize) -> Self {
+        let pool = ObjectPool::new(
+            || ExecutionContextBuffer {
+                execution_id: String::with_capacity(36), // UUID length
+                metadata: HashMap::with_capacity(8),
+                start_time: 0,
+                node_stack: Vec::with_capacity(10),
+            },
+            |buf| {
+                buf.execution_id.clear();
+                buf.metadata.clear();
+                buf.start_time = 0;
+                buf.node_stack.clear();
+            },
+            max_size,
+        );
+        
+        Self { pool }
+    }
+    
+    /// Get an execution context buffer from the pool
+    pub fn get(&self) -> PooledObject<ExecutionContextBuffer> {
+        self.pool.get()
     }
 }
 
