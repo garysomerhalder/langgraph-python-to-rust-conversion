@@ -49,6 +49,9 @@ rand = "0.8"
 string_cache = "0.8"
 smallvec = "1.13"
 
+# For validation
+regex = "1.10"
+
 # For metrics
 prometheus = "0.13"
 lazy_static = "1.5"
@@ -77,6 +80,10 @@ path = "examples/state_management.rs"
 
 [[bench]]
 name = "graph_benchmark"
+harness = false
+
+[[bench]]
+name = "comprehensive_benchmark"
 harness = false
 
 [profile.release]

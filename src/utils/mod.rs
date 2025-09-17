@@ -5,6 +5,8 @@ use crate::Result;
 use serde_json::Value;
 use std::collections::HashMap;
 
+pub mod object_pool;
+
 /// State manipulation utilities
 pub mod state {
     use super::*;
