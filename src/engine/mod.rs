@@ -16,6 +16,7 @@ pub mod tracing;
 pub mod rate_limiter;
 pub mod metrics;
 pub mod traits;
+pub mod human_in_loop;
 
 pub use executor::{
     ExecutionEngine, ExecutionContext, ExecutionMessage, 
@@ -48,6 +49,10 @@ pub use traits::{
     ResilienceProvider, StreamProcessor, GraphTraverser, ToolExecutor,
     ExecutionStrategy, ExecutionContext as TraitExecutionContext, ExecutionResult,
     ExecutionCapabilities, ValidationResult, RetryConfig as TraitRetryConfig
+};
+pub use human_in_loop::{
+    HumanInLoop, InterruptManager, InterruptHandle, InterruptMode,
+    ApprovalDecision, HumanInLoopError
 };
 
 /// Trait for executable graph components

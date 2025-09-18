@@ -1,7 +1,7 @@
 use langgraph::engine::human_in_loop::{
     ApprovalDecision, HumanInLoop, InterruptHandle, InterruptManager, InterruptMode,
 };
-use langgraph::graph::{GraphBuilder, NodeType};
+use langgraph::graph::{GraphBuilder, NodeType, NodeFn};
 use langgraph::state::GraphState;
 use std::sync::Arc;
 use std::time::Duration;
@@ -16,12 +16,7 @@ async fn test_interrupt_before_node() {
     graph.add_node("start", NodeType::Start);
     graph.add_node_with_interrupt(
         "review",
-        NodeType::Process(Arc::new(|state| {
-            Box::pin(async move {
-                state.update("reviewed", true.into()).await;
-                Ok(state)
-            })
-        })),
+        NodeType::Agent("review_agent".to_string()),
         InterruptMode::Before,
     );
     graph.add_node("end", NodeType::End);
@@ -35,7 +30,7 @@ async fn test_interrupt_before_node() {
 
     // Execute with interrupt handling
     let state = GraphState::new();
-    state.update("input", "test_data".into()).await;
+    state.set("input", "test_data".into());
 
     let execution_handle = compiled
         .execute_with_interrupt(state.clone(), interrupt_manager.clone())
@@ -74,12 +69,7 @@ async fn test_interrupt_after_node() {
     graph.add_node("start", NodeType::Start);
     graph.add_node_with_interrupt(
         "process",
-        NodeType::Process(Arc::new(|state| {
-            Box::pin(async move {
-                state.update("processed", true.into()).await;
-                Ok(state)
-            })
-        })),
+        NodeType::Agent("process_agent".to_string()),
         InterruptMode::After,
     );
     graph.add_node("end", NodeType::End);
@@ -126,20 +116,10 @@ async fn test_reject_with_redirect() {
     graph.add_node("start", NodeType::Start);
     graph.add_node_with_interrupt(
         "risky_operation",
-        NodeType::Process(Arc::new(|state| {
-            Box::pin(async move {
-                state.update("risk_taken", true.into()).await;
-                Ok(state)
-            })
-        })),
+        NodeType::Agent("risky_agent".to_string()),
         InterruptMode::Before,
     );
-    graph.add_node("safe_path", NodeType::Process(Arc::new(|state| {
-        Box::pin(async move {
-            state.update("safe_choice", true.into()).await;
-            Ok(state)
-        })
-    })));
+    graph.add_node("safe_path", NodeType::Agent("safe_agent".to_string()));
     graph.add_node("end", NodeType::End);
 
     graph.add_edge("start", "risky_operation");
@@ -184,15 +164,7 @@ async fn test_modify_state_during_interrupt() {
     graph.add_node("start", NodeType::Start);
     graph.add_node_with_interrupt(
         "process",
-        NodeType::Process(Arc::new(|state| {
-            Box::pin(async move {
-                let value = state.get("counter")
-                    .and_then(|v| v.as_i64())
-                    .unwrap_or(0);
-                state.update("counter", (value * 2).into()).await;
-                Ok(state)
-            })
-        })),
+        NodeType::Agent("counter_agent".to_string()),
         InterruptMode::Before,
     );
     graph.add_node("end", NodeType::End);
@@ -204,7 +176,7 @@ async fn test_modify_state_during_interrupt() {
     let interrupt_manager = Arc::new(InterruptManager::new());
 
     let state = GraphState::new();
-    state.update("counter", 5i64.into()).await;
+    state.set("counter", 5i64.into());
 
     let execution_handle = compiled
         .execute_with_interrupt(state.clone(), interrupt_manager.clone())
@@ -247,9 +219,7 @@ async fn test_interrupt_timeout() {
     graph.add_node("start", NodeType::Start);
     graph.add_node_with_interrupt(
         "waiting",
-        NodeType::Process(Arc::new(|state| {
-            Box::pin(async move { Ok(state) })
-        })),
+        NodeType::Agent("waiting_agent".to_string()),
         InterruptMode::Before,
     );
     graph.add_node("end", NodeType::End);
@@ -285,22 +255,12 @@ async fn test_multiple_interrupt_points() {
     graph.add_node("start", NodeType::Start);
     graph.add_node_with_interrupt(
         "step1",
-        NodeType::Process(Arc::new(|state| {
-            Box::pin(async move {
-                state.update("step1_done", true.into()).await;
-                Ok(state)
-            })
-        })),
+        NodeType::Agent("step1_agent".to_string()),
         InterruptMode::After,
     );
     graph.add_node_with_interrupt(
         "step2",
-        NodeType::Process(Arc::new(|state| {
-            Box::pin(async move {
-                state.update("step2_done", true.into()).await;
-                Ok(state)
-            })
-        })),
+        NodeType::Agent("step2_agent".to_string()),
         InterruptMode::Before,
     );
     graph.add_node("end", NodeType::End);
@@ -362,12 +322,7 @@ async fn test_abort_execution() {
     graph.add_node("start", NodeType::Start);
     graph.add_node_with_interrupt(
         "dangerous",
-        NodeType::Process(Arc::new(|state| {
-            Box::pin(async move {
-                state.update("danger_executed", true.into()).await;
-                Ok(state)
-            })
-        })),
+        NodeType::Agent("dangerous_agent".to_string()),
         InterruptMode::Before,
     );
     graph.add_node("end", NodeType::End);

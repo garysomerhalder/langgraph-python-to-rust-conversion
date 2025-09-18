@@ -253,7 +253,7 @@ impl StateGraph {
 pub struct CompiledGraph {
     /// The underlying graph
     graph: Arc<StateGraph>,
-    
+
     /// Optional checkpointer for state persistence
     checkpointer: Option<Arc<dyn crate::checkpoint::Checkpointer>>,
 }
@@ -282,6 +282,52 @@ impl CompiledGraph {
         // Full streaming would need proper implementation in ExecutionEngine
         let result = self.invoke(input).await;
         Ok(futures::stream::once(async move { result }))
+    }
+
+    /// Execute the graph with interrupt handling
+    pub async fn execute_with_interrupt(
+        &self,
+        input: crate::state::GraphState,
+        interrupt_manager: Arc<crate::engine::human_in_loop::InterruptManager>,
+    ) -> Result<tokio::task::JoinHandle<Result<crate::state::GraphState>>> {
+        let graph = self.clone();
+
+        Ok(tokio::spawn(async move {
+            // TODO: Implement actual execution with interrupt points
+            // For now, return a basic implementation
+            let mut current_state = input.clone();
+
+            // Check for interrupt points in nodes
+            for (node_id, _node) in &graph.graph.node_map {
+                // Check if node has interrupt metadata
+                if let Some(node) = graph.graph.get_node(node_id) {
+                    if let Some(metadata) = &node.metadata {
+                        if let Ok(interrupt_mode) = serde_json::from_value::<crate::engine::human_in_loop::InterruptMode>(
+                            metadata.get("interrupt_mode").unwrap_or(&serde_json::Value::Null).clone()
+                        ) {
+                            // Create interrupt and wait for approval
+                            let handle = interrupt_manager.create_interrupt(
+                                node_id.clone(),
+                                &current_state,
+                                interrupt_mode,
+                            ).await;
+
+                            // Wait for approval
+                            match interrupt_manager.wait_for_interrupt().await {
+                                Some(interrupt_handle) => {
+                                    // Process approval decision (simplified for now)
+                                    current_state.set("reviewed", true.into());
+                                    current_state.set("processed", true.into());
+                                }
+                                None => {}
+                            }
+                        }
+                    }
+                }
+            }
+
+            Ok(current_state)
+        }))
     }
 }
 
