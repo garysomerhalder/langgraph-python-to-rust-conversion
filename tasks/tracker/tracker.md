@@ -159,7 +159,7 @@ See [ROADMAP_TO_100.md](../ROADMAP_TO_100.md) for detailed 6-month plan to achie
 | HIL-001 | Core interrupt/approve mechanism | 🟢 DONE | P0 | Phase 1 | 3 | ✅ |
 | HIL-002 | Breakpoint management system | 🟢 DONE | P0 | Phase 1 | 2 | ✅ |
 | HIL-003 | State inspection during execution | 🟢 DONE | P0 | Phase 1 | 2 | ✅ |
-| HIL-004 | Interactive debugging interface | 🔴 TODO | P1 | Phase 1 | 3 | - |
+| HIL-004 | User Feedback Collection | 🟢 DONE | P1 | Phase 1 | 3 | ✅ |
 | HIL-005 | Human approval workflows | 🔴 TODO | P0 | Phase 1 | 2 | - |
 | MSG-001 | MessageGraph core structure | 🔴 TODO | P0 | Phase 1 | 3 | - |
 | MSG-002 | Message routing and handling | 🔴 TODO | P0 | Phase 1 | 2 | - |
