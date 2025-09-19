@@ -2,7 +2,7 @@
 // HIL-003: State inspection during execution
 
 use crate::state::{GraphState, StateData};
-use crate::engine::state_diff::{StateDiff, ExportFormat};
+use crate::engine::state_diff::{StateDiff, ExportFormat, StateFilter};
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -144,34 +144,36 @@ impl StateInspector {
     }
 
     /// Get snapshot by ID (returns the snapshot directly)
-    pub async fn get_snapshot(&self, snapshot_id: String) -> Option<StateSnapshot> {
+    pub async fn get_snapshot(&self, snapshot_id: &str) -> Option<StateSnapshot> {
         let snapshots = self.snapshots.read().await;
         snapshots.iter().find(|s| s.id == snapshot_id).cloned()
     }
 
     /// Query state value by path (supports nested queries like "user.name")
-    pub async fn query_state(&self, snapshot_id: String, path: &str) -> Option<Value> {
+    pub async fn query_state(&self, snapshot_id: &str, path: &str) -> Option<Value> {
         let snapshot = self.get_snapshot(snapshot_id).await?;
 
         // Split path and navigate nested structure
         let parts: Vec<&str> = path.split('.').collect();
-        let mut current = &snapshot.state;
+
+        // Start with looking at the whole state
+        let mut current_value: Option<&Value> = None;
 
         for (i, part) in parts.iter().enumerate() {
-            if i == parts.len() - 1 {
-                // Last part - return the value
-                return current.get(*part).cloned();
+            if i == 0 {
+                // First part - get from state
+                current_value = snapshot.state.get(*part);
             } else {
-                // Navigate into nested object
-                if let Some(Value::Object(obj)) = current.get(*part) {
-                    // For nested navigation, we need a different approach
-                    // since we're working with HashMap<String, Value>
-                    // This is a simplified version for the YELLOW phase
-                    return None; // Will be implemented properly in GREEN phase
+                // Nested parts - navigate into object
+                if let Some(Value::Object(obj)) = current_value {
+                    current_value = obj.get(*part);
+                } else {
+                    return None;
                 }
             }
         }
-        None
+
+        current_value.cloned()
     }
 
     /// Get latest snapshot
@@ -187,9 +189,9 @@ impl StateInspector {
 
     /// Compute diff between two snapshots
     pub async fn diff_snapshots(&self, id1: &str, id2: &str) -> Result<HashMap<String, (Option<Value>, Option<Value>)>> {
-        let snapshot1 = self.get_snapshot(id1.to_string()).await
+        let snapshot1 = self.get_snapshot(id1).await
             .ok_or_else(|| anyhow::anyhow!("Snapshot {} not found", id1))?;
-        let snapshot2 = self.get_snapshot(id2.to_string()).await
+        let snapshot2 = self.get_snapshot(id2).await
             .ok_or_else(|| anyhow::anyhow!("Snapshot {} not found", id2))?;
 
         let mut diff = HashMap::new();
@@ -243,7 +245,7 @@ impl StateInspector {
     }
 
     /// Diff two states by snapshot IDs
-    pub async fn diff_states(&self, id1: String, id2: String) -> StateDiff {
+    pub async fn diff_states(&self, id1: &str, id2: &str) -> StateDiff {
         let snapshot1 = self.get_snapshot(id1).await;
         let snapshot2 = self.get_snapshot(id2).await;
 
@@ -273,7 +275,7 @@ impl StateInspector {
     }
 
     /// Export a snapshot in the specified format
-    pub async fn export_snapshot(&self, snapshot_id: String, format: ExportFormat) -> String {
+    pub async fn export_snapshot(&self, snapshot_id: &str, format: ExportFormat) -> String {
         if let Some(snapshot) = self.get_snapshot(snapshot_id).await {
             match format {
                 ExportFormat::Json => {
@@ -303,16 +305,99 @@ impl StateInspector {
     }
 
     /// Search for fields matching a pattern in a snapshot
-    pub async fn search_state(&self, snapshot_id: String, pattern: &str) -> Vec<(String, Value)> {
+    pub async fn search_state(&self, snapshot_id: &str, pattern: &str) -> Vec<(String, Value)> {
         if let Some(snapshot) = self.get_snapshot(snapshot_id).await {
+            let pattern_lower = pattern.to_lowercase();
             snapshot.state
                 .iter()
-                .filter(|(k, _)| k.contains(pattern))
+                .filter(|(k, v)| {
+                    // Search in keys (case-insensitive)
+                    k.to_lowercase().contains(&pattern_lower) ||
+                    // Search in string values (case-insensitive)
+                    if let Value::String(s) = v {
+                        s.to_lowercase().contains(&pattern_lower)
+                    } else {
+                        false
+                    }
+                })
                 .map(|(k, v)| (k.clone(), v.clone()))
                 .collect()
         } else {
             Vec::new()
         }
+    }
+
+    /// Get history of snapshots with optional filters
+    pub async fn get_history(&self, node_filter: Option<&str>, limit: Option<usize>) -> Vec<StateSnapshot> {
+        let snapshots = self.snapshots.read().await;
+        let mut result: Vec<StateSnapshot> = if let Some(node) = node_filter {
+            snapshots
+                .iter()
+                .filter(|s| s.node_id == node)
+                .cloned()
+                .collect()
+        } else {
+            snapshots.clone()
+        };
+
+        if let Some(limit) = limit {
+            result.truncate(limit);
+        }
+
+        result
+    }
+
+    /// Watch for state changes (returns a session ID for tracking)
+    pub async fn watch_for_changes(&self, _node_pattern: Option<&str>) -> String {
+        // Simplified for GREEN phase - would implement actual watching
+        uuid::Uuid::new_v4().to_string()
+    }
+
+    /// Get changes from a watch session
+    pub async fn get_watch_changes(&self, _session_id: &str) -> Vec<StateSnapshot> {
+        // Simplified for GREEN phase - would track actual changes
+        Vec::new()
+    }
+
+    /// Enable inspection for specific nodes
+    pub async fn enable_for_nodes(&self, _nodes: Vec<String>) {
+        // Would implement node-specific enabling
+        self.set_enabled(true).await;
+    }
+
+    /// Disable inspection for specific nodes
+    pub async fn disable_for_nodes(&self, _nodes: Vec<String>) {
+        // Would implement node-specific disabling
+        self.set_enabled(false).await;
+    }
+
+    /// Capture a snapshot with a filter
+    pub async fn capture_snapshot_with_filter(
+        &self,
+        node_id: &str,
+        state: &StateData,
+        filter: &StateFilter,
+    ) -> String {
+        let filtered_state = filter.apply(state);
+
+        let snapshot = StateSnapshot {
+            id: uuid::Uuid::new_v4().to_string(),
+            timestamp: Utc::now(),
+            node_id: node_id.to_string(),
+            state: filtered_state,
+            metadata: HashMap::new(),
+        };
+        let snapshot_id = snapshot.id.clone();
+
+        let mut snapshots = self.snapshots.write().await;
+
+        // Maintain max snapshots limit
+        if snapshots.len() >= self.max_snapshots {
+            snapshots.remove(0);
+        }
+
+        snapshots.push(snapshot);
+        snapshot_id
     }
 }
 

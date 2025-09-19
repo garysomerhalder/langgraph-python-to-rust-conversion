@@ -68,7 +68,7 @@ pub use state_inspector::{
     StateInspector, StateSnapshot
 };
 pub use state_diff::{
-    StateDiff, ExportFormat
+    StateDiff, ExportFormat, StateFilter
 };
 
 /// Trait for executable graph components
