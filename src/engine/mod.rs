@@ -9,6 +9,7 @@ use crate::Result;
 pub mod executor;
 pub mod executor_hil;
 pub mod executor_breakpoint;
+pub mod executor_inspector;
 pub mod node_executor;
 pub mod context;
 pub mod graph_traversal;
@@ -20,6 +21,8 @@ pub mod metrics;
 pub mod traits;
 pub mod human_in_loop;
 pub mod breakpoint;
+pub mod state_inspector;
+pub mod state_diff;
 
 pub use executor::{
     ExecutionEngine, ExecutionContext, ExecutionMessage, 
@@ -60,6 +63,12 @@ pub use human_in_loop::{
 pub use breakpoint::{
     BreakpointManager, Breakpoint, BreakpointCondition, BreakpointAction,
     BreakpointHit, BreakpointCallback, BreakpointExecution, BreakpointError
+};
+pub use state_inspector::{
+    StateInspector, StateSnapshot
+};
+pub use state_diff::{
+    StateDiff, ExportFormat
 };
 
 /// Trait for executable graph components

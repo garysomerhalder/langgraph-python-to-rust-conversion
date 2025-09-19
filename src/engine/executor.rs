@@ -12,6 +12,7 @@ use crate::engine::resilience::ResilienceManager;
 use crate::engine::tracing::Tracer;
 use crate::engine::human_in_loop::{InterruptManager, InterruptMode, InterruptCallback, HumanInLoopExecution, ExecutionHandle, ApprovalDecision};
 use crate::engine::breakpoint::BreakpointManager;
+use crate::engine::state_inspector::StateInspector;
 use crate::Result;
 
 /// Errors specific to execution
@@ -125,6 +126,12 @@ pub struct ExecutionEngine {
 
     /// Breakpoint manager for debugging
     pub breakpoint_manager: Arc<BreakpointManager>,
+
+    /// State inspector for debugging and monitoring
+    pub state_inspector: Option<Arc<StateInspector>>,
+
+    /// Current state for inspection
+    pub state: Arc<RwLock<GraphState>>,
 }
 
 impl ExecutionEngine {
@@ -135,6 +142,8 @@ impl ExecutionEngine {
             history: Arc::new(RwLock::new(Vec::new())),
             interrupt_manager: Arc::new(RwLock::new(InterruptManager::new())),
             breakpoint_manager: Arc::new(BreakpointManager::new()),
+            state_inspector: None,
+            state: Arc::new(RwLock::new(GraphState::new())),
         }
     }
 
@@ -456,6 +465,8 @@ impl Clone for ExecutionEngine {
             history: self.history.clone(),
             interrupt_manager: self.interrupt_manager.clone(),
             breakpoint_manager: self.breakpoint_manager.clone(),
+            state_inspector: self.state_inspector.clone(),
+            state: self.state.clone(),
         }
     }
 }
