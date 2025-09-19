@@ -1,7 +1,9 @@
 //! Builder pattern for constructing graphs
 
 use crate::graph::{Edge, Node, NodeType, StateGraph};
+use crate::engine::InterruptMode;
 use crate::Result;
+use serde_json::json;
 
 /// Builder for constructing a StateGraph
 pub struct GraphBuilder {
@@ -61,6 +63,30 @@ impl GraphBuilder {
         let node = Node {
             id: id.into(),
             node_type,
+            metadata: Some(metadata),
+        };
+        self.graph.add_node(node);
+        self
+    }
+
+    /// Add a node with interrupt configuration
+    pub fn add_node_with_interrupt<F>(
+        mut self,
+        id: impl Into<String>,
+        interrupt_mode: InterruptMode,
+        func: F,
+    ) -> Self
+    where
+        F: Into<NodeType>,
+    {
+        let id_str = id.into();
+        let mut metadata = json!({
+            "interrupt_mode": interrupt_mode,
+        });
+
+        let node = Node {
+            id: id_str,
+            node_type: func.into(),
             metadata: Some(metadata),
         };
         self.graph.add_node(node);

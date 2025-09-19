@@ -10,6 +10,7 @@ use crate::graph::CompiledGraph;
 use crate::state::{GraphState, StateData};
 use crate::engine::resilience::ResilienceManager;
 use crate::engine::tracing::Tracer;
+use crate::engine::human_in_loop::{InterruptManager, InterruptMode, InterruptCallback, HumanInLoopExecution, ExecutionHandle, ApprovalDecision};
 use crate::Result;
 
 /// Errors specific to execution
@@ -114,9 +115,12 @@ pub enum ExecutionStatus {
 pub struct ExecutionEngine {
     /// Active executions
     active_executions: Arc<RwLock<HashMap<String, ExecutionContext>>>,
-    
+
     /// Execution history
     history: Arc<RwLock<Vec<ExecutionMetadata>>>,
+
+    /// Interrupt manager for human-in-the-loop
+    pub interrupt_manager: Arc<RwLock<InterruptManager>>,
 }
 
 impl ExecutionEngine {
@@ -125,7 +129,15 @@ impl ExecutionEngine {
         Self {
             active_executions: Arc::new(RwLock::new(HashMap::new())),
             history: Arc::new(RwLock::new(Vec::new())),
+            interrupt_manager: Arc::new(RwLock::new(InterruptManager::new())),
         }
+    }
+
+    /// Create a new execution engine from a compiled graph
+    pub fn from_graph(graph: CompiledGraph) -> Self {
+        let mut engine = Self::new();
+        // Initialize interrupt manager with node configs from graph metadata
+        engine
     }
     
     /// Execute a compiled graph with input
@@ -437,6 +449,7 @@ impl Clone for ExecutionEngine {
         Self {
             active_executions: self.active_executions.clone(),
             history: self.history.clone(),
+            interrupt_manager: self.interrupt_manager.clone(),
         }
     }
 }

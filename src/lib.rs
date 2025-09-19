@@ -122,6 +122,10 @@ pub enum LangGraphError {
     /// State error
     #[error("State error: {0}")]
     StateError(String),
+
+    /// Human-in-the-loop interrupt error
+    #[error("Interrupt error: {0}")]
+    Interrupt(#[from] engine::InterruptError),
 }
 
 /// Core graph module containing graph structures and algorithms

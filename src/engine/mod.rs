@@ -7,6 +7,7 @@ use async_trait::async_trait;
 use crate::Result;
 
 pub mod executor;
+pub mod executor_hil;
 pub mod node_executor;
 pub mod context;
 pub mod graph_traversal;
@@ -16,6 +17,7 @@ pub mod tracing;
 pub mod rate_limiter;
 pub mod metrics;
 pub mod traits;
+pub mod human_in_loop;
 
 pub use executor::{
     ExecutionEngine, ExecutionContext, ExecutionMessage, 
@@ -48,6 +50,10 @@ pub use traits::{
     ResilienceProvider, StreamProcessor, GraphTraverser, ToolExecutor,
     ExecutionStrategy, ExecutionContext as TraitExecutionContext, ExecutionResult,
     ExecutionCapabilities, ValidationResult, RetryConfig as TraitRetryConfig
+};
+pub use human_in_loop::{
+    InterruptMode, InterruptHandle, ApprovalDecision, InterruptCallback,
+    InterruptManager, HumanInLoopExecution, ExecutionHandle, InterruptError
 };
 
 /// Trait for executable graph components
