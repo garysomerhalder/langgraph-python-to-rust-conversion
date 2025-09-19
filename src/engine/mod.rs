@@ -73,7 +73,8 @@ pub use state_diff::{
 };
 pub use user_feedback::{
     UserFeedback, FeedbackManager, FeedbackType, FeedbackHistory,
-    FeedbackRequest, FeedbackRequestStatus, FeedbackStats
+    FeedbackRequest, FeedbackRequestStatus, FeedbackStats,
+    FeedbackPerformanceMetrics
 };
 
 /// Trait for executable graph components
