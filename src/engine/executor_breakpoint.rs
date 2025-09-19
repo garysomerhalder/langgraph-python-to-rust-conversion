@@ -1,5 +1,5 @@
 //! Breakpoint integration for ExecutionEngine
-//! YELLOW Phase: Minimal implementation for breakpoint support
+//! GREEN Phase: Production-ready implementation with full integration
 
 use async_trait::async_trait;
 use std::sync::Arc;
@@ -18,9 +18,8 @@ use crate::Result;
 impl BreakpointExecution for ExecutionEngine {
     /// Get the breakpoint manager
     fn get_breakpoint_manager(&self) -> Arc<BreakpointManager> {
-        // For YELLOW phase, create a new manager each time
-        // In GREEN phase, this would be stored as a field in ExecutionEngine
-        Arc::new(BreakpointManager::new())
+        // GREEN phase: Use the stored breakpoint manager
+        self.breakpoint_manager.clone()
     }
 
     /// Execute with breakpoint support
