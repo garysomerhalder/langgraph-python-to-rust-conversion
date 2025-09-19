@@ -8,6 +8,7 @@ use crate::Result;
 
 pub mod executor;
 pub mod executor_hil;
+pub mod executor_breakpoint;
 pub mod node_executor;
 pub mod context;
 pub mod graph_traversal;
@@ -18,6 +19,7 @@ pub mod rate_limiter;
 pub mod metrics;
 pub mod traits;
 pub mod human_in_loop;
+pub mod breakpoint;
 
 pub use executor::{
     ExecutionEngine, ExecutionContext, ExecutionMessage, 
@@ -54,6 +56,10 @@ pub use traits::{
 pub use human_in_loop::{
     InterruptMode, InterruptHandle, ApprovalDecision, InterruptCallback,
     InterruptManager, HumanInLoopExecution, ExecutionHandle, InterruptError
+};
+pub use breakpoint::{
+    BreakpointManager, Breakpoint, BreakpointCondition, BreakpointAction,
+    BreakpointHit, BreakpointCallback, BreakpointExecution, BreakpointError
 };
 
 /// Trait for executable graph components

@@ -4,7 +4,8 @@
 use langgraph::{
     engine::{
         ExecutionEngine, BreakpointManager, Breakpoint, BreakpointAction,
-        BreakpointCondition, BreakpointHit,
+        BreakpointCondition, BreakpointHit, BreakpointExecution,
+        InterruptCallback, ApprovalDecision,
     },
     graph::GraphBuilder,
     state::StateData,
@@ -21,20 +22,20 @@ async fn test_set_and_remove_breakpoint() -> Result<()> {
     let manager = BreakpointManager::new();
 
     // Set a breakpoint on a node
-    let bp_id = manager.set_breakpoint("process_node".to_string(), None);
+    let bp_id = manager.set_breakpoint("process_node".to_string(), None).await;
 
     // Verify breakpoint was set
-    let breakpoints = manager.list_breakpoints();
+    let breakpoints = manager.list_breakpoints().await;
     assert_eq!(breakpoints.len(), 1);
     assert_eq!(breakpoints[0].node_id, "process_node");
     assert_eq!(breakpoints[0].id, bp_id);
 
     // Remove the breakpoint
-    let removed = manager.remove_breakpoint(bp_id);
+    let removed = manager.remove_breakpoint(bp_id).await;
     assert!(removed);
 
     // Verify breakpoint was removed
-    let breakpoints = manager.list_breakpoints();
+    let breakpoints = manager.list_breakpoints().await;
     assert_eq!(breakpoints.len(), 0);
 
     Ok(())
@@ -55,17 +56,17 @@ async fn test_conditional_breakpoint() -> Result<()> {
         false
     }));
 
-    let bp_id = manager.set_breakpoint("check_node".to_string(), Some(condition));
+    let _bp_id = manager.set_breakpoint("check_node".to_string(), Some(condition)).await;
 
     // Test with value <= 10 (should not trigger)
     let mut state1 = HashMap::new();
     state1.insert("counter".to_string(), json!(5));
-    assert!(!manager.is_breakpoint("check_node", &state1));
+    assert!(!manager.is_breakpoint("check_node", &state1).await);
 
     // Test with value > 10 (should trigger)
     let mut state2 = HashMap::new();
     state2.insert("counter".to_string(), json!(15));
-    assert!(manager.is_breakpoint("check_node", &state2));
+    assert!(manager.is_breakpoint("check_node", &state2).await);
 
     Ok(())
 }
@@ -82,6 +83,7 @@ async fn test_execution_pause_at_breakpoint() -> Result<()> {
         .add_node("process", langgraph::graph::NodeType::Agent("processor".to_string()))
         .add_node("validate", langgraph::graph::NodeType::Agent("validator".to_string()))
         .add_node("end", langgraph::graph::NodeType::End)
+        .set_entry_point("start")
         .add_edge("start", "process")
         .add_edge("process", "validate")
         .add_edge("validate", "end")
@@ -89,15 +91,18 @@ async fn test_execution_pause_at_breakpoint() -> Result<()> {
         .compile()?;
 
     // Set a breakpoint on the validate node
-    bp_manager.set_breakpoint("validate".to_string(), None);
+    bp_manager.set_breakpoint("validate".to_string(), None).await;
 
     let paused = Arc::new(RwLock::new(false));
     let paused_clone = paused.clone();
 
     // Execute with breakpoint handler
+    let mut input = StateData::new();
+    input.insert("input".to_string(), json!("test"));
+
     let handle = engine.execute_with_breakpoints(
         graph,
-        json!({"input": "test"}),
+        input,
         Box::new(move |hit: BreakpointHit| {
             let paused = paused_clone.clone();
             Box::pin(async move {
@@ -134,6 +139,7 @@ async fn test_step_operations() -> Result<()> {
         .add_node("subgraph", langgraph::graph::NodeType::Subgraph("sub".to_string()))
         .add_node("outer2", langgraph::graph::NodeType::Agent("outer2".to_string()))
         .add_node("end", langgraph::graph::NodeType::End)
+        .set_entry_point("start")
         .add_edge("start", "outer1")
         .add_edge("outer1", "subgraph")
         .add_edge("subgraph", "outer2")
@@ -142,13 +148,15 @@ async fn test_step_operations() -> Result<()> {
         .compile()?;
 
     // Set initial breakpoint
-    bp_manager.set_breakpoint("outer1".to_string(), None);
+    bp_manager.set_breakpoint("outer1".to_string(), None).await;
 
     let mut step_count = 0;
 
+    let input = StateData::new();
+
     let handle = engine.execute_with_breakpoints(
         graph,
-        json!({}),
+        input,
         Box::new(move |hit: BreakpointHit| {
             Box::pin(async move {
                 step_count += 1;
@@ -183,16 +191,16 @@ async fn test_clear_all_breakpoints() -> Result<()> {
     let manager = BreakpointManager::new();
 
     // Set multiple breakpoints
-    manager.set_breakpoint("node1".to_string(), None);
-    manager.set_breakpoint("node2".to_string(), None);
-    manager.set_breakpoint("node3".to_string(), None);
+    manager.set_breakpoint("node1".to_string(), None).await;
+    manager.set_breakpoint("node2".to_string(), None).await;
+    manager.set_breakpoint("node3".to_string(), None).await;
 
-    assert_eq!(manager.list_breakpoints().len(), 3);
+    assert_eq!(manager.list_breakpoints().await.len(), 3);
 
     // Clear all breakpoints
     manager.clear_all_breakpoints();
 
-    assert_eq!(manager.list_breakpoints().len(), 0);
+    assert_eq!(manager.list_breakpoints().await.len(), 0);
 
     Ok(())
 }
@@ -208,7 +216,7 @@ async fn test_concurrent_breakpoint_operations() -> Result<()> {
     for i in 0..10 {
         let mgr = manager.clone();
         let handle = tokio::spawn(async move {
-            mgr.set_breakpoint(format!("node_{}", i), None)
+            mgr.set_breakpoint(format!("node_{}", i), None).await
         });
         handles.push(handle);
     }
@@ -220,7 +228,7 @@ async fn test_concurrent_breakpoint_operations() -> Result<()> {
     }
 
     // Verify all breakpoints were set
-    let breakpoints = manager.list_breakpoints();
+    let breakpoints = manager.list_breakpoints().await;
     assert_eq!(breakpoints.len(), 10);
 
     // Concurrently remove breakpoints
@@ -228,7 +236,7 @@ async fn test_concurrent_breakpoint_operations() -> Result<()> {
     for id in ids {
         let mgr = manager.clone();
         let handle = tokio::spawn(async move {
-            mgr.remove_breakpoint(id)
+            mgr.remove_breakpoint(id).await
         });
         remove_handles.push(handle);
     }
@@ -239,7 +247,7 @@ async fn test_concurrent_breakpoint_operations() -> Result<()> {
     }
 
     // Verify all breakpoints were removed
-    assert_eq!(manager.list_breakpoints().len(), 0);
+    assert_eq!(manager.list_breakpoints().await.len(), 0);
 
     Ok(())
 }
@@ -250,24 +258,24 @@ async fn test_breakpoint_hit_history() -> Result<()> {
     let manager = BreakpointManager::new();
 
     // Set a breakpoint
-    let bp_id = manager.set_breakpoint("tracked_node".to_string(), None);
+    let bp_id = manager.set_breakpoint("tracked_node".to_string(), None).await;
 
     // Simulate hitting the breakpoint multiple times
     for i in 0..5 {
         let mut state = HashMap::new();
         state.insert("iteration".to_string(), json!(i));
 
-        if manager.is_breakpoint("tracked_node", &state) {
+        if manager.is_breakpoint("tracked_node", &state).await {
             manager.record_hit(bp_id, &state).await;
         }
     }
 
     // Get hit history
-    let history = manager.get_hit_history(bp_id);
+    let history = manager.get_hit_history(bp_id).await;
     assert_eq!(history.len(), 5);
 
     // Verify hit count
-    let breakpoints = manager.list_breakpoints();
+    let breakpoints = manager.list_breakpoints().await;
     let bp = breakpoints.iter().find(|b| b.id == bp_id).unwrap();
     assert_eq!(bp.hit_count, 5);
 
@@ -280,28 +288,28 @@ async fn test_breakpoint_persistence() -> Result<()> {
     let manager1 = BreakpointManager::new();
 
     // Set some breakpoints with different configurations
-    let bp1 = manager1.set_breakpoint("node1".to_string(), None);
+    let _bp1 = manager1.set_breakpoint("node1".to_string(), None).await;
 
     let condition = BreakpointCondition::new(Box::new(|state: &StateData| {
         state.contains_key("debug")
     }));
-    let bp2 = manager1.set_breakpoint("node2".to_string(), Some(condition));
+    let _bp2 = manager1.set_breakpoint("node2".to_string(), Some(condition)).await;
 
     // Export breakpoint configuration
-    let config = manager1.export_config()?;
+    let config = manager1.export_config().await?;
 
     // Create new manager and import configuration
     let manager2 = BreakpointManager::new();
-    manager2.import_config(config)?;
+    manager2.import_config(config).await?;
 
     // Verify breakpoints were restored
-    let breakpoints = manager2.list_breakpoints();
+    let breakpoints = manager2.list_breakpoints().await;
     assert_eq!(breakpoints.len(), 2);
 
     // Verify conditional breakpoint still works
     let mut state = HashMap::new();
     state.insert("debug".to_string(), json!(true));
-    assert!(manager2.is_breakpoint("node2", &state));
+    assert!(manager2.is_breakpoint("node2", &state).await);
 
     Ok(())
 }
@@ -314,12 +322,13 @@ async fn test_interrupt_integration() -> Result<()> {
     let interrupt_manager = engine.interrupt_manager.read().await;
 
     // Set a breakpoint that should trigger an interrupt
-    bp_manager.set_breakpoint_with_interrupt("critical_node".to_string(), true);
+    bp_manager.set_breakpoint_with_interrupt("critical_node".to_string(), true).await;
 
     let graph = GraphBuilder::new("interrupt_test")
         .add_node("start", langgraph::graph::NodeType::Start)
         .add_node("critical_node", langgraph::graph::NodeType::Agent("critical".to_string()))
         .add_node("end", langgraph::graph::NodeType::End)
+        .set_entry_point("start")
         .add_edge("start", "critical_node")
         .add_edge("critical_node", "end")
         .build()?
@@ -328,10 +337,12 @@ async fn test_interrupt_integration() -> Result<()> {
     let interrupted = Arc::new(RwLock::new(false));
     let interrupted_clone = interrupted.clone();
 
+    let input = StateData::new();
+
     // Execute with both breakpoint and interrupt handlers
     let handle = engine.execute_with_breakpoints_and_interrupts(
         graph,
-        json!({}),
+        input,
         Box::new(move |hit: BreakpointHit| {
             Box::pin(async move {
                 // Breakpoint hit should trigger interrupt

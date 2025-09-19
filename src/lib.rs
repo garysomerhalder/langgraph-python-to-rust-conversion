@@ -126,6 +126,10 @@ pub enum LangGraphError {
     /// Human-in-the-loop interrupt error
     #[error("Interrupt error: {0}")]
     Interrupt(#[from] engine::InterruptError),
+
+    /// Breakpoint error
+    #[error("Breakpoint error: {0}")]
+    Breakpoint(#[from] engine::BreakpointError),
 }
 
 /// Core graph module containing graph structures and algorithms
