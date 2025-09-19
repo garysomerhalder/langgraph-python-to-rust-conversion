@@ -23,6 +23,7 @@ pub mod human_in_loop;
 pub mod breakpoint;
 pub mod state_inspector;
 pub mod state_diff;
+pub mod user_feedback;
 
 pub use executor::{
     ExecutionEngine, ExecutionContext, ExecutionMessage, 
@@ -69,6 +70,10 @@ pub use state_inspector::{
 };
 pub use state_diff::{
     StateDiff, ExportFormat, StateFilter
+};
+pub use user_feedback::{
+    UserFeedback, FeedbackManager, FeedbackType, FeedbackHistory,
+    FeedbackRequest, FeedbackRequestStatus, FeedbackStats
 };
 
 /// Trait for executable graph components
