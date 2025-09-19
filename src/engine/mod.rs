@@ -24,6 +24,7 @@ pub mod breakpoint;
 pub mod state_inspector;
 pub mod state_diff;
 pub mod user_feedback;
+pub mod resumption;
 
 pub use executor::{
     ExecutionEngine, ExecutionContext, ExecutionMessage, 
@@ -75,6 +76,9 @@ pub use user_feedback::{
     UserFeedback, FeedbackManager, FeedbackType, FeedbackHistory,
     FeedbackRequest, FeedbackRequestStatus, FeedbackStats,
     FeedbackPerformanceMetrics
+};
+pub use resumption::{
+    ResumptionManager, ResumptionPoint, WorkflowSnapshot
 };
 
 /// Trait for executable graph components

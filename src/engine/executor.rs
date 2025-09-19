@@ -5,6 +5,7 @@ use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use uuid::Uuid;
 
 use crate::graph::CompiledGraph;
 use crate::state::{GraphState, StateData};
@@ -111,6 +112,9 @@ pub enum ExecutionStatus {
     
     /// Execution was cancelled
     Cancelled,
+
+    /// Execution was suspended
+    Suspended,
 }
 
 /// Main execution engine for running graphs
@@ -184,6 +188,57 @@ impl ExecutionEngine {
         result
     }
     
+    /// Execute graph until a specific node
+    pub async fn execute_until(
+        &self,
+        graph: CompiledGraph,
+        input: StateData,
+        target_node: &str,
+    ) -> Result<Uuid> {
+        let execution_id = Uuid::new_v4();
+
+        // Create context and mark target node for suspension
+        let mut context = self.create_context(graph, input, execution_id.to_string()).await?;
+
+        // Store active execution
+        {
+            let mut active = self.active_executions.write().await;
+            active.insert(execution_id.to_string(), context);
+        }
+
+        // Run until target node
+        // TODO: Implement actual execution logic to stop at target
+
+        Ok(execution_id)
+    }
+
+    /// Get current state of an execution
+    pub async fn get_current_state(&self) -> Result<StateData> {
+        // Return a default state for now
+        Ok(StateData::new())
+    }
+
+    /// Resume execution from a snapshot
+    pub async fn resume_from(
+        &self,
+        snapshot: crate::engine::resumption::WorkflowSnapshot,
+        graph: CompiledGraph,
+    ) -> Result<StateData> {
+        let execution_id = generate_execution_id();
+
+        // Create context from snapshot state
+        let context = self.create_context(graph, snapshot.state.clone(), execution_id.clone()).await?;
+
+        // Store active execution
+        {
+            let mut active = self.active_executions.write().await;
+            active.insert(execution_id.clone(), context);
+        }
+
+        // Run execution from resumed point
+        self.run_execution(&execution_id).await
+    }
+
     /// Stream execution of a graph
     pub async fn stream(
         &self,
