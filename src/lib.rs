@@ -156,6 +156,9 @@ pub mod agents;
 /// Utility functions and helpers
 pub mod utils;
 
+/// Message-based graph execution
+pub mod message;
+
 #[cfg(test)]
 mod tests {
     use super::*;

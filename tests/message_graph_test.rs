@@ -26,7 +26,7 @@ async fn test_message_graph_creation() -> Result<()> {
         .add_message_node("farewell", |msg: Message| async move {
             Message::new(MessageRole::Assistant, "Goodbye!")
         })
-        .add_router("main_router", |msg: Message| {
+        .add_router("main_router", |msg: &Message| {
             if msg.content.to_lowercase().contains("bye") {
                 "farewell"
             } else {
