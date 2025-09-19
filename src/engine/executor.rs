@@ -114,7 +114,7 @@ pub enum ExecutionStatus {
 /// Main execution engine for running graphs
 pub struct ExecutionEngine {
     /// Active executions
-    active_executions: Arc<RwLock<HashMap<String, ExecutionContext>>>,
+    pub active_executions: Arc<RwLock<HashMap<String, ExecutionContext>>>,
 
     /// Execution history
     history: Arc<RwLock<Vec<ExecutionMetadata>>>,
