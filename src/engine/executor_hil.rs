@@ -290,30 +290,6 @@ impl ExecutionEngine {
         Ok(final_state.snapshot())
     }
 
-    /// Internal method to execute with interrupt checks - Production Ready
-    pub(crate) async fn execute_with_interrupt_checks(
-        &self,
-        input: StateData,
-    ) -> Result<StateData> {
-        // For backward compatibility, create a simple test graph
-        // In production, this would use the actual graph passed to the engine
-        use crate::graph::GraphBuilder;
-
-        let graph = GraphBuilder::new("interrupt_workflow")
-            .add_node("start", crate::graph::NodeType::Start)
-            .add_node("process", crate::graph::NodeType::Agent("processor".to_string()))
-            .add_node_with_interrupt("review", InterruptMode::Before,
-                crate::graph::NodeType::Agent("reviewer".to_string()))
-            .add_node("end", crate::graph::NodeType::End)
-            .add_edge("start", "process")
-            .add_edge("process", "review")
-            .add_edge("review", "end")
-            .build()?
-            .compile()?;
-
-        // Use the production-ready execution method
-        self.execute_graph_with_interrupts(graph, input).await
-    }
 
     /// Handle an interrupt point
     async fn handle_interrupt(
