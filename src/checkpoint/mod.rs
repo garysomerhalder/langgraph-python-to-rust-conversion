@@ -111,10 +111,14 @@ pub trait Checkpointer: Send + Sync {
 }
 
 /// In-memory checkpoint storage
+#[derive(Clone)]
 pub struct InMemoryCheckpointer {
     checkpoints: Arc<dashmap::DashMap<String, Checkpoint>>,
     thread_index: Arc<dashmap::DashMap<String, Vec<String>>>,
 }
+
+/// Alias for backwards compatibility
+pub type MemoryCheckpointer = InMemoryCheckpointer;
 
 impl InMemoryCheckpointer {
     /// Create a new in-memory checkpointer
@@ -122,6 +126,15 @@ impl InMemoryCheckpointer {
         Self {
             checkpoints: Arc::new(dashmap::DashMap::new()),
             thread_index: Arc::new(dashmap::DashMap::new()),
+        }
+    }
+
+    /// Get latest checkpoint ID for a thread (test compatibility)
+    pub async fn get_latest_checkpoint(&self, thread_id: &str) -> Result<String, CheckpointError> {
+        if let Some(checkpoint) = self.load_latest(thread_id).await? {
+            Ok(checkpoint.id)
+        } else {
+            Err(CheckpointError::NotFound(format!("No checkpoints for thread {}", thread_id)))
         }
     }
 }

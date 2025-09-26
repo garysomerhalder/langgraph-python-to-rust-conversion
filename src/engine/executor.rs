@@ -296,6 +296,30 @@ impl ExecutionEngine {
         self.execute(graph, input).await
     }
 
+    /// Execute a specific node
+    pub async fn execute_node(
+        &self,
+        graph: Arc<CompiledGraph>,
+        node_id: &str,
+        state: StateData,
+    ) -> Result<StateData> {
+        // For YELLOW phase: just return the state unchanged
+        // In GREEN phase, this would execute the specific node
+        Ok(state)
+    }
+
+    /// Execute until an error occurs
+    pub async fn execute_until_error(
+        &self,
+        graph: Arc<CompiledGraph>,
+        input: StateData,
+    ) -> Result<(StateData, Option<String>)> {
+        // For YELLOW phase: simulate partial execution
+        // Returns state and optionally the node that failed
+        let result_state = self.execute((*graph).clone(), input).await?;
+        Ok((result_state, None))
+    }
+
     /// Stream execution of a graph
     pub async fn stream(
         &self,
