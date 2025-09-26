@@ -3,10 +3,12 @@
 mod memory;
 pub mod postgres;
 pub mod redis;
+pub mod s3;
 
 pub use memory::MemoryCheckpointer;
 pub use postgres::{PostgresCheckpointer, PostgresConfig};
 pub use redis::{RedisCheckpointer, RedisConfig};
+pub use s3::{S3Checkpointer, S3Config, S3LifecyclePolicy};
 
 use std::sync::Arc;
 use std::collections::HashMap;
@@ -15,23 +17,33 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use anyhow::Result;
+use chrono::{DateTime, Utc};
 
 use crate::state::GraphState;
+
+/// Type alias for checkpoint results
+pub type CheckpointResult<T> = Result<T, CheckpointError>;
 
 /// Errors related to checkpointing
 #[derive(Error, Debug)]
 pub enum CheckpointError {
     #[error("Checkpoint not found: {0}")]
     NotFound(String),
-    
+
     #[error("Failed to save checkpoint: {0}")]
     SaveFailed(String),
-    
+
     #[error("Failed to load checkpoint: {0}")]
     LoadFailed(String),
-    
+
     #[error("Invalid checkpoint data: {0}")]
     InvalidData(String),
+
+    #[error("Storage error: {0}")]
+    StorageError(String),
+
+    #[error("Serialization error: {0}")]
+    SerializationError(String),
 }
 
 /// A checkpoint representing a saved state
@@ -39,18 +51,34 @@ pub enum CheckpointError {
 pub struct Checkpoint {
     /// Unique checkpoint ID
     pub id: String,
-    
+
     /// Thread ID this checkpoint belongs to
     pub thread_id: String,
-    
+
     /// The saved state
     pub state: GraphState,
-    
+
     /// Timestamp when checkpoint was created
     pub created_at: u64,
-    
+
     /// Optional checkpoint metadata
     pub metadata: Option<serde_json::Value>,
+}
+
+/// Versioned checkpoint with timestamp and metadata
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VersionedCheckpoint {
+    /// Version identifier
+    pub version: String,
+
+    /// The checkpoint state
+    pub state: GraphState,
+
+    /// Checkpoint metadata
+    pub metadata: HashMap<String, Value>,
+
+    /// Timestamp of creation
+    pub timestamp: DateTime<Utc>,
 }
 
 impl Checkpoint {
