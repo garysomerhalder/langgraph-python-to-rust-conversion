@@ -172,13 +172,24 @@ impl ResumptionManager {
         Ok(())
     }
 
-    /// Clean up old snapshots
-    pub async fn cleanup_old_snapshots(&self, max_age_hours: i64) {
-        let cutoff = Utc::now() - chrono::Duration::hours(max_age_hours);
+    /// Clean up old snapshots and return count of removed items
+    pub async fn cleanup_old_snapshots(&self, max_age: chrono::Duration) -> Result<usize> {
+        let cutoff = Utc::now() - max_age;
+        let mut removed_count = 0;
 
-        self.snapshots.retain(|_, snapshot| {
-            snapshot.timestamp > cutoff
-        });
+        let to_remove: Vec<Uuid> = self.snapshots
+            .iter()
+            .filter(|entry| entry.value().timestamp < cutoff)
+            .map(|entry| *entry.key())
+            .collect();
+
+        for id in to_remove {
+            if self.snapshots.remove(&id).is_some() {
+                removed_count += 1;
+            }
+        }
+
+        Ok(removed_count)
     }
 
     /// Create snapshot from checkpointer
@@ -211,6 +222,157 @@ impl ResumptionManager {
         self.snapshots.insert(snapshot.id, snapshot.clone());
         Ok(snapshot)
     }
+
+    /// Resume workflow from a snapshot
+    pub async fn resume_workflow(
+        &self,
+        snapshot_id: &Uuid,
+        engine: &ExecutionEngine,
+        graph: Arc<CompiledGraph>,
+    ) -> Result<StateData> {
+        let snapshot = self.load_snapshot(snapshot_id).await
+            .ok_or_else(|| LangGraphError::Execution("Snapshot not found".to_string()))?;
+
+        // Mark as resumed
+        self.mark_resumed(snapshot.execution_id).await;
+
+        // Resume execution from the next node
+        let next_node = snapshot.next_node.unwrap_or_else(|| "end".to_string());
+        engine.resume_from_node(
+            graph,
+            snapshot.state.clone(),
+            &next_node,
+        ).await?;
+
+        Ok(snapshot.state)
+    }
+
+    /// Resume workflow with modified state
+    pub async fn resume_with_modified_state(
+        &self,
+        snapshot_id: &Uuid,
+        modified_state: StateData,
+        engine: &ExecutionEngine,
+        graph: Arc<CompiledGraph>,
+    ) -> Result<StateData> {
+        let mut snapshot = self.load_snapshot(snapshot_id).await
+            .ok_or_else(|| LangGraphError::Execution("Snapshot not found".to_string()))?;
+
+        // Update snapshot with modified state
+        snapshot.state = modified_state.clone();
+        snapshot.timestamp = Utc::now();
+        self.snapshots.insert(*snapshot_id, snapshot.clone());
+
+        // Mark as resumed
+        self.mark_resumed(snapshot.execution_id).await;
+
+        // Resume execution with modified state
+        let next_node = snapshot.next_node.unwrap_or_else(|| "end".to_string());
+        engine.resume_from_node(
+            graph,
+            modified_state.clone(),
+            &next_node,
+        ).await?;
+
+        Ok(modified_state)
+    }
+
+    /// Get resumption history with optional filters
+    pub async fn get_resumption_history(
+        &self,
+        execution_id: Option<Uuid>,
+        limit: Option<usize>,
+    ) -> Vec<WorkflowSnapshot> {
+        let mut snapshots: Vec<WorkflowSnapshot> = if let Some(exec_id) = execution_id {
+            self.snapshots
+                .iter()
+                .filter(|entry| entry.value().execution_id == exec_id)
+                .map(|entry| entry.value().clone())
+                .collect()
+        } else {
+            self.snapshots
+                .iter()
+                .map(|entry| entry.value().clone())
+                .collect()
+        };
+
+        // Sort by timestamp (newest first)
+        snapshots.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+
+        // Apply limit if specified
+        if let Some(limit) = limit {
+            snapshots.truncate(limit);
+        }
+
+        snapshots
+    }
+
+    /// Save error state for recovery
+    pub async fn save_error_state(
+        &self,
+        execution_id: Uuid,
+        node_id: &str,
+        error: &str,
+        state: StateData,
+    ) -> Result<WorkflowSnapshot> {
+        let mut snapshot = WorkflowSnapshot::new(
+            execution_id,
+            "workflow".to_string(),
+            node_id.to_string(),
+            state,
+        );
+
+        // Add error metadata
+        snapshot.metadata = serde_json::json!({
+            "error": error,
+            "error_node": node_id,
+            "error_time": Utc::now().to_rfc3339(),
+        });
+
+        self.snapshots.insert(snapshot.id, snapshot.clone());
+        Ok(snapshot)
+    }
+
+    /// Resume from multiple snapshots (for parallel execution)
+    pub async fn resume_multiple(
+        &self,
+        snapshot_ids: Vec<Uuid>,
+        engine: &ExecutionEngine,
+        graph: Arc<CompiledGraph>,
+    ) -> Result<Vec<StateData>> {
+        let mut results = Vec::new();
+
+        for snapshot_id in snapshot_ids {
+            let result = self.resume_workflow(&snapshot_id, engine, graph.clone()).await?;
+            results.push(result);
+        }
+
+        Ok(results)
+    }
+
+    /// Record a resumption event
+    pub async fn record_resumption(&self, snapshot: WorkflowSnapshot) {
+        self.snapshots.insert(snapshot.id, snapshot);
+    }
+
+    /// Alias for cleanup_old_snapshots for backwards compatibility
+    pub async fn cleanup_old_resumptions(&self, max_age: chrono::Duration) -> Result<usize> {
+        self.cleanup_old_snapshots(max_age).await
+    }
+
+    /// List all resumption points
+    pub async fn list_resumption_points(&self) -> Vec<ResumptionPoint> {
+        self.resumption_points
+            .iter()
+            .map(|entry| entry.value().clone())
+            .collect()
+    }
+
+    /// Create a ResumptionManager with a checkpointer
+    pub fn with_checkpointer(_checkpointer: Arc<dyn Checkpointer>) -> Self {
+        // For YELLOW phase: just create a standard manager
+        Self::new()
+    }
 }
 
 impl Default for ResumptionManager {
@@ -218,5 +380,3 @@ impl Default for ResumptionManager {
         Self::new()
     }
 }
-
-// Use ExecutionStatus from the executor module

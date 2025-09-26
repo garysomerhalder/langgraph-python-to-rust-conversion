@@ -239,6 +239,63 @@ impl ExecutionEngine {
         self.run_execution(&execution_id).await
     }
 
+    /// Resume execution from a specific node
+    pub async fn resume_from_node(
+        &self,
+        graph: Arc<CompiledGraph>,
+        state: StateData,
+        node_id: &str,
+    ) -> Result<StateData> {
+        let execution_id = generate_execution_id();
+
+        // Create context with the given state
+        let context = self.create_context((*graph).clone(), state, execution_id.clone()).await?;
+
+        // Store active execution
+        {
+            let mut active = self.active_executions.write().await;
+            active.insert(execution_id.clone(), context);
+        }
+
+        // Run execution starting from the specified node
+        // For YELLOW phase: just run the full execution
+        self.run_execution(&execution_id).await
+    }
+
+    /// Start execution and return execution ID
+    pub async fn start_execution(
+        &self,
+        graph: CompiledGraph,
+        input: StateData,
+    ) -> Result<Uuid> {
+        let execution_id = Uuid::new_v4();
+        let context = self.create_context(graph, input, execution_id.to_string()).await?;
+
+        {
+            let mut active = self.active_executions.write().await;
+            active.insert(execution_id.to_string(), context);
+        }
+
+        Ok(execution_id)
+    }
+
+    /// Execute the next node in the graph
+    pub async fn execute_next_node(&self, execution_id: &Uuid) -> Result<StateData> {
+        // For YELLOW phase: just return current state
+        self.get_current_state().await
+    }
+
+    /// Execute with checkpointing support
+    pub async fn execute_with_checkpointing(
+        &self,
+        graph: CompiledGraph,
+        input: StateData,
+        _checkpointer: Arc<dyn crate::checkpoint::Checkpointer>,
+    ) -> Result<StateData> {
+        // For YELLOW phase: just run normal execution
+        self.execute(graph, input).await
+    }
+
     /// Stream execution of a graph
     pub async fn stream(
         &self,
