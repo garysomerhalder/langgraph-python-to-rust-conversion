@@ -59,6 +59,9 @@ regex = "1.10"
 prometheus = "0.13"
 lazy_static = "1.5"
 
+# For PostgreSQL persistence
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "json", "chrono", "uuid"] }
+
 [dev-dependencies]
 criterion = "0.5"
 proptest = "1.6"

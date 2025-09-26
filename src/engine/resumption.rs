@@ -243,24 +243,31 @@ impl ResumptionManager {
         checkpoint_id: &str,
         execution_id: Uuid,
     ) -> Result<WorkflowSnapshot> {
-        let checkpoint = checkpointer
-            .load(checkpoint_id)
+        // Need thread_id for the new Checkpointer trait - extract from checkpoint_id
+        let thread_id = checkpoint_id.split('-').next().unwrap_or("default");
+
+        let checkpoint_data = checkpointer
+            .load(thread_id, Some(checkpoint_id.to_string()))
             .await
             .map_err(|e| LangGraphError::Execution(format!("Failed to load checkpoint: {}", e)))?;
 
-        // Convert GraphState to StateData
-        let state = StateData::new(); // TODO: Convert from GraphState
+        // Unpack the checkpoint data
+        let (state_map, metadata_map) = checkpoint_data
+            .ok_or_else(|| LangGraphError::Execution("Checkpoint not found".to_string()))?;
+
+        // Convert HashMap to StateData
+        let state = state_map;
 
         let snapshot = WorkflowSnapshot {
             id: Uuid::new_v4(),
             execution_id,
             graph_name: checkpoint_id.to_string(),
-            last_completed_node: checkpoint.thread_id, // Use thread_id as a placeholder
+            last_completed_node: thread_id.to_string(),
             next_node: None,
             state,
             execution_path: Vec::new(),
             timestamp: Utc::now(),
-            metadata: checkpoint.metadata.unwrap_or_else(|| serde_json::json!({})),
+            metadata: serde_json::json!(metadata_map),
         };
 
         self.snapshots.insert(snapshot.id, snapshot.clone());

@@ -1,10 +1,18 @@
 //! Checkpointing and state persistence for LangGraph
 
-use std::sync::Arc;
+mod memory;
+pub mod postgres;
 
+pub use memory::MemoryCheckpointer;
+pub use postgres::{PostgresCheckpointer, PostgresConfig};
+
+use std::sync::Arc;
+use std::collections::HashMap;
+use serde_json::Value;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use anyhow::Result;
 
 use crate::state::GraphState;
 
@@ -88,125 +96,60 @@ impl Checkpoint {
     }
 }
 
-/// Trait for checkpoint storage implementations
+/// Trait for checkpoint storage implementations (original interface)
 #[async_trait]
-pub trait Checkpointer: Send + Sync {
+pub trait CheckpointerOld: Send + Sync {
     /// Save a checkpoint
     async fn save(&self, checkpoint: Checkpoint) -> Result<String, CheckpointError>;
-    
+
     /// Load a checkpoint by ID
     async fn load(&self, checkpoint_id: &str) -> Result<Checkpoint, CheckpointError>;
-    
+
     /// Load the latest checkpoint for a thread
     async fn load_latest(&self, thread_id: &str) -> Result<Option<Checkpoint>, CheckpointError>;
-    
+
     /// List all checkpoints for a thread
     async fn list(&self, thread_id: &str) -> Result<Vec<String>, CheckpointError>;
-    
+
     /// Delete a checkpoint
     async fn delete(&self, checkpoint_id: &str) -> Result<(), CheckpointError>;
-    
+
     /// Delete all checkpoints for a thread
     async fn delete_thread(&self, thread_id: &str) -> Result<(), CheckpointError>;
 }
 
-/// In-memory checkpoint storage
-#[derive(Clone)]
-pub struct InMemoryCheckpointer {
-    checkpoints: Arc<dashmap::DashMap<String, Checkpoint>>,
-    thread_index: Arc<dashmap::DashMap<String, Vec<String>>>,
-}
-
-/// Alias for backwards compatibility
-pub type MemoryCheckpointer = InMemoryCheckpointer;
-
-impl InMemoryCheckpointer {
-    /// Create a new in-memory checkpointer
-    pub fn new() -> Self {
-        Self {
-            checkpoints: Arc::new(dashmap::DashMap::new()),
-            thread_index: Arc::new(dashmap::DashMap::new()),
-        }
-    }
-
-    /// Get latest checkpoint ID for a thread (test compatibility)
-    pub async fn get_latest_checkpoint(&self, thread_id: &str) -> Result<String, CheckpointError> {
-        if let Some(checkpoint) = self.load_latest(thread_id).await? {
-            Ok(checkpoint.id)
-        } else {
-            Err(CheckpointError::NotFound(format!("No checkpoints for thread {}", thread_id)))
-        }
-    }
-}
-
-impl Default for InMemoryCheckpointer {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
+/// New unified Checkpointer trait for all implementations
 #[async_trait]
-impl Checkpointer for InMemoryCheckpointer {
-    async fn save(&self, checkpoint: Checkpoint) -> Result<String, CheckpointError> {
-        let id = checkpoint.id.clone();
-        let thread_id = checkpoint.thread_id.clone();
-        
-        // Save checkpoint
-        self.checkpoints.insert(id.clone(), checkpoint);
-        
-        // Update thread index
-        self.thread_index
-            .entry(thread_id)
-            .and_modify(|ids| ids.push(id.clone()))
-            .or_insert_with(|| vec![id.clone()]);
-        
-        Ok(id)
-    }
-    
-    async fn load(&self, checkpoint_id: &str) -> Result<Checkpoint, CheckpointError> {
-        self.checkpoints
-            .get(checkpoint_id)
-            .map(|entry| entry.clone())
-            .ok_or_else(|| CheckpointError::NotFound(checkpoint_id.to_string()))
-    }
-    
-    async fn load_latest(&self, thread_id: &str) -> Result<Option<Checkpoint>, CheckpointError> {
-        if let Some(ids) = self.thread_index.get(thread_id) {
-            if let Some(latest_id) = ids.last() {
-                return Ok(self.checkpoints.get(latest_id).map(|entry| entry.clone()));
-            }
-        }
-        Ok(None)
-    }
-    
-    async fn list(&self, thread_id: &str) -> Result<Vec<String>, CheckpointError> {
-        Ok(self.thread_index
-            .get(thread_id)
-            .map(|entry| entry.clone())
-            .unwrap_or_default())
-    }
-    
-    async fn delete(&self, checkpoint_id: &str) -> Result<(), CheckpointError> {
-        if let Some((_, checkpoint)) = self.checkpoints.remove(checkpoint_id) {
-            // Remove from thread index
-            if let Some(mut ids) = self.thread_index.get_mut(&checkpoint.thread_id) {
-                ids.retain(|id| id != checkpoint_id);
-            }
-            Ok(())
-        } else {
-            Err(CheckpointError::NotFound(checkpoint_id.to_string()))
-        }
-    }
-    
-    async fn delete_thread(&self, thread_id: &str) -> Result<(), CheckpointError> {
-        if let Some((_, ids)) = self.thread_index.remove(thread_id) {
-            for id in ids {
-                self.checkpoints.remove(&id);
-            }
-        }
-        Ok(())
-    }
+pub trait Checkpointer: Send + Sync {
+    /// Save a checkpoint with metadata
+    async fn save(
+        &self,
+        thread_id: &str,
+        checkpoint: HashMap<String, Value>,
+        metadata: HashMap<String, Value>,
+        parent_checkpoint_id: Option<String>,
+    ) -> Result<String>;
+
+    /// Load a checkpoint with metadata
+    async fn load(
+        &self,
+        thread_id: &str,
+        checkpoint_id: Option<String>,
+    ) -> Result<Option<(HashMap<String, Value>, HashMap<String, Value>)>>;
+
+    /// List checkpoints
+    async fn list(
+        &self,
+        thread_id: Option<&str>,
+        limit: Option<usize>,
+    ) -> Result<Vec<(String, HashMap<String, Value>)>>;
+
+    /// Delete a checkpoint
+    async fn delete(&self, thread_id: &str, checkpoint_id: Option<&str>) -> Result<()>;
 }
+
+// Re-export InMemoryCheckpointer from memory module
+pub use memory::InMemoryCheckpointer;
 
 #[cfg(test)]
 mod tests {
