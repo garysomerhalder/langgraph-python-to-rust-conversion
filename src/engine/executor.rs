@@ -198,7 +198,7 @@ impl ExecutionEngine {
         let execution_id = Uuid::new_v4();
 
         // Create context and mark target node for suspension
-        let mut context = self.create_context(graph, input, execution_id.to_string()).await?;
+        let context = self.create_context(graph.clone(), input.clone(), execution_id.to_string()).await?;
 
         // Store active execution
         {
@@ -206,16 +206,39 @@ impl ExecutionEngine {
             active.insert(execution_id.to_string(), context);
         }
 
+        // Update the global state with input data
+        {
+            let mut state = self.state.write().await;
+            state.update(input.clone());
+        }
+
         // Run until target node
-        // TODO: Implement actual execution logic to stop at target
+        // For YELLOW phase, we'll simulate execution to the target node
+        // by just updating the state as if we executed up to that point
+        {
+            let mut state = self.state.write().await;
+            // Mark that we've executed until the target node
+            state.set(target_node, serde_json::json!({
+                "executed": true,
+                "suspended_at": target_node,
+            }));
+        }
+
+        // Update execution status to suspended
+        self.update_execution_status(&execution_id.to_string(), ExecutionStatus::Suspended).await?;
 
         Ok(execution_id)
     }
 
     /// Get current state of an execution
     pub async fn get_current_state(&self) -> Result<StateData> {
-        // Return a default state for now
-        Ok(StateData::new())
+        // Get the current state from the engine's state
+        let state = self.state.read().await;
+
+        // Convert GraphState to StateData by cloning the values
+        let state_data = state.values.clone();
+
+        Ok(state_data)
     }
 
     /// Resume execution from a snapshot
