@@ -2,9 +2,11 @@
 
 mod memory;
 pub mod postgres;
+pub mod redis;
 
 pub use memory::MemoryCheckpointer;
 pub use postgres::{PostgresCheckpointer, PostgresConfig};
+pub use redis::{RedisCheckpointer, RedisConfig};
 
 use std::sync::Arc;
 use std::collections::HashMap;
