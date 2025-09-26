@@ -17,6 +17,7 @@ pub mod state_channels;
 pub mod advanced;
 pub mod versioning;
 pub mod validation;
+pub mod advanced_channels;
 
 pub use reducer::{Reducer, ReducerFn, DefaultReducer, AppendReducer};
 pub use channel::{Channel, ChannelType};
@@ -25,6 +26,10 @@ pub use versioning::{
     StateVersioningSystem, VersionId, Version, StateSnapshot, StateDelta,
     VersionMetadata, VersioningConfig, VersionStorage, InMemoryStorage,
     BranchManager, VersioningMetrics
+};
+pub use advanced_channels::{
+    LastValueChannel, TopicChannel, ContextChannel, CustomReducer,
+    ChannelComposer, ChannelType as AdvancedChannelType
 };
 
 /// Trait for types that can be used as state in the graph
