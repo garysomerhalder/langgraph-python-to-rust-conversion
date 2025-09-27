@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use langgraph::{
-    batch::{BatchExecutor, BatchJob, BatchConfig, BatchJobStatus},
+    batch::{BatchExecutor, BatchJob, BatchConfig, BatchJobStatus, ParallelScheduler, WorkerMetrics},
     engine::ExecutionEngine,
     graph::{CompiledGraph, StateGraph, Node, NodeType, Edge, EdgeType},
     state::StateData,
@@ -44,12 +44,6 @@ fn create_test_graph() -> CompiledGraph {
     graph.compile().expect("Failed to compile test graph")
 }
 
-/// RED Phase failing test - ParallelScheduler not implemented yet
-#[tokio::test]
-async fn test_parallel_scheduler_not_implemented() {
-    // This will fail because ParallelScheduler is not implemented yet
-    panic!("ParallelScheduler not implemented - this is expected RED phase failure");
-}
 
 /// Test work-stealing scheduler with multiple workers
 #[tokio::test]
@@ -61,8 +55,8 @@ async fn test_work_stealing_scheduler() {
         ..Default::default()
     };
 
-    // Future: ParallelScheduler will replace BatchExecutor for advanced scheduling
-    let scheduler = todo!("ParallelScheduler not implemented");
+    // Create ParallelScheduler for advanced scheduling
+    let scheduler = ParallelScheduler::new(config, engine);
 
     let graph = create_test_graph();
     let mut jobs = Vec::new();
@@ -104,7 +98,7 @@ async fn test_work_stealing_scheduler() {
 async fn test_priority_job_scheduling() {
     // This test will fail because priority scheduling is not implemented
     let engine = Arc::new(ExecutionEngine::new());
-    let scheduler = todo!("ParallelScheduler with priority queue not implemented");
+    let scheduler = ParallelScheduler::new(BatchConfig::default(), engine);
 
     let graph = create_test_graph();
     let mut jobs = Vec::new();
@@ -147,7 +141,7 @@ async fn test_priority_job_scheduling() {
 async fn test_job_dependency_resolution() {
     // This test will fail because dependency resolution is not implemented
     let engine = Arc::new(ExecutionEngine::new());
-    let scheduler = todo!("DependencyGraph and resolution not implemented");
+    let scheduler = ParallelScheduler::new(BatchConfig::default(), engine);
 
     let graph = create_test_graph();
 
@@ -194,7 +188,7 @@ async fn test_job_dependency_resolution() {
 async fn test_load_balancing() {
     // This test will fail because load balancing is not implemented
     let engine = Arc::new(ExecutionEngine::new());
-    let scheduler = todo!("LoadBalancer not implemented");
+    let scheduler = ParallelScheduler::new(BatchConfig::default(), engine);
 
     let graph = create_test_graph();
     let mut jobs = Vec::new();
@@ -239,7 +233,7 @@ async fn test_worker_pool_scaling() {
         ..Default::default()
     };
 
-    let scheduler = todo!("WorkerPool with auto-scaling not implemented");
+    let scheduler = ParallelScheduler::new(config, engine);
 
     let graph = create_test_graph();
     let mut jobs = Vec::new();
@@ -274,7 +268,7 @@ async fn test_worker_pool_scaling() {
 async fn test_circular_dependency_detection() {
     // This test will fail because circular dependency detection is not implemented
     let engine = Arc::new(ExecutionEngine::new());
-    let scheduler = todo!("Circular dependency detection not implemented");
+    let scheduler = ParallelScheduler::new(BatchConfig::default(), engine);
 
     let graph = create_test_graph();
     let mut jobs = Vec::new();
@@ -304,5 +298,7 @@ async fn test_circular_dependency_detection() {
     assert!(result.is_err(), "Should detect circular dependency");
 
     let error = result.unwrap_err();
-    assert!(error.to_string().contains("circular"), "Error should mention circular dependency");
+    let error_msg = error.to_string().to_lowercase();
+    assert!(error_msg.contains("circular") || error_msg.contains("cycle"),
+        "Error should mention circular dependency or cycle, got: {}", error);
 }
