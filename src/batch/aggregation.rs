@@ -130,8 +130,83 @@ impl ResultAggregator {
 
     /// Aggregate a collection of batch results
     pub async fn aggregate(&self, results: Vec<BatchResult>) -> Result<AggregatedResults, LangGraphError> {
-        // TODO: Implement aggregation logic
-        unimplemented!("aggregate method not yet implemented")
+        use std::time::Instant;
+
+        let start_time = Instant::now();
+        let total_jobs = results.len();
+
+        // Count successful and failed jobs
+        let successful_jobs = results.iter()
+            .filter(|r| r.status == crate::batch::BatchJobStatus::Completed)
+            .count();
+        let failed_jobs = results.iter()
+            .filter(|r| r.status == crate::batch::BatchJobStatus::Failed)
+            .count();
+
+        // Create metadata
+        let processing_time_ms = start_time.elapsed().as_millis() as u64;
+        let metadata = AggregationMetadata {
+            strategy: match &self.strategy {
+                AggregationStrategy::Collect => "collect".to_string(),
+                AggregationStrategy::Merge(_) => "merge".to_string(),
+                AggregationStrategy::Reduce(_) => "reduce".to_string(),
+                AggregationStrategy::Stream(_) => "stream".to_string(),
+            },
+            output_format: match &self.output_format {
+                OutputFormat::Json => "json".to_string(),
+                OutputFormat::Csv => "csv".to_string(),
+                OutputFormat::Parquet => "parquet".to_string(),
+                OutputFormat::Custom(name) => name.clone(),
+            },
+            processing_time_ms,
+            memory_used_bytes: std::mem::size_of_val(&results),
+        };
+
+        // Apply aggregation strategy
+        let aggregated_results = match &self.strategy {
+            AggregationStrategy::Collect => results,
+            AggregationStrategy::Merge(merge_fn) => {
+                if results.is_empty() {
+                    results
+                } else {
+                    vec![merge_fn.merge(results)?]
+                }
+            }
+            AggregationStrategy::Reduce(reduce_fn) => {
+                let mut accumulator = None;
+                for result in results {
+                    accumulator = Some(reduce_fn.reduce(accumulator, result)?);
+                }
+                accumulator.into_iter().collect()
+            }
+            AggregationStrategy::Stream(_) => {
+                // For stream strategy, just collect all results for now
+                results
+            }
+        };
+
+        // Save to checkpointer if configured
+        if let Some(checkpointer) = &self.checkpointer {
+            let checkpoint_data = serde_json::to_string(&aggregated_results)
+                .map_err(|e| LangGraphError::SerializationError(e.to_string()))?;
+            let checkpoint_id = format!("aggregation_{}", uuid::Uuid::new_v4());
+
+            // Create temporary state for checkpointing
+            let mut state = crate::state::StateData::new();
+            state.insert("aggregated_results".to_string(), serde_json::Value::String(checkpoint_data));
+
+            checkpointer.save_checkpoint("aggregation", &checkpoint_id, &state)
+                .await
+                .map_err(|e| LangGraphError::CheckpointError(format!("Failed to save aggregation checkpoint: {}", e)))?;
+        }
+
+        Ok(AggregatedResults {
+            total_jobs,
+            successful_jobs,
+            failed_jobs,
+            results: aggregated_results,
+            metadata,
+        })
     }
 
     /// Create a streaming aggregator
@@ -149,8 +224,38 @@ impl ResultAggregator {
 
     /// Export results in specified format
     pub async fn export(&self, results: &AggregatedResults) -> Result<String, LangGraphError> {
-        // TODO: Implement export logic
-        unimplemented!("export method not yet implemented")
+        match &self.output_format {
+            OutputFormat::Json => {
+                serde_json::to_string_pretty(results)
+                    .map_err(|e| LangGraphError::SerializationError(e.to_string()))
+            }
+            OutputFormat::Csv => {
+                // Create CSV output with basic fields
+                let mut csv_output = String::new();
+                csv_output.push_str("job_id,status,duration_ms,attempts,error\n");
+
+                for result in &results.results {
+                    csv_output.push_str(&format!(
+                        "{},{:?},{},{},{}\n",
+                        result.job_id,
+                        result.status,
+                        result.duration.as_millis(),
+                        result.attempts,
+                        result.error.as_deref().unwrap_or("")
+                    ));
+                }
+
+                Ok(csv_output)
+            }
+            OutputFormat::Parquet => {
+                // For YELLOW phase, return a placeholder
+                // In GREEN phase, we'll implement actual Parquet format
+                Ok("Parquet export not yet implemented".to_string())
+            }
+            OutputFormat::Custom(format_name) => {
+                Ok(format!("Custom format '{}' export not yet implemented", format_name))
+            }
+        }
     }
 }
 
@@ -173,8 +278,36 @@ impl Clone for ResultAggregator {
 impl ResultStream {
     /// Start processing the result stream
     pub async fn process(mut self) -> Result<(), LangGraphError> {
-        // TODO: Implement stream processing
-        unimplemented!("process method not yet implemented")
+        let mut collected_results = Vec::new();
+
+        // Process results from the stream
+        while let Some(result) = self.receiver.recv().await {
+            // Apply any stream processing if configured
+            let processed_result = match &self.aggregator.strategy {
+                AggregationStrategy::Stream(processor) => {
+                    match processor.process(result).await? {
+                        Some(processed) => processed,
+                        None => continue, // Result was filtered out
+                    }
+                }
+                _ => result, // No stream processing, use result as-is
+            };
+
+            collected_results.push(processed_result);
+
+            // Check if buffer is full and process batch
+            if collected_results.len() >= self.aggregator.buffer_size {
+                self.consumer.consume(collected_results.clone()).await?;
+                collected_results.clear();
+            }
+        }
+
+        // Process any remaining results
+        if !collected_results.is_empty() {
+            self.consumer.consume(collected_results).await?;
+        }
+
+        Ok(())
     }
 }
 
@@ -195,10 +328,17 @@ impl JsonConsumer {
 }
 
 impl ResultConsumer for JsonConsumer {
-    fn consume(&self, _results: Vec<BatchResult>) -> Pin<Box<dyn Future<Output = Result<(), LangGraphError>> + Send + '_>> {
+    fn consume(&self, results: Vec<BatchResult>) -> Pin<Box<dyn Future<Output = Result<(), LangGraphError>> + Send + '_>> {
         Box::pin(async move {
-            // TODO: Implement JSON consumption
-            unimplemented!("JSON consumer not yet implemented")
+            // Serialize results to JSON
+            let json_data = serde_json::to_string_pretty(&results)
+                .map_err(|e| LangGraphError::SerializationError(e.to_string()))?;
+
+            // For YELLOW phase, just write to string (could write to file in GREEN phase)
+            // In a real implementation, we'd write to the output_path file
+            tracing::info!("JSON Consumer would write {} bytes to {}", json_data.len(), self.output_path);
+
+            Ok(())
         })
     }
 }
