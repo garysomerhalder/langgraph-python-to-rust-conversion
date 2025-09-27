@@ -29,7 +29,9 @@ impl ExecutionEngine {
         if let Some(inspector) = &self.state_inspector {
             if inspector.is_enabled().await {
                 let state = self.state.read().await;
-                let snapshot_id = inspector.capture_graph_snapshot(&state, node_id.to_string()).await?;
+                let snapshot_id = inspector
+                    .capture_graph_snapshot(&state, node_id.to_string())
+                    .await?;
                 Ok(Some(snapshot_id))
             } else {
                 Ok(None)
@@ -86,7 +88,12 @@ impl ExecutionEngine {
 
         // Log snapshots if debug mode
         if let (Some(pre), Some(post)) = (pre_snapshot, post_snapshot) {
-            tracing::debug!("Node {} execution captured: pre={}, post={}", node_id, pre, post);
+            tracing::debug!(
+                "Node {} execution captured: pre={}, post={}",
+                node_id,
+                pre,
+                post
+            );
         }
 
         Ok(())

@@ -11,7 +11,10 @@ use tokio::io::AsyncWriteExt;
 pub trait BackupStorage: Send + Sync {
     async fn store_backup(&self, backup: &Backup) -> Result<String, BackupError>;
     async fn retrieve_backup(&self, backup_id: &str) -> Result<Backup, BackupError>;
-    async fn list_backups(&self, filter: Option<BackupFilter>) -> Result<Vec<BackupMetadata>, BackupError>;
+    async fn list_backups(
+        &self,
+        filter: Option<BackupFilter>,
+    ) -> Result<Vec<BackupMetadata>, BackupError>;
     async fn delete_backup(&self, backup_id: &str) -> Result<(), BackupError>;
 }
 
@@ -30,7 +33,9 @@ impl FileBackupStorage {
         if !self.backup_directory.exists() {
             fs::create_dir_all(&self.backup_directory)
                 .await
-                .map_err(|e| BackupError::IoError(format!("Failed to create backup directory: {}", e)))?;
+                .map_err(|e| {
+                    BackupError::IoError(format!("Failed to create backup directory: {}", e))
+                })?;
         }
         Ok(())
     }
@@ -40,7 +45,8 @@ impl FileBackupStorage {
     }
 
     fn metadata_path(&self, backup_id: &str) -> PathBuf {
-        self.backup_directory.join(format!("{}.metadata", backup_id))
+        self.backup_directory
+            .join(format!("{}.metadata", backup_id))
     }
 }
 
@@ -57,13 +63,15 @@ impl BackupStorage for FileBackupStorage {
             .await
             .map_err(|e| BackupError::IoError(format!("Failed to create backup file: {}", e)))?;
 
-        backup_file.write_all(&backup.data)
+        backup_file
+            .write_all(&backup.data)
             .await
             .map_err(|e| BackupError::IoError(format!("Failed to write backup data: {}", e)))?;
 
         // Store metadata
-        let metadata_json = serde_json::to_string_pretty(&backup.metadata)
-            .map_err(|e| BackupError::SerializationError(format!("Failed to serialize metadata: {}", e)))?;
+        let metadata_json = serde_json::to_string_pretty(&backup.metadata).map_err(|e| {
+            BackupError::SerializationError(format!("Failed to serialize metadata: {}", e))
+        })?;
 
         fs::write(&metadata_path, metadata_json)
             .await
@@ -78,7 +86,10 @@ impl BackupStorage for FileBackupStorage {
 
         // Check if files exist
         if !backup_path.exists() || !metadata_path.exists() {
-            return Err(BackupError::StorageError(format!("Backup {} not found", backup_id)));
+            return Err(BackupError::StorageError(format!(
+                "Backup {} not found",
+                backup_id
+            )));
         }
 
         // Read backup data
@@ -91,8 +102,9 @@ impl BackupStorage for FileBackupStorage {
             .await
             .map_err(|e| BackupError::IoError(format!("Failed to read metadata: {}", e)))?;
 
-        let metadata: BackupMetadata = serde_json::from_str(&metadata_json)
-            .map_err(|e| BackupError::SerializationError(format!("Failed to deserialize metadata: {}", e)))?;
+        let metadata: BackupMetadata = serde_json::from_str(&metadata_json).map_err(|e| {
+            BackupError::SerializationError(format!("Failed to deserialize metadata: {}", e))
+        })?;
 
         Ok(Backup {
             id: backup_id.to_string(),
@@ -102,7 +114,10 @@ impl BackupStorage for FileBackupStorage {
         })
     }
 
-    async fn list_backups(&self, filter: Option<BackupFilter>) -> Result<Vec<BackupMetadata>, BackupError> {
+    async fn list_backups(
+        &self,
+        filter: Option<BackupFilter>,
+    ) -> Result<Vec<BackupMetadata>, BackupError> {
         if !self.backup_directory.exists() {
             return Ok(Vec::new());
         }
@@ -113,15 +128,16 @@ impl BackupStorage for FileBackupStorage {
 
         let mut metadata_list = Vec::new();
 
-        while let Some(entry) = entries.next_entry()
+        while let Some(entry) = entries
+            .next_entry()
             .await
             .map_err(|e| BackupError::IoError(format!("Failed to read directory entry: {}", e)))?
         {
             let path = entry.path();
             if path.extension().and_then(|s| s.to_str()) == Some("metadata") {
-                let metadata_json = fs::read_to_string(&path)
-                    .await
-                    .map_err(|e| BackupError::IoError(format!("Failed to read metadata file: {}", e)))?;
+                let metadata_json = fs::read_to_string(&path).await.map_err(|e| {
+                    BackupError::IoError(format!("Failed to read metadata file: {}", e))
+                })?;
 
                 if let Ok(metadata) = serde_json::from_str::<BackupMetadata>(&metadata_json) {
                     // Apply filter if provided
@@ -168,16 +184,16 @@ impl BackupStorage for FileBackupStorage {
 
         // Remove backup file if it exists
         if backup_path.exists() {
-            fs::remove_file(&backup_path)
-                .await
-                .map_err(|e| BackupError::IoError(format!("Failed to delete backup file: {}", e)))?;
+            fs::remove_file(&backup_path).await.map_err(|e| {
+                BackupError::IoError(format!("Failed to delete backup file: {}", e))
+            })?;
         }
 
         // Remove metadata file if it exists
         if metadata_path.exists() {
-            fs::remove_file(&metadata_path)
-                .await
-                .map_err(|e| BackupError::IoError(format!("Failed to delete metadata file: {}", e)))?;
+            fs::remove_file(&metadata_path).await.map_err(|e| {
+                BackupError::IoError(format!("Failed to delete metadata file: {}", e))
+            })?;
         }
 
         Ok(())

@@ -5,37 +5,41 @@
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use smallvec::SmallVec;
 use std::collections::HashMap;
 use thiserror::Error;
-use smallvec::SmallVec;
 
 /// Validation errors
 #[derive(Error, Debug)]
 pub enum ValidationError {
     #[error("Value type mismatch: expected {expected}, got {actual}")]
     TypeMismatch { expected: String, actual: String },
-    
+
     #[error("Value out of range: {value} not in [{min}, {max}]")]
-    OutOfRange { value: String, min: String, max: String },
-    
+    OutOfRange {
+        value: String,
+        min: String,
+        max: String,
+    },
+
     #[error("Pattern validation failed: {value} does not match {pattern}")]
     PatternMismatch { value: String, pattern: String },
-    
+
     #[error("Required field missing: {field}")]
     RequiredFieldMissing { field: String },
-    
+
     #[error("Field not allowed: {field}")]
     UnauthorizedField { field: String },
-    
+
     #[error("Value exceeds maximum length: {length} > {max}")]
     LengthExceeded { length: usize, max: usize },
-    
+
     #[error("Invalid enum value: {value} not in allowed values")]
     InvalidEnumValue { value: String },
-    
+
     #[error("State transition not allowed: from {from} to {to}")]
     InvalidTransition { from: String, to: String },
-    
+
     #[error("Validation rule failed: {rule}")]
     RuleFailed { rule: String },
 }
@@ -45,22 +49,25 @@ pub enum ValidationError {
 pub enum ValidationType {
     /// Ensure value is of specific type
     Type(ValueType),
-    
+
     /// Ensure string matches regex pattern
     Pattern(String),
-    
+
     /// Ensure numeric value is within range
     Range { min: Option<f64>, max: Option<f64> },
-    
+
     /// Ensure string/array length is within bounds
-    Length { min: Option<usize>, max: Option<usize> },
-    
+    Length {
+        min: Option<usize>,
+        max: Option<usize>,
+    },
+
     /// Ensure value is one of allowed values
     Enum(SmallVec<[Value; 4]>),
-    
+
     /// Field is required
     Required,
-    
+
     /// Custom validation function
     Custom(String),
 }
@@ -81,13 +88,13 @@ pub enum ValueType {
 pub struct ValidationRule {
     /// Field path (e.g., "user.email")
     pub field: String,
-    
+
     /// Validations to apply (using SmallVec for typical small sets)
     pub validations: SmallVec<[ValidationType; 4]>,
-    
+
     /// Whether to sanitize the value
     pub sanitize: bool,
-    
+
     /// Whether this field is allowed
     pub allow_field: bool,
 }
@@ -96,16 +103,17 @@ pub struct ValidationRule {
 pub struct StateValidator {
     /// Validation rules by field path
     rules: HashMap<String, ValidationRule>,
-    
+
     /// Global validation rules
-    global_rules: Vec<Box<dyn Fn(&HashMap<String, Value>) -> Result<(), ValidationError> + Send + Sync>>,
-    
+    global_rules:
+        Vec<Box<dyn Fn(&HashMap<String, Value>) -> Result<(), ValidationError> + Send + Sync>>,
+
     /// Allowed state transitions
     allowed_transitions: HashMap<String, Vec<String>>,
-    
+
     /// Whether to allow unknown fields
     allow_unknown_fields: bool,
-    
+
     /// Whether to sanitize values
     enable_sanitization: bool,
 }
@@ -121,56 +129,63 @@ impl StateValidator {
             enable_sanitization: true,
         }
     }
-    
+
     /// Add a validation rule
     pub fn add_rule(&mut self, rule: ValidationRule) {
         self.rules.insert(rule.field.clone(), rule);
     }
-    
+
     /// Set whether unknown fields are allowed
     pub fn set_allow_unknown_fields(&mut self, allow: bool) {
         self.allow_unknown_fields = allow;
     }
-    
+
     /// Add allowed state transition
     pub fn add_transition(&mut self, from: String, to: Vec<String>) {
         self.allowed_transitions.insert(from, to);
     }
-    
+
     /// Validate a state update
-    pub fn validate(&self, _current: &HashMap<String, Value>, updates: &HashMap<String, Value>) -> Result<(), ValidationError> {
+    pub fn validate(
+        &self,
+        _current: &HashMap<String, Value>,
+        updates: &HashMap<String, Value>,
+    ) -> Result<(), ValidationError> {
         // Check for unauthorized fields
         if !self.allow_unknown_fields {
             for key in updates.keys() {
                 if !self.rules.contains_key(key) {
-                    return Err(ValidationError::UnauthorizedField { 
-                        field: key.clone() 
-                    });
+                    return Err(ValidationError::UnauthorizedField { field: key.clone() });
                 }
             }
         }
-        
+
         // Validate each field
         for (field, rule) in &self.rules {
             if let Some(value) = updates.get(field) {
                 self.validate_field(field, value, rule)?;
             } else if rule.validations.contains(&ValidationType::Required) {
-                return Err(ValidationError::RequiredFieldMissing { 
-                    field: field.clone() 
+                return Err(ValidationError::RequiredFieldMissing {
+                    field: field.clone(),
                 });
             }
         }
-        
+
         // Run global validation rules
         for rule in &self.global_rules {
             rule(updates)?;
         }
-        
+
         Ok(())
     }
-    
+
     /// Validate a single field
-    fn validate_field(&self, _field: &str, value: &Value, rule: &ValidationRule) -> Result<(), ValidationError> {
+    fn validate_field(
+        &self,
+        _field: &str,
+        value: &Value,
+        rule: &ValidationRule,
+    ) -> Result<(), ValidationError> {
         for validation in &rule.validations {
             match validation {
                 ValidationType::Type(expected_type) => {
@@ -179,8 +194,8 @@ impl StateValidator {
                 ValidationType::Pattern(pattern) => {
                     if let Value::String(s) = value {
                         let re = regex::Regex::new(pattern).map_err(|_| {
-                            ValidationError::RuleFailed { 
-                                rule: format!("Invalid regex pattern: {}", pattern) 
+                            ValidationError::RuleFailed {
+                                rule: format!("Invalid regex pattern: {}", pattern),
                             }
                         })?;
                         if !re.is_match(s) {
@@ -199,7 +214,9 @@ impl StateValidator {
                                     return Err(ValidationError::OutOfRange {
                                         value: num.to_string(),
                                         min: min_val.to_string(),
-                                        max: max.map(|m| m.to_string()).unwrap_or_else(|| "inf".to_string()),
+                                        max: max
+                                            .map(|m| m.to_string())
+                                            .unwrap_or_else(|| "inf".to_string()),
                                     });
                                 }
                             }
@@ -207,7 +224,9 @@ impl StateValidator {
                                 if num > *max_val {
                                     return Err(ValidationError::OutOfRange {
                                         value: num.to_string(),
-                                        min: min.map(|m| m.to_string()).unwrap_or_else(|| "-inf".to_string()),
+                                        min: min
+                                            .map(|m| m.to_string())
+                                            .unwrap_or_else(|| "-inf".to_string()),
                                         max: max_val.to_string(),
                                     });
                                 }
@@ -221,7 +240,7 @@ impl StateValidator {
                         Value::Array(a) => a.len(),
                         _ => 0,
                     };
-                    
+
                     if let Some(min_len) = min {
                         if len < *min_len {
                             return Err(ValidationError::LengthExceeded {
@@ -254,10 +273,10 @@ impl StateValidator {
                 }
             }
         }
-        
+
         Ok(())
     }
-    
+
     /// Validate value type
     fn validate_type(&self, value: &Value, expected: &ValueType) -> Result<(), ValidationError> {
         let actual = match value {
@@ -268,41 +287,41 @@ impl StateValidator {
             Value::Object(_) => ValueType::Object,
             Value::Null => ValueType::Null,
         };
-        
+
         let matches = match (expected, &actual) {
-            (ValueType::String, ValueType::String) |
-            (ValueType::Number, ValueType::Number) |
-            (ValueType::Boolean, ValueType::Boolean) |
-            (ValueType::Array, ValueType::Array) |
-            (ValueType::Object, ValueType::Object) |
-            (ValueType::Null, ValueType::Null) => true,
+            (ValueType::String, ValueType::String)
+            | (ValueType::Number, ValueType::Number)
+            | (ValueType::Boolean, ValueType::Boolean)
+            | (ValueType::Array, ValueType::Array)
+            | (ValueType::Object, ValueType::Object)
+            | (ValueType::Null, ValueType::Null) => true,
             _ => false,
         };
-        
+
         if !matches {
             return Err(ValidationError::TypeMismatch {
                 expected: format!("{:?}", expected),
                 actual: format!("{:?}", actual),
             });
         }
-        
+
         Ok(())
     }
-    
+
     /// Sanitize a value
     pub fn sanitize(&self, value: &mut Value) {
         if !self.enable_sanitization {
             return;
         }
-        
+
         match value {
             Value::String(s) => {
                 // Trim whitespace
                 *s = s.trim().to_string();
-                
+
                 // Remove null bytes
                 *s = s.replace('\0', "");
-                
+
                 // Limit length to prevent DoS
                 if s.len() > 1_000_000 {
                     *s = s.chars().take(1_000_000).collect();
@@ -313,7 +332,7 @@ impl StateValidator {
                 if arr.len() > 10_000 {
                     arr.truncate(10_000);
                 }
-                
+
                 // Recursively sanitize array elements
                 for item in arr.iter_mut() {
                     self.sanitize(item);
@@ -325,7 +344,7 @@ impl StateValidator {
                     let keys: Vec<_> = obj.keys().take(1_000).cloned().collect();
                     obj.retain(|k, _| keys.contains(k));
                 }
-                
+
                 // Recursively sanitize object values
                 for (_, v) in obj.iter_mut() {
                     self.sanitize(v);
@@ -334,7 +353,7 @@ impl StateValidator {
             _ => {}
         }
     }
-    
+
     /// Validate state transition
     pub fn validate_transition(&self, from: &str, to: &str) -> Result<(), ValidationError> {
         if let Some(allowed) = self.allowed_transitions.get(from) {
@@ -367,49 +386,50 @@ impl ValidationRuleBuilder {
             allow_field: true,
         }
     }
-    
+
     /// Add type validation
     pub fn with_type(mut self, value_type: ValueType) -> Self {
         self.validations.push(ValidationType::Type(value_type));
         self
     }
-    
+
     /// Add pattern validation
     pub fn with_pattern(mut self, pattern: impl Into<String>) -> Self {
-        self.validations.push(ValidationType::Pattern(pattern.into()));
+        self.validations
+            .push(ValidationType::Pattern(pattern.into()));
         self
     }
-    
+
     /// Add range validation
     pub fn with_range(mut self, min: Option<f64>, max: Option<f64>) -> Self {
         self.validations.push(ValidationType::Range { min, max });
         self
     }
-    
+
     /// Add length validation
     pub fn with_length(mut self, min: Option<usize>, max: Option<usize>) -> Self {
         self.validations.push(ValidationType::Length { min, max });
         self
     }
-    
+
     /// Add enum validation
     pub fn with_enum(mut self, values: SmallVec<[Value; 4]>) -> Self {
         self.validations.push(ValidationType::Enum(values));
         self
     }
-    
+
     /// Mark field as required
     pub fn required(mut self) -> Self {
         self.validations.push(ValidationType::Required);
         self
     }
-    
+
     /// Disable sanitization
     pub fn no_sanitize(mut self) -> Self {
         self.sanitize = false;
         self
     }
-    
+
     /// Build the validation rule
     pub fn build(self) -> ValidationRule {
         ValidationRule {
@@ -425,26 +445,26 @@ impl ValidationRuleBuilder {
 mod tests {
     use super::*;
     use serde_json::json;
-    
+
     #[test]
     fn test_type_validation() {
         let mut validator = StateValidator::new();
         validator.add_rule(
             ValidationRuleBuilder::new("name")
                 .with_type(ValueType::String)
-                .build()
+                .build(),
         );
-        
+
         let current = HashMap::new();
         let mut updates = HashMap::new();
         updates.insert("name".to_string(), json!("John"));
-        
+
         assert!(validator.validate(&current, &updates).is_ok());
-        
+
         updates.insert("name".to_string(), json!(123));
         assert!(validator.validate(&current, &updates).is_err());
     }
-    
+
     #[test]
     fn test_range_validation() {
         let mut validator = StateValidator::new();
@@ -452,27 +472,27 @@ mod tests {
             ValidationRuleBuilder::new("age")
                 .with_type(ValueType::Number)
                 .with_range(Some(0.0), Some(150.0))
-                .build()
+                .build(),
         );
-        
+
         let current = HashMap::new();
         let mut updates = HashMap::new();
-        
+
         updates.insert("age".to_string(), json!(25));
         assert!(validator.validate(&current, &updates).is_ok());
-        
+
         updates.insert("age".to_string(), json!(200));
         assert!(validator.validate(&current, &updates).is_err());
     }
-    
+
     #[test]
     fn test_sanitization() {
         let validator = StateValidator::new();
-        
+
         let mut value = json!("  hello world  ");
         validator.sanitize(&mut value);
         assert_eq!(value, json!("hello world"));
-        
+
         let mut value = json!("hello\0world");
         validator.sanitize(&mut value);
         assert_eq!(value, json!("helloworld"));

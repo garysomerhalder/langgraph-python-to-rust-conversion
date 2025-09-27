@@ -1,20 +1,20 @@
 //! # LangGraph Rust Implementation
-//! 
+//!
 //! A high-performance Rust implementation of LangGraph for building stateful, multi-agent applications
 //! with Large Language Models (LLMs).
-//! 
+//!
 //! ## Overview
-//! 
+//!
 //! LangGraph provides a graph-based approach to orchestrating complex workflows and agent interactions.
 //! This Rust implementation offers type safety, high performance, and seamless async execution.
-//! 
+//!
 //! ## Quick Start
-//! 
+//!
 //! ```rust
 //! use langgraph::graph::{GraphBuilder, NodeType};
 //! use langgraph::state::GraphState;
 //! use serde_json::json;
-//! 
+//!
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! // Build a simple workflow
 //! let graph = GraphBuilder::new("my_workflow")
@@ -26,18 +26,18 @@
 //!     .add_edge("process", "__end__")
 //!     .build()?
 //!     .compile()?;
-//! 
+//!
 //! // Execute with state
 //! let mut state = GraphState::new();
 //! state.set("input", json!("Hello, World!"));
-//! 
+//!
 //! let result = graph.invoke(state.values).await?;
 //! # Ok(())
 //! # }
 //! ```
-//! 
+//!
 //! ## Key Features
-//! 
+//!
 //! - **Graph-based workflows**: Define complex agent interactions as directed graphs
 //! - **State management**: Built-in state persistence with versioning and snapshots
 //! - **Async execution**: Fully async/await compatible with Tokio runtime
@@ -45,9 +45,9 @@
 //! - **Conditional routing**: Dynamic graph traversal based on state
 //! - **Tool integration**: Extensible framework for external tools
 //! - **Multi-agent coordination**: Build collaborative agent systems
-//! 
+//!
 //! ## Modules
-//! 
+//!
 //! - [`graph`]: Core graph structures and builders
 //! - [`state`]: State management with channels and reducers
 //! - [`engine`]: Execution engine for graph traversal
@@ -70,55 +70,55 @@ pub enum LangGraphError {
     /// Graph structure error (cycles, missing nodes, etc.)
     #[error("Graph structure error: {0}")]
     GraphStructure(String),
-    
+
     /// State management error
     #[error("State error: {0}")]
     State(String),
-    
+
     /// Execution error during graph traversal
     #[error("Execution error: {0}")]
     Execution(String),
-    
+
     /// Checkpoint error
     #[error("Checkpoint error: {0}")]
     Checkpoint(String),
-    
+
     /// Serialization/deserialization error
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
-    
+
     /// Graph-specific errors
     #[error("Graph error: {0}")]
     Graph(#[from] graph::GraphError),
-    
+
     /// Engine execution errors
     #[error("Engine error: {0}")]
     Engine(#[from] engine::ExecutionError),
-    
+
     /// Tool errors
     #[error("Tool error: {0}")]
     Tool(#[from] tools::ToolError),
-    
+
     /// Agent errors
     #[error("Agent error: {0}")]
     Agent(#[from] agents::AgentError),
-    
+
     /// Advanced state errors
     #[error("Advanced state error: {0}")]
     AdvancedState(#[from] state::advanced::StateError),
-    
+
     /// Join error from async tasks
     #[error("Async join error: {0}")]
     Join(#[from] tokio::task::JoinError),
-    
+
     /// Generic error for unexpected conditions
     #[error("Internal error: {0}")]
     Internal(String),
-    
+
     /// Graph validation error
     #[error("Graph validation error: {0}")]
     GraphValidation(String),
-    
+
     /// State error
     #[error("State error: {0}")]
     StateError(String),
@@ -156,15 +156,15 @@ pub mod agents;
 /// Utility functions and helpers
 pub mod utils;
 
-/// Message-based graph execution
-pub mod message;
 pub mod backup;
 pub mod batch;
+/// Message-based graph execution
+pub mod message;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_node_creation() {
         let node = graph::Node {
@@ -172,15 +172,15 @@ mod tests {
             node_type: graph::NodeType::Start,
             metadata: None,
         };
-        
+
         assert_eq!(node.id, "test_node");
         matches!(node.node_type, graph::NodeType::Start);
     }
-    
+
     #[test]
     fn test_state_initialization() {
         let state = state::GraphState::new();
-        
+
         assert!(state.values.is_empty());
         assert!(state.history.is_empty());
         assert!(state.current_node.is_none());

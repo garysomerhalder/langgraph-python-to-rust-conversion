@@ -2,9 +2,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use langgraph::{
-    batch::{BatchExecutor, BatchJob, BatchConfig, BatchJobStatus},
+    batch::{BatchConfig, BatchExecutor, BatchJob, BatchJobStatus},
     engine::ExecutionEngine,
-    graph::{CompiledGraph, StateGraph, Node, NodeType, Edge, EdgeType},
+    graph::{CompiledGraph, Edge, EdgeType, Node, NodeType, StateGraph},
     state::StateData,
 };
 use serde_json::json;
@@ -34,15 +34,18 @@ fn create_test_graph() -> CompiledGraph {
         edge_type: EdgeType::Direct,
         metadata: None,
     };
-    graph.add_edge("__start__", "__end__", edge).expect("Failed to add edge");
+    graph
+        .add_edge("__start__", "__end__", edge)
+        .expect("Failed to add edge");
 
     // Set entry point
-    graph.set_entry_point("__start__").expect("Failed to set entry point");
+    graph
+        .set_entry_point("__start__")
+        .expect("Failed to set entry point");
 
     // Compile the graph
     graph.compile().expect("Failed to compile test graph")
 }
-
 
 #[tokio::test]
 async fn test_batch_executor_single_job() {
@@ -53,9 +56,7 @@ async fn test_batch_executor_single_job() {
 
     // Use the minimal test graph for batch execution
     let graph = create_test_graph();
-    let input: StateData = HashMap::from([
-        ("initial".to_string(), json!("test"))
-    ]);
+    let input: StateData = HashMap::from([("initial".to_string(), json!("test"))]);
 
     let jobs = vec![BatchJob {
         id: "job1".to_string(),
@@ -64,7 +65,10 @@ async fn test_batch_executor_single_job() {
         priority: 1,
     }];
 
-    let results = executor.execute_batch(jobs).await.expect("Batch execution failed");
+    let results = executor
+        .execute_batch(jobs)
+        .await
+        .expect("Batch execution failed");
 
     assert_eq!(results.len(), 1);
     let result = &results[0];
@@ -103,7 +107,10 @@ async fn test_batch_executor_multiple_jobs() {
         });
     }
 
-    let results = executor.execute_batch(jobs).await.expect("Batch execution failed");
+    let results = executor
+        .execute_batch(jobs)
+        .await
+        .expect("Batch execution failed");
     assert_eq!(results.len(), 5);
 }
 
@@ -121,9 +128,7 @@ async fn test_batch_executor_concurrency_limit() {
     let mut jobs = Vec::new();
 
     for i in 0..5 {
-        let input: StateData = HashMap::from([
-            ("job_id".to_string(), json!(i))
-        ]);
+        let input: StateData = HashMap::from([("job_id".to_string(), json!(i))]);
 
         jobs.push(BatchJob {
             id: format!("job{}", i),
@@ -133,7 +138,10 @@ async fn test_batch_executor_concurrency_limit() {
         });
     }
 
-    let results = executor.execute_batch(jobs).await.expect("Batch execution failed");
+    let results = executor
+        .execute_batch(jobs)
+        .await
+        .expect("Batch execution failed");
     assert_eq!(results.len(), 5);
 }
 
@@ -145,7 +153,10 @@ async fn test_batch_executor_empty_batch() {
     let executor = BatchExecutor::new(config, engine);
 
     let jobs = vec![];
-    let results = executor.execute_batch(jobs).await.expect("Empty batch execution failed");
+    let results = executor
+        .execute_batch(jobs)
+        .await
+        .expect("Empty batch execution failed");
 
     assert_eq!(results.len(), 0);
 }

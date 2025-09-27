@@ -2,15 +2,15 @@
 
 use super::storage::BackupStorage;
 use super::types::{
-    Backup, BackupError, BackupFilter, BackupMetadata, BackupType, CleanupResult,
-    RestoreResult, RetentionPolicy, VerificationResult,
+    Backup, BackupError, BackupFilter, BackupMetadata, BackupType, CleanupResult, RestoreResult,
+    RetentionPolicy, VerificationResult,
 };
 use crate::checkpoint::Checkpointer;
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
-use sha2::{Digest, Sha256};
 
 pub struct BackupManager {
     storage: Box<dyn BackupStorage + Send + Sync>,
@@ -48,32 +48,50 @@ impl BackupManager {
 
         // For YELLOW phase, we'll collect data from known threads
         // In GREEN phase, this will be more comprehensive
-        let known_threads = vec!["backup_test_thread", "restore_test_thread", "incremental_test_thread",
-                                "cross_backend_test", "retention_test_thread", "verification_test",
-                                "workflow_1", "workflow_2", "workflow_3"];
+        let known_threads = vec![
+            "backup_test_thread",
+            "restore_test_thread",
+            "incremental_test_thread",
+            "cross_backend_test",
+            "retention_test_thread",
+            "verification_test",
+            "workflow_1",
+            "workflow_2",
+            "workflow_3",
+        ];
 
         for thread_id in known_threads {
-            if let Ok(Some((checkpoint_data, metadata))) = checkpointer.load(thread_id, None).await {
-                let thread_data = threads_data.entry(thread_id.to_string()).or_insert_with(HashMap::new);
+            if let Ok(Some((checkpoint_data, metadata))) = checkpointer.load(thread_id, None).await
+            {
+                let thread_data = threads_data
+                    .entry(thread_id.to_string())
+                    .or_insert_with(HashMap::new);
                 let checkpoint_id = format!("checkpoint_{}", thread_id);
-                thread_data.insert(checkpoint_id, json!({
-                    "data": checkpoint_data,
-                    "metadata": metadata
-                }));
+                thread_data.insert(
+                    checkpoint_id,
+                    json!({
+                        "data": checkpoint_data,
+                        "metadata": metadata
+                    }),
+                );
             }
         }
 
         // Store backup metadata and collected data
-        backup_data.insert("backup_info".to_string(), json!({
-            "id": backup_id,
-            "type": "full",
-            "created_at": timestamp,
-            "source_backend": "memory", // Will be detected dynamically in GREEN phase
-        }));
+        backup_data.insert(
+            "backup_info".to_string(),
+            json!({
+                "id": backup_id,
+                "type": "full",
+                "created_at": timestamp,
+                "source_backend": "memory", // Will be detected dynamically in GREEN phase
+            }),
+        );
         backup_data.insert("threads".to_string(), json!(threads_data));
 
-        let serialized_data = serde_json::to_vec(&backup_data)
-            .map_err(|e| BackupError::SerializationError(format!("Failed to serialize backup data: {}", e)))?;
+        let serialized_data = serde_json::to_vec(&backup_data).map_err(|e| {
+            BackupError::SerializationError(format!("Failed to serialize backup data: {}", e))
+        })?;
 
         // Calculate checksum
         let mut hasher = Sha256::new();
@@ -126,8 +144,9 @@ impl BackupManager {
             "changes": "incremental_changes_placeholder"
         });
 
-        let serialized_data = serde_json::to_vec(&backup_data)
-            .map_err(|e| BackupError::SerializationError(format!("Failed to serialize incremental data: {}", e)))?;
+        let serialized_data = serde_json::to_vec(&backup_data).map_err(|e| {
+            BackupError::SerializationError(format!("Failed to serialize incremental data: {}", e))
+        })?;
 
         let mut hasher = Sha256::new();
         hasher.update(&serialized_data);
@@ -176,8 +195,12 @@ impl BackupManager {
             }
         });
 
-        let serialized_data = serde_json::to_vec(&backup_data)
-            .map_err(|e| BackupError::SerializationError(format!("Failed to serialize disaster recovery data: {}", e)))?;
+        let serialized_data = serde_json::to_vec(&backup_data).map_err(|e| {
+            BackupError::SerializationError(format!(
+                "Failed to serialize disaster recovery data: {}",
+                e
+            ))
+        })?;
 
         let mut hasher = Sha256::new();
         hasher.update(&serialized_data);
@@ -215,8 +238,9 @@ impl BackupManager {
         let start_time = SystemTime::now();
 
         // Parse backup data
-        let backup_data: Value = serde_json::from_slice(&backup.data)
-            .map_err(|e| BackupError::SerializationError(format!("Failed to deserialize backup data: {}", e)))?;
+        let backup_data: Value = serde_json::from_slice(&backup.data).map_err(|e| {
+            BackupError::SerializationError(format!("Failed to deserialize backup data: {}", e))
+        })?;
 
         let mut restored_checkpoints = 0;
         let mut restored_threads = 0;
@@ -231,20 +255,37 @@ impl BackupManager {
                         if let Some(checkpoint_obj) = checkpoint_info.as_object() {
                             // Extract checkpoint data and metadata
                             if let (Some(data_value), Some(metadata_value)) =
-                                (checkpoint_obj.get("data"), checkpoint_obj.get("metadata")) {
-
+                                (checkpoint_obj.get("data"), checkpoint_obj.get("metadata"))
+                            {
                                 // Convert back to HashMap format expected by checkpointer
                                 let checkpoint_data: HashMap<String, Value> =
-                                    serde_json::from_value(data_value.clone())
-                                    .map_err(|e| BackupError::SerializationError(format!("Failed to deserialize checkpoint data: {}", e)))?;
+                                    serde_json::from_value(data_value.clone()).map_err(|e| {
+                                        BackupError::SerializationError(format!(
+                                            "Failed to deserialize checkpoint data: {}",
+                                            e
+                                        ))
+                                    })?;
 
-                                let metadata: HashMap<String, Value> =
-                                    serde_json::from_value(metadata_value.clone())
-                                    .map_err(|e| BackupError::SerializationError(format!("Failed to deserialize metadata: {}", e)))?;
+                                let metadata: HashMap<String, Value> = serde_json::from_value(
+                                    metadata_value.clone(),
+                                )
+                                .map_err(|e| {
+                                    BackupError::SerializationError(format!(
+                                        "Failed to deserialize metadata: {}",
+                                        e
+                                    ))
+                                })?;
 
                                 // Save to target checkpointer
-                                target.save(thread_id, checkpoint_data, metadata, None).await
-                                    .map_err(|e| BackupError::StorageError(format!("Failed to restore checkpoint: {}", e)))?;
+                                target
+                                    .save(thread_id, checkpoint_data, metadata, None)
+                                    .await
+                                    .map_err(|e| {
+                                        BackupError::StorageError(format!(
+                                            "Failed to restore checkpoint: {}",
+                                            e
+                                        ))
+                                    })?;
 
                                 restored_checkpoints += 1;
                             }
@@ -301,7 +342,10 @@ impl BackupManager {
     }
 
     // List backups
-    pub async fn list_backups(&self, filter: Option<BackupFilter>) -> Result<Vec<BackupMetadata>, BackupError> {
+    pub async fn list_backups(
+        &self,
+        filter: Option<BackupFilter>,
+    ) -> Result<Vec<BackupMetadata>, BackupError> {
         self.storage.list_backups(filter).await
     }
 
@@ -366,7 +410,11 @@ impl BackupManager {
         Ok(VerificationResult {
             is_valid: checksum_match,
             checksum_match,
-            corruption_errors: if checksum_match { Vec::new() } else { vec!["Checksum mismatch".to_string()] },
+            corruption_errors: if checksum_match {
+                Vec::new()
+            } else {
+                vec!["Checksum mismatch".to_string()]
+            },
             metadata_valid: true, // Simplified validation for YELLOW phase
             data_integrity_check: checksum_match,
             metadata_integrity_check: true,

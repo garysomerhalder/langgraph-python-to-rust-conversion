@@ -2,10 +2,10 @@
 //! RED Phase: Writing failing tests for HIL-005
 
 use langgraph::{
+    checkpoint::Checkpointer,
     engine::{ExecutionEngine, ResumptionManager, ResumptionPoint, WorkflowSnapshot},
     graph::GraphBuilder,
     state::StateData,
-    checkpoint::Checkpointer,
     Result,
 };
 use serde_json::json;
@@ -22,9 +22,18 @@ async fn test_basic_resumption() -> Result<()> {
     // Create a simple graph
     let graph = GraphBuilder::new("resumption_test")
         .add_node("start", langgraph::graph::NodeType::Start)
-        .add_node("process1", langgraph::graph::NodeType::Agent("processor1".to_string()))
-        .add_node("checkpoint", langgraph::graph::NodeType::Agent("checkpoint".to_string()))
-        .add_node("process2", langgraph::graph::NodeType::Agent("processor2".to_string()))
+        .add_node(
+            "process1",
+            langgraph::graph::NodeType::Agent("processor1".to_string()),
+        )
+        .add_node(
+            "checkpoint",
+            langgraph::graph::NodeType::Agent("checkpoint".to_string()),
+        )
+        .add_node(
+            "process2",
+            langgraph::graph::NodeType::Agent("processor2".to_string()),
+        )
         .add_node("end", langgraph::graph::NodeType::End)
         .set_entry_point("start")
         .add_edge("start", "process1")
@@ -38,28 +47,21 @@ async fn test_basic_resumption() -> Result<()> {
     input.insert("value".to_string(), json!(1));
 
     // Execute until checkpoint
-    let execution_id = engine.execute_until(
-        graph.clone(),
-        input.clone(),
-        "checkpoint",
-    ).await?;
+    let execution_id = engine
+        .execute_until(graph.clone(), input.clone(), "checkpoint")
+        .await?;
 
     // Save resumption point
-    let snapshot = resumption.save_resumption_point(
-        &execution_id,
-        "checkpoint",
-        &engine,
-    ).await?;
+    let snapshot = resumption
+        .save_resumption_point(&execution_id, "checkpoint", &engine)
+        .await?;
 
     // Verify snapshot contains correct state
     assert_eq!(snapshot.last_completed_node, "checkpoint");
     assert!(snapshot.state.contains_key("value"));
 
     // Resume execution from checkpoint
-    let result = engine.resume_from(
-        snapshot,
-        graph,
-    ).await?;
+    let result = engine.resume_from(snapshot, graph).await?;
 
     // Verify execution completed
     assert!(result.contains_key("value"));
@@ -75,7 +77,10 @@ async fn test_resumption_with_modification() -> Result<()> {
 
     let graph = GraphBuilder::new("modify_test")
         .add_node("start", langgraph::graph::NodeType::Start)
-        .add_node("process", langgraph::graph::NodeType::Agent("processor".to_string()))
+        .add_node(
+            "process",
+            langgraph::graph::NodeType::Agent("processor".to_string()),
+        )
         .add_node("end", langgraph::graph::NodeType::End)
         .set_entry_point("start")
         .add_edge("start", "process")
@@ -87,28 +92,21 @@ async fn test_resumption_with_modification() -> Result<()> {
     input.insert("counter".to_string(), json!(10));
 
     // Execute and suspend
-    let execution_id = engine.execute_until(
-        graph.clone(),
-        input,
-        "process",
-    ).await?;
+    let execution_id = engine
+        .execute_until(graph.clone(), input, "process")
+        .await?;
 
     // Get snapshot
-    let mut snapshot = resumption.save_resumption_point(
-        &execution_id,
-        "process",
-        &engine,
-    ).await?;
+    let mut snapshot = resumption
+        .save_resumption_point(&execution_id, "process", &engine)
+        .await?;
 
     // Modify state before resumption
     snapshot.state.insert("counter".to_string(), json!(20));
     snapshot.state.insert("modified".to_string(), json!(true));
 
     // Resume with modified state
-    let result = engine.resume_from(
-        snapshot,
-        graph,
-    ).await?;
+    let result = engine.resume_from(snapshot, graph).await?;
 
     assert_eq!(result.get("counter"), Some(&json!(20)));
     assert_eq!(result.get("modified"), Some(&json!(true)));
@@ -124,9 +122,18 @@ async fn test_multiple_resumption_points() -> Result<()> {
 
     let graph = GraphBuilder::new("multi_resume")
         .add_node("start", langgraph::graph::NodeType::Start)
-        .add_node("stage1", langgraph::graph::NodeType::Agent("stage1".to_string()))
-        .add_node("stage2", langgraph::graph::NodeType::Agent("stage2".to_string()))
-        .add_node("stage3", langgraph::graph::NodeType::Agent("stage3".to_string()))
+        .add_node(
+            "stage1",
+            langgraph::graph::NodeType::Agent("stage1".to_string()),
+        )
+        .add_node(
+            "stage2",
+            langgraph::graph::NodeType::Agent("stage2".to_string()),
+        )
+        .add_node(
+            "stage3",
+            langgraph::graph::NodeType::Agent("stage3".to_string()),
+        )
         .add_node("end", langgraph::graph::NodeType::End)
         .set_entry_point("start")
         .add_edge("start", "stage1")
@@ -144,15 +151,21 @@ async fn test_multiple_resumption_points() -> Result<()> {
 
     // Save at stage1
     engine.execute_next_node(&exec_id).await?;
-    let snapshot1 = resumption.save_resumption_point(&exec_id, "stage1", &engine).await?;
+    let snapshot1 = resumption
+        .save_resumption_point(&exec_id, "stage1", &engine)
+        .await?;
 
     // Save at stage2
     engine.execute_next_node(&exec_id).await?;
-    let snapshot2 = resumption.save_resumption_point(&exec_id, "stage2", &engine).await?;
+    let snapshot2 = resumption
+        .save_resumption_point(&exec_id, "stage2", &engine)
+        .await?;
 
     // Save at stage3
     engine.execute_next_node(&exec_id).await?;
-    let snapshot3 = resumption.save_resumption_point(&exec_id, "stage3", &engine).await?;
+    let snapshot3 = resumption
+        .save_resumption_point(&exec_id, "stage3", &engine)
+        .await?;
 
     // Verify we can resume from any point
     assert_eq!(snapshot1.last_completed_node, "stage1");
@@ -160,7 +173,9 @@ async fn test_multiple_resumption_points() -> Result<()> {
     assert_eq!(snapshot3.last_completed_node, "stage3");
 
     // List all resumption points
-    let points = resumption.list_resumption_points(&exec_id.to_string()).await;
+    let points = resumption
+        .list_resumption_points(&exec_id.to_string())
+        .await;
     assert_eq!(points.len(), 3);
 
     Ok(())
@@ -175,7 +190,10 @@ async fn test_checkpointer_integration() -> Result<()> {
 
     let graph = GraphBuilder::new("checkpoint_test")
         .add_node("start", langgraph::graph::NodeType::Start)
-        .add_node("work", langgraph::graph::NodeType::Agent("worker".to_string()))
+        .add_node(
+            "work",
+            langgraph::graph::NodeType::Agent("worker".to_string()),
+        )
         .add_node("end", langgraph::graph::NodeType::End)
         .set_entry_point("start")
         .add_edge("start", "work")
@@ -187,20 +205,19 @@ async fn test_checkpointer_integration() -> Result<()> {
     input.insert("data".to_string(), json!("test"));
 
     // Execute with checkpointing
-    let result = engine.execute_with_checkpointing(
-        graph.clone(),
-        input,
-        Arc::new(checkpointer.clone()),
-    ).await?;
+    let result = engine
+        .execute_with_checkpointing(graph.clone(), input, Arc::new(checkpointer.clone()))
+        .await?;
     let exec_id = Uuid::new_v4(); // For now, generate an ID
 
     // Create resumption from checkpoint
-    let checkpoint_id = checkpointer.get_latest_checkpoint(&exec_id.to_string()).await
+    let checkpoint_id = checkpointer
+        .get_latest_checkpoint(&exec_id.to_string())
+        .await
         .map_err(|e| langgraph::LangGraphError::Execution(format!("Checkpoint error: {}", e)))?;
-    let snapshot = resumption.create_from_checkpoint(
-        &checkpoint_id,
-        &checkpointer,
-    ).await?;
+    let snapshot = resumption
+        .create_from_checkpoint(&checkpoint_id, &checkpointer)
+        .await?;
 
     // Resume from checkpoint
     let result = engine.resume_from(snapshot, graph).await?;
@@ -218,13 +235,24 @@ async fn test_error_recovery() -> Result<()> {
 
     let graph = GraphBuilder::new("error_recovery")
         .add_node("start", langgraph::graph::NodeType::Start)
-        .add_node("risky_op", langgraph::graph::NodeType::Agent("risky".to_string()))
-        .add_node("recovery", langgraph::graph::NodeType::Agent("recovery".to_string()))
+        .add_node(
+            "risky_op",
+            langgraph::graph::NodeType::Agent("risky".to_string()),
+        )
+        .add_node(
+            "recovery",
+            langgraph::graph::NodeType::Agent("recovery".to_string()),
+        )
         .add_node("end", langgraph::graph::NodeType::End)
         .set_entry_point("start")
         .add_edge("start", "risky_op")
         .add_conditional_edge("risky_op", "success_check".to_string(), "end")
-        .add_conditional_edge_with_fallback("risky_op", "error_check".to_string(), "recovery", "end")
+        .add_conditional_edge_with_fallback(
+            "risky_op",
+            "error_check".to_string(),
+            "recovery",
+            "end",
+        )
         .add_edge("recovery", "end")
         .build()?
         .compile()?;
@@ -236,20 +264,21 @@ async fn test_error_recovery() -> Result<()> {
     let exec_id = engine.start_execution(graph.clone(), input.clone()).await?;
 
     // Execute until error occurs
-    let (result_state, failed_node) = engine.execute_until_error(Arc::new(graph.clone()), input).await?;
+    let (result_state, failed_node) = engine
+        .execute_until_error(Arc::new(graph.clone()), input)
+        .await?;
 
     // Save error state (simulating an error)
     let error_msg = "Simulated failure in risky_op";
-    let error_snapshot = resumption.save_error_state(
-        exec_id,
-        "risky_op",
-        error_msg,
-        result_state.clone(),
-    ).await?;
+    let error_snapshot = resumption
+        .save_error_state(exec_id, "risky_op", error_msg, result_state.clone())
+        .await?;
 
     // Modify state to fix issue
     let mut recovery_snapshot = error_snapshot.clone();
-    recovery_snapshot.state.insert("fixed".to_string(), json!(true));
+    recovery_snapshot
+        .state
+        .insert("fixed".to_string(), json!(true));
     recovery_snapshot.next_node = Some("recovery".to_string());
 
     // Resume with recovery
@@ -268,10 +297,22 @@ async fn test_partial_results() -> Result<()> {
 
     let graph = GraphBuilder::new("partial_test")
         .add_node("start", langgraph::graph::NodeType::Start)
-        .add_node("collect1", langgraph::graph::NodeType::Agent("collector1".to_string()))
-        .add_node("collect2", langgraph::graph::NodeType::Agent("collector2".to_string()))
-        .add_node("collect3", langgraph::graph::NodeType::Agent("collector3".to_string()))
-        .add_node("aggregate", langgraph::graph::NodeType::Agent("aggregator".to_string()))
+        .add_node(
+            "collect1",
+            langgraph::graph::NodeType::Agent("collector1".to_string()),
+        )
+        .add_node(
+            "collect2",
+            langgraph::graph::NodeType::Agent("collector2".to_string()),
+        )
+        .add_node(
+            "collect3",
+            langgraph::graph::NodeType::Agent("collector3".to_string()),
+        )
+        .add_node(
+            "aggregate",
+            langgraph::graph::NodeType::Agent("aggregator".to_string()),
+        )
         .add_node("end", langgraph::graph::NodeType::End)
         .set_entry_point("start")
         .add_edge("start", "collect1")
@@ -290,8 +331,12 @@ async fn test_partial_results() -> Result<()> {
     // Execute first two collectors
     let current_state = engine.get_current_state().await?;
     let graph_arc = Arc::new(graph.clone());
-    engine.execute_node(graph_arc.clone(), "collect1", current_state.clone()).await?;
-    engine.execute_node(graph_arc.clone(), "collect2", current_state).await?;
+    engine
+        .execute_node(graph_arc.clone(), "collect1", current_state.clone())
+        .await?;
+    engine
+        .execute_node(graph_arc.clone(), "collect2", current_state)
+        .await?;
 
     // Get partial results
     let partial = resumption.get_partial_results(&exec_id).await;
@@ -302,7 +347,9 @@ async fn test_partial_results() -> Result<()> {
 
     // Save partial state and create snapshot
     let current_state = engine.get_current_state().await?;
-    resumption.save_partial_state(&exec_id, current_state.clone()).await?;
+    resumption
+        .save_partial_state(&exec_id, current_state.clone())
+        .await?;
 
     // Create a snapshot for resumption
     let snapshot = WorkflowSnapshot::new(
@@ -336,7 +383,8 @@ async fn test_resumption_history() -> Result<()> {
             "test_graph".to_string(),
             format!("node_{}", i),
             StateData::new(),
-        ).unwrap();
+        )
+        .unwrap();
         snapshot.next_node = Some(format!("node_{}", i + 1));
 
         resumption.record_resumption(snapshot).await;
@@ -367,13 +415,16 @@ async fn test_concurrent_resumption() -> Result<()> {
     let graph = Arc::new(
         GraphBuilder::new("concurrent_test")
             .add_node("start", langgraph::graph::NodeType::Start)
-            .add_node("parallel", langgraph::graph::NodeType::Agent("parallel".to_string()))
+            .add_node(
+                "parallel",
+                langgraph::graph::NodeType::Agent("parallel".to_string()),
+            )
             .add_node("end", langgraph::graph::NodeType::End)
             .set_entry_point("start")
             .add_edge("start", "parallel")
             .add_edge("parallel", "end")
             .build()?
-            .compile()?
+            .compile()?,
     );
 
     let mut handles = Vec::new();
@@ -389,18 +440,16 @@ async fn test_concurrent_resumption() -> Result<()> {
             input.insert("worker".to_string(), json!(i));
 
             // Execute and suspend
-            let exec_id = eng.execute_until(
-                (*g).clone(),
-                input,
-                "parallel",
-            ).await.unwrap();
+            let exec_id = eng
+                .execute_until((*g).clone(), input, "parallel")
+                .await
+                .unwrap();
 
             // Save resumption point
-            let snapshot = res.save_resumption_point(
-                &exec_id,
-                "parallel",
-                &eng,
-            ).await.unwrap();
+            let snapshot = res
+                .save_resumption_point(&exec_id, "parallel", &eng)
+                .await
+                .unwrap();
 
             // Resume
             eng.resume_from(snapshot, (*g).clone()).await
@@ -430,7 +479,8 @@ async fn test_resumption_cleanup() -> Result<()> {
             "test".to_string(),
             "node".to_string(),
             StateData::new(),
-        ).unwrap();
+        )
+        .unwrap();
         snapshot.next_node = None;
         snapshot.timestamp = chrono::Utc::now() - chrono::Duration::days(i as i64 + 1);
 
@@ -438,7 +488,9 @@ async fn test_resumption_cleanup() -> Result<()> {
     }
 
     // Clean up old resumptions (older than 7 days)
-    let removed = resumption.cleanup_old_resumptions(chrono::Duration::days(7)).await?;
+    let removed = resumption
+        .cleanup_old_resumptions(chrono::Duration::days(7))
+        .await?;
     assert_eq!(removed, 3); // Days 8, 9, 10
 
     // Verify cleanup

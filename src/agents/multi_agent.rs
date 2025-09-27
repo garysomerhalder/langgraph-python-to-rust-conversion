@@ -1,20 +1,17 @@
 //! Multi-agent coordination system with 9 specialized subagents
-//! 
+//!
 //! This module implements a sophisticated multi-agent system for complex
 //! problem solving and task orchestration.
 
 use async_trait::async_trait;
-use std::sync::Arc;
-use tokio::sync::RwLock;
+use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
-use dashmap::DashMap;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
-use crate::{
-    Result, LangGraphError,
-    agents::AgentMemory,
-};
+use crate::{agents::AgentMemory, LangGraphError, Result};
 
 /// Context for agent execution
 #[derive(Debug, Clone)]
@@ -103,16 +100,16 @@ pub enum MessageType {
 pub trait SpecializedAgent: Send + Sync {
     /// Get the agent's role
     fn role(&self) -> AgentRole;
-    
+
     /// Get agent capabilities
     fn capabilities(&self) -> &AgentCapability;
-    
+
     /// Process a message from another agent
     async fn process_message(&self, message: AgentMessage) -> Result<AgentMessage>;
-    
+
     /// Execute the agent's primary task
     async fn execute_task(&self, context: &AgentContext, input: Value) -> Result<Value>;
-    
+
     /// Collaborate with other agents
     async fn collaborate(&self, agents: &[AgentRole], task: Value) -> Result<Value>;
 }
@@ -144,7 +141,7 @@ impl ResearchAgent {
             knowledge_base: Arc::new(DashMap::new()),
         }
     }
-    
+
     async fn gather_information(&self, topic: &str) -> Result<Value> {
         // Research implementation
         let research_data = serde_json::json!({
@@ -153,10 +150,11 @@ impl ResearchAgent {
             "recommendations": ["approach_1", "approach_2"],
             "confidence": 0.85
         });
-        
+
         // Store in knowledge base
-        self.knowledge_base.insert(topic.to_string(), research_data.clone());
-        
+        self.knowledge_base
+            .insert(topic.to_string(), research_data.clone());
+
         Ok(research_data)
     }
 }
@@ -166,19 +164,20 @@ impl SpecializedAgent for ResearchAgent {
     fn role(&self) -> AgentRole {
         self.role
     }
-    
+
     fn capabilities(&self) -> &AgentCapability {
         &self.capabilities
     }
-    
+
     async fn process_message(&self, message: AgentMessage) -> Result<AgentMessage> {
         let response = match message.message_type {
             MessageType::Request => {
-                self.gather_information(message.payload.as_str().unwrap_or("")).await?
+                self.gather_information(message.payload.as_str().unwrap_or(""))
+                    .await?
             }
             _ => serde_json::json!({"status": "processed"}),
         };
-        
+
         Ok(AgentMessage {
             from: self.role,
             to: message.from,
@@ -188,12 +187,12 @@ impl SpecializedAgent for ResearchAgent {
             correlation_id: message.correlation_id,
         })
     }
-    
+
     async fn execute_task(&self, _context: &AgentContext, input: Value) -> Result<Value> {
         let topic = input["topic"].as_str().unwrap_or("general");
         self.gather_information(topic).await
     }
-    
+
     async fn collaborate(&self, agents: &[AgentRole], _task: Value) -> Result<Value> {
         let mut results = Vec::new();
         for agent in agents {
@@ -230,7 +229,7 @@ impl ArchitectAgent {
             design_patterns: Arc::new(DashMap::new()),
         }
     }
-    
+
     async fn design_system(&self, requirements: &Value) -> Result<Value> {
         let design = serde_json::json!({
             "architecture": "microservices",
@@ -239,8 +238,9 @@ impl ArchitectAgent {
             "scalability": "horizontal",
             "requirements": requirements
         });
-        
-        self.design_patterns.insert("current_design".to_string(), design.clone());
+
+        self.design_patterns
+            .insert("current_design".to_string(), design.clone());
         Ok(design)
     }
 }
@@ -250,19 +250,17 @@ impl SpecializedAgent for ArchitectAgent {
     fn role(&self) -> AgentRole {
         self.role
     }
-    
+
     fn capabilities(&self) -> &AgentCapability {
         &self.capabilities
     }
-    
+
     async fn process_message(&self, message: AgentMessage) -> Result<AgentMessage> {
         let response = match message.message_type {
-            MessageType::Request => {
-                self.design_system(&message.payload).await?
-            }
+            MessageType::Request => self.design_system(&message.payload).await?,
             _ => serde_json::json!({"status": "processed"}),
         };
-        
+
         Ok(AgentMessage {
             from: self.role,
             to: message.from,
@@ -272,11 +270,11 @@ impl SpecializedAgent for ArchitectAgent {
             correlation_id: message.correlation_id,
         })
     }
-    
+
     async fn execute_task(&self, _context: &AgentContext, input: Value) -> Result<Value> {
         self.design_system(&input).await
     }
-    
+
     async fn collaborate(&self, agents: &[AgentRole], _task: Value) -> Result<Value> {
         let mut integrations = Vec::new();
         for agent in agents {
@@ -313,7 +311,7 @@ impl CodeAgent {
             code_repository: Arc::new(DashMap::new()),
         }
     }
-    
+
     async fn implement_feature(&self, spec: &Value) -> Result<Value> {
         let implementation = serde_json::json!({
             "feature": spec["name"],
@@ -322,7 +320,7 @@ impl CodeAgent {
             "status": "implemented",
             "coverage": 0.95
         });
-        
+
         Ok(implementation)
     }
 }
@@ -332,19 +330,17 @@ impl SpecializedAgent for CodeAgent {
     fn role(&self) -> AgentRole {
         self.role
     }
-    
+
     fn capabilities(&self) -> &AgentCapability {
         &self.capabilities
     }
-    
+
     async fn process_message(&self, message: AgentMessage) -> Result<AgentMessage> {
         let response = match message.message_type {
-            MessageType::Request => {
-                self.implement_feature(&message.payload).await?
-            }
+            MessageType::Request => self.implement_feature(&message.payload).await?,
             _ => serde_json::json!({"status": "processed"}),
         };
-        
+
         Ok(AgentMessage {
             from: self.role,
             to: message.from,
@@ -354,11 +350,11 @@ impl SpecializedAgent for CodeAgent {
             correlation_id: message.correlation_id,
         })
     }
-    
+
     async fn execute_task(&self, _context: &AgentContext, input: Value) -> Result<Value> {
         self.implement_feature(&input).await
     }
-    
+
     async fn collaborate(&self, _agents: &[AgentRole], _task: Value) -> Result<Value> {
         Ok(serde_json::json!({"collaboration": "code_review_completed"}))
     }
@@ -389,7 +385,7 @@ impl QAAgent {
             test_results: Arc::new(DashMap::new()),
         }
     }
-    
+
     async fn run_tests(&self, code: &Value) -> Result<Value> {
         let results = serde_json::json!({
             "tests_run": 142,
@@ -399,8 +395,9 @@ impl QAAgent {
             "performance": "optimal",
             "code": code["feature"]
         });
-        
-        self.test_results.insert("latest".to_string(), results.clone());
+
+        self.test_results
+            .insert("latest".to_string(), results.clone());
         Ok(results)
     }
 }
@@ -410,19 +407,17 @@ impl SpecializedAgent for QAAgent {
     fn role(&self) -> AgentRole {
         self.role
     }
-    
+
     fn capabilities(&self) -> &AgentCapability {
         &self.capabilities
     }
-    
+
     async fn process_message(&self, message: AgentMessage) -> Result<AgentMessage> {
         let response = match message.message_type {
-            MessageType::Request => {
-                self.run_tests(&message.payload).await?
-            }
+            MessageType::Request => self.run_tests(&message.payload).await?,
             _ => serde_json::json!({"status": "processed"}),
         };
-        
+
         Ok(AgentMessage {
             from: self.role,
             to: message.from,
@@ -432,11 +427,11 @@ impl SpecializedAgent for QAAgent {
             correlation_id: message.correlation_id,
         })
     }
-    
+
     async fn execute_task(&self, _context: &AgentContext, input: Value) -> Result<Value> {
         self.run_tests(&input).await
     }
-    
+
     async fn collaborate(&self, _agents: &[AgentRole], _task: Value) -> Result<Value> {
         Ok(serde_json::json!({"collaboration": "test_coordination_complete"}))
     }
@@ -467,7 +462,7 @@ impl DevOpsAgent {
             deployments: Arc::new(DashMap::new()),
         }
     }
-    
+
     async fn deploy_application(&self, artifact: &Value) -> Result<Value> {
         let deployment = serde_json::json!({
             "environment": "production",
@@ -480,8 +475,9 @@ impl DevOpsAgent {
                 "requests_per_second": 1000
             }
         });
-        
-        self.deployments.insert("current".to_string(), deployment.clone());
+
+        self.deployments
+            .insert("current".to_string(), deployment.clone());
         Ok(deployment)
     }
 }
@@ -491,19 +487,17 @@ impl SpecializedAgent for DevOpsAgent {
     fn role(&self) -> AgentRole {
         self.role
     }
-    
+
     fn capabilities(&self) -> &AgentCapability {
         &self.capabilities
     }
-    
+
     async fn process_message(&self, message: AgentMessage) -> Result<AgentMessage> {
         let response = match message.message_type {
-            MessageType::Request => {
-                self.deploy_application(&message.payload).await?
-            }
+            MessageType::Request => self.deploy_application(&message.payload).await?,
             _ => serde_json::json!({"status": "processed"}),
         };
-        
+
         Ok(AgentMessage {
             from: self.role,
             to: message.from,
@@ -513,11 +507,11 @@ impl SpecializedAgent for DevOpsAgent {
             correlation_id: message.correlation_id,
         })
     }
-    
+
     async fn execute_task(&self, _context: &AgentContext, input: Value) -> Result<Value> {
         self.deploy_application(&input).await
     }
-    
+
     async fn collaborate(&self, _agents: &[AgentRole], _task: Value) -> Result<Value> {
         Ok(serde_json::json!({"collaboration": "deployment_coordinated"}))
     }
@@ -548,7 +542,7 @@ impl SecurityAgent {
             vulnerabilities: Arc::new(DashMap::new()),
         }
     }
-    
+
     async fn security_scan(&self, target: &Value) -> Result<Value> {
         let scan_results = serde_json::json!({
             "target": target["name"],
@@ -557,7 +551,7 @@ impl SecurityAgent {
             "risk_level": "low",
             "recommendations": ["enable_2fa", "update_dependencies"]
         });
-        
+
         Ok(scan_results)
     }
 }
@@ -567,19 +561,17 @@ impl SpecializedAgent for SecurityAgent {
     fn role(&self) -> AgentRole {
         self.role
     }
-    
+
     fn capabilities(&self) -> &AgentCapability {
         &self.capabilities
     }
-    
+
     async fn process_message(&self, message: AgentMessage) -> Result<AgentMessage> {
         let response = match message.message_type {
-            MessageType::Request => {
-                self.security_scan(&message.payload).await?
-            }
+            MessageType::Request => self.security_scan(&message.payload).await?,
             _ => serde_json::json!({"status": "processed"}),
         };
-        
+
         Ok(AgentMessage {
             from: self.role,
             to: message.from,
@@ -589,11 +581,11 @@ impl SpecializedAgent for SecurityAgent {
             correlation_id: message.correlation_id,
         })
     }
-    
+
     async fn execute_task(&self, _context: &AgentContext, input: Value) -> Result<Value> {
         self.security_scan(&input).await
     }
-    
+
     async fn collaborate(&self, _agents: &[AgentRole], _task: Value) -> Result<Value> {
         Ok(serde_json::json!({"collaboration": "security_review_complete"}))
     }
@@ -624,7 +616,7 @@ impl DataAgent {
             data_models: Arc::new(DashMap::new()),
         }
     }
-    
+
     async fn analyze_data(&self, dataset: &Value) -> Result<Value> {
         let analysis = serde_json::json!({
             "dataset": dataset["name"],
@@ -632,7 +624,7 @@ impl DataAgent {
             "insights": ["optimization_opportunity", "cost_reduction"],
             "recommendations": ["index_column_a", "partition_by_date"]
         });
-        
+
         Ok(analysis)
     }
 }
@@ -642,19 +634,17 @@ impl SpecializedAgent for DataAgent {
     fn role(&self) -> AgentRole {
         self.role
     }
-    
+
     fn capabilities(&self) -> &AgentCapability {
         &self.capabilities
     }
-    
+
     async fn process_message(&self, message: AgentMessage) -> Result<AgentMessage> {
         let response = match message.message_type {
-            MessageType::Request => {
-                self.analyze_data(&message.payload).await?
-            }
+            MessageType::Request => self.analyze_data(&message.payload).await?,
             _ => serde_json::json!({"status": "processed"}),
         };
-        
+
         Ok(AgentMessage {
             from: self.role,
             to: message.from,
@@ -664,11 +654,11 @@ impl SpecializedAgent for DataAgent {
             correlation_id: message.correlation_id,
         })
     }
-    
+
     async fn execute_task(&self, _context: &AgentContext, input: Value) -> Result<Value> {
         self.analyze_data(&input).await
     }
-    
+
     async fn collaborate(&self, _agents: &[AgentRole], _task: Value) -> Result<Value> {
         Ok(serde_json::json!({"collaboration": "data_analysis_shared"}))
     }
@@ -699,7 +689,7 @@ impl ProductAgent {
             product_decisions: Arc::new(DashMap::new()),
         }
     }
-    
+
     async fn prioritize_features(&self, features: &Value) -> Result<Value> {
         let prioritization = serde_json::json!({
             "high_priority": ["feature_1", "feature_2"],
@@ -708,8 +698,9 @@ impl ProductAgent {
             "rationale": "based_on_user_impact_and_business_value",
             "features": features
         });
-        
-        self.product_decisions.insert("current_priorities".to_string(), prioritization.clone());
+
+        self.product_decisions
+            .insert("current_priorities".to_string(), prioritization.clone());
         Ok(prioritization)
     }
 }
@@ -719,19 +710,17 @@ impl SpecializedAgent for ProductAgent {
     fn role(&self) -> AgentRole {
         self.role
     }
-    
+
     fn capabilities(&self) -> &AgentCapability {
         &self.capabilities
     }
-    
+
     async fn process_message(&self, message: AgentMessage) -> Result<AgentMessage> {
         let response = match message.message_type {
-            MessageType::Request => {
-                self.prioritize_features(&message.payload).await?
-            }
+            MessageType::Request => self.prioritize_features(&message.payload).await?,
             _ => serde_json::json!({"status": "processed"}),
         };
-        
+
         Ok(AgentMessage {
             from: self.role,
             to: message.from,
@@ -741,11 +730,11 @@ impl SpecializedAgent for ProductAgent {
             correlation_id: message.correlation_id,
         })
     }
-    
+
     async fn execute_task(&self, _context: &AgentContext, input: Value) -> Result<Value> {
         self.prioritize_features(&input).await
     }
-    
+
     async fn collaborate(&self, _agents: &[AgentRole], _task: Value) -> Result<Value> {
         Ok(serde_json::json!({"collaboration": "product_alignment_achieved"}))
     }
@@ -787,20 +776,20 @@ impl OrchestratorAgent {
             workflows: Arc::new(DashMap::new()),
         }
     }
-    
+
     pub fn register_agent(&self, agent: Arc<dyn SpecializedAgent>) {
         self.agents.insert(agent.role(), agent);
     }
-    
+
     pub async fn orchestrate_workflow(&self, workflow: &Value) -> Result<Value> {
         let workflow_id = uuid::Uuid::new_v4().to_string();
-        
+
         // Parse workflow and determine agent sequence
         let agent_sequence = self.determine_agent_sequence(workflow)?;
-        
+
         let mut results = Vec::new();
         let mut previous_output = workflow.clone();
-        
+
         // Execute workflow through agent pipeline
         for role in agent_sequence {
             if let Some(agent_entry) = self.agents.get(&role) {
@@ -813,7 +802,7 @@ impl OrchestratorAgent {
                     priority: 1,
                     correlation_id: workflow_id.clone(),
                 };
-                
+
                 let response = agent.process_message(message).await?;
                 previous_output = response.payload.clone();
                 results.push(serde_json::json!({
@@ -822,22 +811,23 @@ impl OrchestratorAgent {
                 }));
             }
         }
-        
+
         let orchestration_result = serde_json::json!({
             "workflow_id": workflow_id,
             "stages": results,
             "status": "completed",
             "final_output": previous_output
         });
-        
-        self.workflows.insert(workflow_id, orchestration_result.clone());
+
+        self.workflows
+            .insert(workflow_id, orchestration_result.clone());
         Ok(orchestration_result)
     }
-    
+
     fn determine_agent_sequence(&self, workflow: &Value) -> Result<Vec<AgentRole>> {
         // Intelligent workflow routing based on task type
         let task_type = workflow["type"].as_str().unwrap_or("general");
-        
+
         let sequence = match task_type {
             "feature_development" => vec![
                 AgentRole::Research,
@@ -847,28 +837,16 @@ impl OrchestratorAgent {
                 AgentRole::Security,
                 AgentRole::DevOps,
             ],
-            "data_analysis" => vec![
-                AgentRole::Data,
-                AgentRole::Research,
-                AgentRole::Product,
-            ],
-            "security_audit" => vec![
-                AgentRole::Security,
-                AgentRole::Code,
-                AgentRole::DevOps,
-            ],
+            "data_analysis" => vec![AgentRole::Data, AgentRole::Research, AgentRole::Product],
+            "security_audit" => vec![AgentRole::Security, AgentRole::Code, AgentRole::DevOps],
             "product_planning" => vec![
                 AgentRole::Product,
                 AgentRole::Research,
                 AgentRole::Architect,
             ],
-            _ => vec![
-                AgentRole::Research,
-                AgentRole::Architect,
-                AgentRole::Code,
-            ],
+            _ => vec![AgentRole::Research, AgentRole::Architect, AgentRole::Code],
         };
-        
+
         Ok(sequence)
     }
 }
@@ -878,22 +856,20 @@ impl SpecializedAgent for OrchestratorAgent {
     fn role(&self) -> AgentRole {
         self.role
     }
-    
+
     fn capabilities(&self) -> &AgentCapability {
         &self.capabilities
     }
-    
+
     async fn process_message(&self, message: AgentMessage) -> Result<AgentMessage> {
         let response = match message.message_type {
-            MessageType::Request => {
-                self.orchestrate_workflow(&message.payload).await?
-            }
+            MessageType::Request => self.orchestrate_workflow(&message.payload).await?,
             MessageType::Delegation => {
                 // Delegate to appropriate agent
-                let target_role = serde_json::from_value::<AgentRole>(
-                    message.payload["target"].clone()
-                ).unwrap_or(AgentRole::Code);
-                
+                let target_role =
+                    serde_json::from_value::<AgentRole>(message.payload["target"].clone())
+                        .unwrap_or(AgentRole::Code);
+
                 if let Some(agent) = self.agents.get(&target_role) {
                     let delegated = agent.process_message(message.clone()).await?;
                     delegated.payload
@@ -903,7 +879,7 @@ impl SpecializedAgent for OrchestratorAgent {
             }
             _ => serde_json::json!({"status": "processed"}),
         };
-        
+
         Ok(AgentMessage {
             from: self.role,
             to: message.from,
@@ -913,15 +889,15 @@ impl SpecializedAgent for OrchestratorAgent {
             correlation_id: message.correlation_id,
         })
     }
-    
+
     async fn execute_task(&self, _context: &AgentContext, input: Value) -> Result<Value> {
         self.orchestrate_workflow(&input).await
     }
-    
+
     async fn collaborate(&self, agents: &[AgentRole], task: Value) -> Result<Value> {
         // Coordinate collaboration between specific agents
         let mut collaboration_results = Vec::new();
-        
+
         for role in agents {
             if let Some(agent) = self.agents.get(role) {
                 let result = agent.value().collaborate(agents, task.clone()).await?;
@@ -931,7 +907,7 @@ impl SpecializedAgent for OrchestratorAgent {
                 }));
             }
         }
-        
+
         Ok(serde_json::json!({
             "collaboration": "multi_agent_collaboration",
             "participants": agents,
@@ -950,7 +926,7 @@ impl MultiAgentSystem {
     pub fn new() -> Self {
         let orchestrator = Arc::new(OrchestratorAgent::new());
         let mut agents = HashMap::new();
-        
+
         // Initialize all specialized agents
         let research = Arc::new(ResearchAgent::new()) as Arc<dyn SpecializedAgent>;
         let architect = Arc::new(ArchitectAgent::new()) as Arc<dyn SpecializedAgent>;
@@ -960,7 +936,7 @@ impl MultiAgentSystem {
         let security = Arc::new(SecurityAgent::new()) as Arc<dyn SpecializedAgent>;
         let data = Arc::new(DataAgent::new()) as Arc<dyn SpecializedAgent>;
         let product = Arc::new(ProductAgent::new()) as Arc<dyn SpecializedAgent>;
-        
+
         // Register with orchestrator
         orchestrator.register_agent(research.clone());
         orchestrator.register_agent(architect.clone());
@@ -970,7 +946,7 @@ impl MultiAgentSystem {
         orchestrator.register_agent(security.clone());
         orchestrator.register_agent(data.clone());
         orchestrator.register_agent(product.clone());
-        
+
         // Store in system
         agents.insert(AgentRole::Research, research);
         agents.insert(AgentRole::Architect, architect);
@@ -980,56 +956,55 @@ impl MultiAgentSystem {
         agents.insert(AgentRole::Security, security);
         agents.insert(AgentRole::Data, data);
         agents.insert(AgentRole::Product, product);
-        
+
         Self {
             orchestrator,
             agents,
         }
     }
-    
+
     /// Execute a complex workflow across multiple agents
     pub async fn execute_workflow(&self, workflow: Value) -> Result<Value> {
         self.orchestrator.orchestrate_workflow(&workflow).await
     }
-    
+
     /// Get a specific agent
     pub fn get_agent(&self, role: AgentRole) -> Option<&Arc<dyn SpecializedAgent>> {
         self.agents.get(&role)
     }
-    
+
     /// Send a message directly to an agent
     pub async fn send_message(&self, message: AgentMessage) -> Result<AgentMessage> {
         if let Some(agent) = self.agents.get(&message.to) {
             agent.process_message(message).await
         } else {
             Err(LangGraphError::Agent(crate::agents::AgentError::NotFound(
-                format!("{:?}", message.to)
+                format!("{:?}", message.to),
             )))
         }
     }
-    
+
     /// Coordinate parallel agent execution
     pub async fn parallel_execution(&self, tasks: Vec<(AgentRole, Value)>) -> Result<Vec<Value>> {
         let mut handles = Vec::new();
-        
+
         for (role, input) in tasks {
             if let Some(agent) = self.agents.get(&role) {
                 let agent_clone = agent.clone();
                 let context = AgentContext::new("parallel_execution");
-                
-                let handle = tokio::spawn(async move {
-                    agent_clone.execute_task(&context, input).await
-                });
-                
+
+                let handle =
+                    tokio::spawn(async move { agent_clone.execute_task(&context, input).await });
+
                 handles.push(handle);
             }
         }
-        
+
         let mut results = Vec::new();
         for handle in handles {
             results.push(handle.await??);
         }
-        
+
         Ok(results)
     }
 }
@@ -1037,11 +1012,11 @@ impl MultiAgentSystem {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[tokio::test]
     async fn test_multi_agent_system_creation() {
         let system = MultiAgentSystem::new();
-        
+
         // Verify all agents are registered
         assert!(system.get_agent(AgentRole::Research).is_some());
         assert!(system.get_agent(AgentRole::Architect).is_some());
@@ -1052,11 +1027,11 @@ mod tests {
         assert!(system.get_agent(AgentRole::Data).is_some());
         assert!(system.get_agent(AgentRole::Product).is_some());
     }
-    
+
     #[tokio::test]
     async fn test_agent_communication() {
         let system = MultiAgentSystem::new();
-        
+
         let message = AgentMessage {
             from: AgentRole::Orchestrator,
             to: AgentRole::Research,
@@ -1065,37 +1040,40 @@ mod tests {
             priority: 1,
             correlation_id: "test-123".to_string(),
         };
-        
+
         let response = system.send_message(message).await.unwrap();
         assert_eq!(response.from, AgentRole::Research);
         assert_eq!(response.message_type, MessageType::Response);
     }
-    
+
     #[tokio::test]
     async fn test_workflow_execution() {
         let system = MultiAgentSystem::new();
-        
+
         let workflow = serde_json::json!({
             "type": "feature_development",
             "name": "new_api_endpoint",
             "requirements": ["fast", "secure", "scalable"]
         });
-        
+
         let result = system.execute_workflow(workflow).await.unwrap();
         assert_eq!(result["status"], "completed");
         assert!(result["stages"].is_array());
     }
-    
+
     #[tokio::test]
     async fn test_parallel_execution() {
         let system = MultiAgentSystem::new();
-        
+
         let tasks = vec![
-            (AgentRole::Research, serde_json::json!({"topic": "microservices"})),
+            (
+                AgentRole::Research,
+                serde_json::json!({"topic": "microservices"}),
+            ),
             (AgentRole::Security, serde_json::json!({"name": "api_scan"})),
             (AgentRole::Data, serde_json::json!({"name": "user_data"})),
         ];
-        
+
         let results = system.parallel_execution(tasks).await.unwrap();
         assert_eq!(results.len(), 3);
     }

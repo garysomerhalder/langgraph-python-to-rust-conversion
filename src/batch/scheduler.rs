@@ -1,7 +1,7 @@
-use std::collections::{HashMap, VecDeque, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use tokio::sync::{Semaphore, mpsc};
+use tokio::sync::{mpsc, Semaphore};
 
 use crate::batch::types::*;
 use crate::engine::ExecutionEngine;
@@ -119,7 +119,12 @@ impl ParallelScheduler {
         // Execute in priority order (sequential for simplicity in YELLOW)
         let mut results = Vec::new();
         for job in jobs {
-            let result = Self::execute_single_job(job.clone(), Arc::clone(&self.engine), self.config.clone()).await;
+            let result = Self::execute_single_job(
+                job.clone(),
+                Arc::clone(&self.engine),
+                self.config.clone(),
+            )
+            .await;
             results.push(result);
         }
 
@@ -130,25 +135,31 @@ impl ParallelScheduler {
     pub async fn execute_with_dependencies(
         &self,
         jobs: Vec<BatchJob>,
-        dependencies: HashMap<String, Vec<String>>
+        dependencies: HashMap<String, Vec<String>>,
     ) -> Result<Vec<BatchResult>> {
         // Check for circular dependencies first
-        if let Err(err) = self.dependency_resolver.check_circular_dependencies(&dependencies) {
+        if let Err(err) = self
+            .dependency_resolver
+            .check_circular_dependencies(&dependencies)
+        {
             return Err(err.into());
         }
 
         // YELLOW: Basic topological sort for dependency resolution
-        let execution_order = self.dependency_resolver.topological_sort(&jobs, &dependencies)?;
+        let execution_order = self
+            .dependency_resolver
+            .topological_sort(&jobs, &dependencies)?;
 
         // Execute in dependency order (sequential for YELLOW phase)
         let mut results = Vec::new();
-        let mut job_map: HashMap<String, BatchJob> = jobs.into_iter()
-            .map(|job| (job.id.clone(), job))
-            .collect();
+        let mut job_map: HashMap<String, BatchJob> =
+            jobs.into_iter().map(|job| (job.id.clone(), job)).collect();
 
         for job_id in execution_order {
             if let Some(job) = job_map.remove(&job_id) {
-                let result = Self::execute_single_job(job, Arc::clone(&self.engine), self.config.clone()).await;
+                let result =
+                    Self::execute_single_job(job, Arc::clone(&self.engine), self.config.clone())
+                        .await;
                 results.push(result);
             }
         }
@@ -157,7 +168,10 @@ impl ParallelScheduler {
     }
 
     /// Execute with load balancing (YELLOW: use parallel execution)
-    pub async fn execute_with_load_balancing(&self, jobs: Vec<BatchJob>) -> Result<Vec<BatchResult>> {
+    pub async fn execute_with_load_balancing(
+        &self,
+        jobs: Vec<BatchJob>,
+    ) -> Result<Vec<BatchResult>> {
         // YELLOW: Basic load balancing using parallel execution
         self.execute_parallel_batch(jobs).await
     }
@@ -262,14 +276,21 @@ impl DependencyResolver {
     }
 
     /// Check for circular dependencies using DFS
-    fn check_circular_dependencies(&self, dependencies: &HashMap<String, Vec<String>>) -> Result<()> {
+    fn check_circular_dependencies(
+        &self,
+        dependencies: &HashMap<String, Vec<String>>,
+    ) -> Result<()> {
         let mut visited = HashSet::new();
         let mut rec_stack = HashSet::new();
 
         for job_id in dependencies.keys() {
             if !visited.contains(job_id) {
                 if self.has_cycle_dfs(job_id, dependencies, &mut visited, &mut rec_stack) {
-                    return Err(SchedulingError::CircularDependency(format!("Cycle involving job: {}", job_id)).into());
+                    return Err(SchedulingError::CircularDependency(format!(
+                        "Cycle involving job: {}",
+                        job_id
+                    ))
+                    .into());
                 }
             }
         }
@@ -322,16 +343,15 @@ impl DependencyResolver {
         // Build reverse dependency graph and count in-degrees
         for (job_id, deps) in dependencies {
             for dep in deps {
-                graph.entry(dep.clone())
-                    .or_default()
-                    .push(job_id.clone());
+                graph.entry(dep.clone()).or_default().push(job_id.clone());
 
                 *in_degree.entry(job_id.clone()).or_insert(0) += 1;
             }
         }
 
         // Kahn's algorithm for topological sorting
-        let mut queue: VecDeque<String> = in_degree.iter()
+        let mut queue: VecDeque<String> = in_degree
+            .iter()
             .filter(|(_, &degree)| degree == 0)
             .map(|(job_id, _)| job_id.clone())
             .collect();
@@ -355,8 +375,9 @@ impl DependencyResolver {
 
         if result.len() != jobs.len() {
             return Err(SchedulingError::DependencyResolutionFailed(
-                "Could not resolve all dependencies".to_string()
-            ).into());
+                "Could not resolve all dependencies".to_string(),
+            )
+            .into());
         }
 
         Ok(result)

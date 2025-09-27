@@ -79,8 +79,9 @@ impl PostgresCheckpointer {
             tokio::spawn(async move {
                 loop {
                     tokio::time::sleep(tokio::time::Duration::from_secs(
-                        cleanup_checkpointer.config.cleanup_interval_secs
-                    )).await;
+                        cleanup_checkpointer.config.cleanup_interval_secs,
+                    ))
+                    .await;
                     let _ = cleanup_checkpointer.cleanup_old_checkpoints().await;
                 }
             });
@@ -155,7 +156,9 @@ impl PostgresCheckpointer {
         _state: Option<&GraphState>,
     ) -> Result<String> {
         if _state.is_none() {
-            return Err(anyhow::anyhow!("State cannot be None for transactional save"));
+            return Err(anyhow::anyhow!(
+                "State cannot be None for transactional save"
+            ));
         }
         // Transaction implementation would go here
         // For now, return error to test rollback
@@ -188,8 +191,8 @@ impl PostgresCheckpointer {
         let checkpoint_id = Uuid::new_v4().to_string();
 
         // Convert state to JSON
-        let state_json = serde_json::to_value(&state.values)
-            .context("Failed to serialize state")?;
+        let state_json =
+            serde_json::to_value(&state.values).context("Failed to serialize state")?;
 
         let insert_sql = format!(
             r#"
@@ -254,8 +257,8 @@ impl PostgresCheckpointer {
         };
 
         if let Some((state_json,)) = row {
-            let state_map: HashMap<String, Value> = serde_json::from_value(state_json)
-                .context("Failed to deserialize state")?;
+            let state_map: HashMap<String, Value> =
+                serde_json::from_value(state_json).context("Failed to deserialize state")?;
 
             let mut state = GraphState::new();
             for (key, value) in state_map {
@@ -288,25 +291,28 @@ impl PostgresCheckpointer {
             table_name
         );
 
-        let rows = sqlx::query_as::<_, (String, String, Option<String>, DateTime<Utc>, DateTime<Utc>)>(&query_sql)
-            .bind(thread_id)
-            .bind(limit as i64)
-            .fetch_all(&self.pool)
-            .await
-            .context("Failed to list checkpoints")?;
+        let rows = sqlx::query_as::<
+            _,
+            (String, String, Option<String>, DateTime<Utc>, DateTime<Utc>),
+        >(&query_sql)
+        .bind(thread_id)
+        .bind(limit as i64)
+        .fetch_all(&self.pool)
+        .await
+        .context("Failed to list checkpoints")?;
 
         let checkpoints = rows
             .into_iter()
-            .map(|(id, thread_id, parent_id, created_at, updated_at)| {
-                CheckpointMetadata {
+            .map(
+                |(id, thread_id, parent_id, created_at, updated_at)| CheckpointMetadata {
                     id,
                     thread_id,
                     created_at,
                     updated_at,
                     parent_id,
                     metadata: HashMap::new(),
-                }
-            })
+                },
+            )
             .collect();
 
         Ok(checkpoints)
@@ -407,7 +413,10 @@ impl Checkpointer for PostgresCheckpointer {
         thread_id: &str,
         checkpoint_id: Option<String>,
     ) -> Result<Option<(HashMap<String, Value>, HashMap<String, Value>)>> {
-        if let Some(state) = self.load_checkpoint(thread_id, checkpoint_id.as_deref()).await? {
+        if let Some(state) = self
+            .load_checkpoint(thread_id, checkpoint_id.as_deref())
+            .await?
+        {
             let checkpoint = state.values.clone();
 
             // Load metadata if checkpoint_id is provided
@@ -452,7 +461,10 @@ impl Checkpointer for PostgresCheckpointer {
                 .map(|cp| {
                     let mut metadata = HashMap::new();
                     metadata.insert("thread_id".to_string(), Value::String(cp.thread_id));
-                    metadata.insert("created_at".to_string(), Value::String(cp.created_at.to_rfc3339()));
+                    metadata.insert(
+                        "created_at".to_string(),
+                        Value::String(cp.created_at.to_rfc3339()),
+                    );
                     if let Some(parent) = cp.parent_id {
                         metadata.insert("parent_id".to_string(), Value::String(parent));
                     }
@@ -470,9 +482,7 @@ impl Checkpointer for PostgresCheckpointer {
                 table_name
             );
 
-            let threads: Vec<(String,)> = sqlx::query_as(&query_sql)
-                .fetch_all(&self.pool)
-                .await?;
+            let threads: Vec<(String,)> = sqlx::query_as(&query_sql).fetch_all(&self.pool).await?;
 
             Ok(threads
                 .into_iter()

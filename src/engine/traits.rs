@@ -1,15 +1,15 @@
 //! Trait abstractions for execution engines, state management, and system components.
-//! 
+//!
 //! This module provides a comprehensive set of traits that enable pluggable
 //! implementations of core LangGraph functionality, promoting modularity and testability.
 
+use crate::graph::{Node, StateGraph};
+use crate::state::StateData;
+use crate::{LangGraphError, Result};
 use async_trait::async_trait;
+use serde_json::Value;
 use std::collections::HashMap;
 use std::time::Duration;
-use crate::{Result, LangGraphError};
-use crate::state::StateData;
-use crate::graph::{Node, StateGraph};
-use serde_json::Value;
 
 /// Core execution engine trait for processing graph nodes
 #[async_trait]
@@ -78,7 +78,12 @@ pub trait MetricsCollector: Send + Sync {
     async fn record_error(&self, error_type: &str, context: ErrorContext) -> Result<()>;
 
     /// Record custom metrics
-    async fn record_custom_metric(&self, name: &str, value: f64, labels: HashMap<String, String>) -> Result<()>;
+    async fn record_custom_metric(
+        &self,
+        name: &str,
+        value: f64,
+        labels: HashMap<String, String>,
+    ) -> Result<()>;
 
     /// Export collected metrics
     async fn export_metrics(&self, format: MetricsFormat) -> Result<String>;
@@ -122,17 +127,28 @@ pub trait ResilienceProvider: Send + Sync {
 #[async_trait]
 pub trait StreamProcessor: Send + Sync {
     /// Process items in a stream with backpressure control
-    async fn process_stream<T>(&self, stream: Box<dyn Stream<T>>, processor: Box<dyn StreamItemProcessor<T>>) -> Result<()>
+    async fn process_stream<T>(
+        &self,
+        stream: Box<dyn Stream<T>>,
+        processor: Box<dyn StreamItemProcessor<T>>,
+    ) -> Result<()>
     where
         T: Send + 'static;
 
     /// Create a buffered stream with specified buffer size
-    async fn create_buffered_stream<T>(&self, buffer_size: usize) -> Result<Box<dyn BufferedStream<T>>>
+    async fn create_buffered_stream<T>(
+        &self,
+        buffer_size: usize,
+    ) -> Result<Box<dyn BufferedStream<T>>>
     where
         T: Send + 'static;
 
     /// Apply flow control to a stream
-    async fn apply_flow_control<T>(&self, stream: Box<dyn Stream<T>>, config: FlowControlConfig) -> Result<Box<dyn Stream<T>>>
+    async fn apply_flow_control<T>(
+        &self,
+        stream: Box<dyn Stream<T>>,
+        config: FlowControlConfig,
+    ) -> Result<Box<dyn Stream<T>>>
     where
         T: Send + 'static;
 
@@ -179,13 +195,21 @@ pub trait ToolExecutor: Send + Sync {
     ) -> Result<ToolExecutionResult>;
 
     /// Validate tool parameters before execution
-    async fn validate_parameters(&self, tool_name: &str, parameters: &Value) -> Result<ValidationResult>;
+    async fn validate_parameters(
+        &self,
+        tool_name: &str,
+        parameters: &Value,
+    ) -> Result<ValidationResult>;
 
     /// Get available tools and their specifications
     async fn get_available_tools(&self) -> Result<Vec<ToolSpecification>>;
 
     /// Register a new tool
-    async fn register_tool(&mut self, spec: ToolSpecification, executor: Box<dyn ToolFunction>) -> Result<()>;
+    async fn register_tool(
+        &mut self,
+        spec: ToolSpecification,
+        executor: Box<dyn ToolFunction>,
+    ) -> Result<()>;
 
     /// Remove a tool
     async fn unregister_tool(&mut self, tool_name: &str) -> Result<()>;
@@ -203,7 +227,9 @@ pub enum ExecutionStrategy {
     /// Execute with custom pipeline stages
     Pipeline { stages: Vec<String> },
     /// Execute with adaptive strategy based on load
-    Adaptive { base_strategy: Box<ExecutionStrategy> },
+    Adaptive {
+        base_strategy: Box<ExecutionStrategy>,
+    },
 }
 
 /// Execution context providing runtime information
@@ -517,7 +543,11 @@ pub struct ToolSpecification {
 #[async_trait]
 pub trait ToolFunction: Send + Sync {
     /// Execute the tool function
-    async fn execute(&self, parameters: Value, context: ToolExecutionContext) -> Result<ToolExecutionResult>;
+    async fn execute(
+        &self,
+        parameters: Value,
+        context: ToolExecutionContext,
+    ) -> Result<ToolExecutionResult>;
     /// Validate parameters
     async fn validate(&self, parameters: &Value) -> Result<ValidationResult>;
 }

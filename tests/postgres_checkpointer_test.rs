@@ -28,11 +28,14 @@ async fn test_postgres_checkpointer_save_and_load() {
         retention_days: 7,
     };
 
-    let checkpointer = PostgresCheckpointer::new(config).await
+    let checkpointer = PostgresCheckpointer::new(config)
+        .await
         .expect("Failed to create PostgreSQL checkpointer");
 
     // Initialize schema
-    checkpointer.initialize_schema().await
+    checkpointer
+        .initialize_schema()
+        .await
         .expect("Failed to initialize database schema");
 
     // Create test state
@@ -43,13 +46,17 @@ async fn test_postgres_checkpointer_save_and_load() {
     let thread_id = "test_thread_001";
 
     // Save checkpoint
-    let checkpoint_id = checkpointer.save_checkpoint(thread_id, &state).await
+    let checkpoint_id = checkpointer
+        .save_checkpoint(thread_id, &state)
+        .await
         .expect("Failed to save checkpoint");
 
     assert!(!checkpoint_id.is_empty());
 
     // Load checkpoint
-    let loaded_state = checkpointer.load_checkpoint(thread_id, Some(&checkpoint_id)).await
+    let loaded_state = checkpointer
+        .load_checkpoint(thread_id, Some(&checkpoint_id))
+        .await
         .expect("Failed to load checkpoint")
         .expect("Checkpoint not found");
 
@@ -72,10 +79,13 @@ async fn test_postgres_checkpointer_list_checkpoints() {
         retention_days: 7,
     };
 
-    let checkpointer = PostgresCheckpointer::new(config).await
+    let checkpointer = PostgresCheckpointer::new(config)
+        .await
         .expect("Failed to create PostgreSQL checkpointer");
 
-    checkpointer.initialize_schema().await
+    checkpointer
+        .initialize_schema()
+        .await
         .expect("Failed to initialize database schema");
 
     let thread_id = "test_thread_list";
@@ -85,7 +95,9 @@ async fn test_postgres_checkpointer_list_checkpoints() {
         let mut state = GraphState::new();
         state.set("iteration", json!(i));
 
-        checkpointer.save_checkpoint(thread_id, &state).await
+        checkpointer
+            .save_checkpoint(thread_id, &state)
+            .await
             .expect("Failed to save checkpoint");
 
         // Small delay to ensure different timestamps
@@ -93,7 +105,9 @@ async fn test_postgres_checkpointer_list_checkpoints() {
     }
 
     // List checkpoints
-    let checkpoints = checkpointer.list_checkpoints(thread_id, Some(10)).await
+    let checkpoints = checkpointer
+        .list_checkpoints(thread_id, Some(10))
+        .await
         .expect("Failed to list checkpoints");
 
     assert_eq!(checkpoints.len(), 3);
@@ -118,10 +132,13 @@ async fn test_postgres_checkpointer_delete_checkpoint() {
         retention_days: 7,
     };
 
-    let checkpointer = PostgresCheckpointer::new(config).await
+    let checkpointer = PostgresCheckpointer::new(config)
+        .await
         .expect("Failed to create PostgreSQL checkpointer");
 
-    checkpointer.initialize_schema().await
+    checkpointer
+        .initialize_schema()
+        .await
         .expect("Failed to initialize database schema");
 
     let thread_id = "test_thread_delete";
@@ -129,20 +146,28 @@ async fn test_postgres_checkpointer_delete_checkpoint() {
     state.set("data", json!("to_be_deleted"));
 
     // Save checkpoint
-    let checkpoint_id = checkpointer.save_checkpoint(thread_id, &state).await
+    let checkpoint_id = checkpointer
+        .save_checkpoint(thread_id, &state)
+        .await
         .expect("Failed to save checkpoint");
 
     // Verify it exists
-    let loaded = checkpointer.load_checkpoint(thread_id, Some(&checkpoint_id)).await
+    let loaded = checkpointer
+        .load_checkpoint(thread_id, Some(&checkpoint_id))
+        .await
         .expect("Failed to load checkpoint");
     assert!(loaded.is_some());
 
     // Delete checkpoint
-    checkpointer.delete_checkpoint(thread_id, &checkpoint_id).await
+    checkpointer
+        .delete_checkpoint(thread_id, &checkpoint_id)
+        .await
         .expect("Failed to delete checkpoint");
 
     // Verify it's gone
-    let loaded_after_delete = checkpointer.load_checkpoint(thread_id, Some(&checkpoint_id)).await
+    let loaded_after_delete = checkpointer
+        .load_checkpoint(thread_id, Some(&checkpoint_id))
+        .await
         .expect("Failed to load checkpoint");
     assert!(loaded_after_delete.is_none());
 }
@@ -158,13 +183,16 @@ async fn test_postgres_checkpointer_auto_cleanup() {
         table_prefix: "test_".to_string(),
         auto_cleanup: true,
         cleanup_interval_secs: 1, // Fast cleanup for testing
-        retention_days: 0, // Delete immediately for testing
+        retention_days: 0,        // Delete immediately for testing
     };
 
-    let checkpointer = PostgresCheckpointer::new(config).await
+    let checkpointer = PostgresCheckpointer::new(config)
+        .await
         .expect("Failed to create PostgreSQL checkpointer");
 
-    checkpointer.initialize_schema().await
+    checkpointer
+        .initialize_schema()
+        .await
         .expect("Failed to initialize database schema");
 
     let thread_id = "test_thread_cleanup";
@@ -172,15 +200,21 @@ async fn test_postgres_checkpointer_auto_cleanup() {
     state.set("old_data", json!("should_be_cleaned"));
 
     // Save checkpoint
-    let checkpoint_id = checkpointer.save_checkpoint(thread_id, &state).await
+    let checkpoint_id = checkpointer
+        .save_checkpoint(thread_id, &state)
+        .await
         .expect("Failed to save checkpoint");
 
     // Manually trigger cleanup (in production this would be automatic)
-    checkpointer.cleanup_old_checkpoints().await
+    checkpointer
+        .cleanup_old_checkpoints()
+        .await
         .expect("Failed to run cleanup");
 
     // Verify checkpoint is cleaned up
-    let checkpoints = checkpointer.list_checkpoints(thread_id, None).await
+    let checkpoints = checkpointer
+        .list_checkpoints(thread_id, None)
+        .await
         .expect("Failed to list checkpoints");
 
     // With 0 retention days, old checkpoints should be deleted
@@ -201,10 +235,13 @@ async fn test_postgres_checkpointer_transaction_rollback() {
         retention_days: 7,
     };
 
-    let checkpointer = PostgresCheckpointer::new(config).await
+    let checkpointer = PostgresCheckpointer::new(config)
+        .await
         .expect("Failed to create PostgreSQL checkpointer");
 
-    checkpointer.initialize_schema().await
+    checkpointer
+        .initialize_schema()
+        .await
         .expect("Failed to initialize database schema");
 
     // Test transaction rollback on error
@@ -212,13 +249,17 @@ async fn test_postgres_checkpointer_transaction_rollback() {
 
     // This should simulate a failed transaction
     // Implementation would handle this internally
-    let result = checkpointer.save_checkpoint_transactional(thread_id, None).await;
+    let result = checkpointer
+        .save_checkpoint_transactional(thread_id, None)
+        .await;
 
     // Transaction should rollback on error
     assert!(result.is_err());
 
     // Verify no partial data was saved
-    let checkpoints = checkpointer.list_checkpoints(thread_id, None).await
+    let checkpoints = checkpointer
+        .list_checkpoints(thread_id, None)
+        .await
         .expect("Failed to list checkpoints");
     assert_eq!(checkpoints.len(), 0);
 }

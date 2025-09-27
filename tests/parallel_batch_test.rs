@@ -3,9 +3,11 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use langgraph::{
-    batch::{BatchExecutor, BatchJob, BatchConfig, BatchJobStatus, ParallelScheduler, WorkerMetrics},
+    batch::{
+        BatchConfig, BatchExecutor, BatchJob, BatchJobStatus, ParallelScheduler, WorkerMetrics,
+    },
     engine::ExecutionEngine,
-    graph::{CompiledGraph, StateGraph, Node, NodeType, Edge, EdgeType},
+    graph::{CompiledGraph, Edge, EdgeType, Node, NodeType, StateGraph},
     state::StateData,
 };
 use serde_json::json;
@@ -35,15 +37,18 @@ fn create_test_graph() -> CompiledGraph {
         edge_type: EdgeType::Direct,
         metadata: None,
     };
-    graph.add_edge("__start__", "__end__", edge).expect("Failed to add edge");
+    graph
+        .add_edge("__start__", "__end__", edge)
+        .expect("Failed to add edge");
 
     // Set entry point
-    graph.set_entry_point("__start__").expect("Failed to set entry point");
+    graph
+        .set_entry_point("__start__")
+        .expect("Failed to set entry point");
 
     // Compile the graph
     graph.compile().expect("Failed to compile test graph")
 }
-
 
 /// Test work-stealing scheduler with multiple workers
 #[tokio::test]
@@ -77,12 +82,18 @@ async fn test_work_stealing_scheduler() {
     }
 
     let start_time = Instant::now();
-    let results = scheduler.execute_parallel_batch(jobs).await.expect("Parallel execution failed");
+    let results = scheduler
+        .execute_parallel_batch(jobs)
+        .await
+        .expect("Parallel execution failed");
     let total_time = start_time.elapsed();
 
     // With 4 workers and 10 jobs, should complete in ~3x100ms = 300ms (parallel execution)
     // Sequential would take 10x100ms = 1000ms
-    assert!(total_time < Duration::from_millis(500), "Should complete faster with parallel execution");
+    assert!(
+        total_time < Duration::from_millis(500),
+        "Should complete faster with parallel execution"
+    );
     assert_eq!(results.len(), 10);
 
     // Verify all jobs completed successfully
@@ -124,14 +135,20 @@ async fn test_priority_job_scheduling() {
         });
     }
 
-    let results = scheduler.execute_with_priority(jobs).await.expect("Priority execution failed");
+    let results = scheduler
+        .execute_with_priority(jobs)
+        .await
+        .expect("Priority execution failed");
 
     // Results should be ordered by priority (high to low)
     let mut prev_priority = 0u8;
     for result in &results {
         // Priority should be non-decreasing (higher priority = lower number)
         let job_priority = result.job_id.chars().last().unwrap().to_digit(10).unwrap() as u8;
-        assert!(job_priority >= prev_priority, "Jobs should be completed in priority order");
+        assert!(
+            job_priority >= prev_priority,
+            "Jobs should be completed in priority order"
+        );
         prev_priority = job_priority;
     }
 }
@@ -154,9 +171,7 @@ async fn test_job_dependency_resolution() {
     ]);
 
     for job_id in ["job_a", "job_b", "job_c", "job_d", "job_e"] {
-        let input: StateData = HashMap::from([
-            ("job_id".to_string(), json!(job_id)),
-        ]);
+        let input: StateData = HashMap::from([("job_id".to_string(), json!(job_id))]);
 
         jobs.push(BatchJob {
             id: job_id.to_string(),
@@ -166,7 +181,9 @@ async fn test_job_dependency_resolution() {
         });
     }
 
-    let results = scheduler.execute_with_dependencies(jobs, dependencies).await
+    let results = scheduler
+        .execute_with_dependencies(jobs, dependencies)
+        .await
         .expect("Dependency resolution failed");
 
     // Verify execution order respects dependencies
@@ -210,7 +227,9 @@ async fn test_load_balancing() {
         });
     }
 
-    let results = scheduler.execute_with_load_balancing(jobs).await
+    let results = scheduler
+        .execute_with_load_balancing(jobs)
+        .await
         .expect("Load balanced execution failed");
 
     // All jobs should complete successfully
@@ -240,9 +259,7 @@ async fn test_worker_pool_scaling() {
 
     // Create a large batch that would benefit from scaling up
     for i in 0..20 {
-        let input: StateData = HashMap::from([
-            ("job_id".to_string(), json!(i)),
-        ]);
+        let input: StateData = HashMap::from([("job_id".to_string(), json!(i))]);
 
         jobs.push(BatchJob {
             id: format!("scaling_job_{}", i),
@@ -252,7 +269,9 @@ async fn test_worker_pool_scaling() {
         });
     }
 
-    let results = scheduler.execute_with_scaling(jobs).await
+    let results = scheduler
+        .execute_with_scaling(jobs)
+        .await
         .expect("Auto-scaling execution failed");
 
     assert_eq!(results.len(), 20);
@@ -260,7 +279,10 @@ async fn test_worker_pool_scaling() {
     // Verify that worker pool metrics show scaling occurred
     let metrics = scheduler.get_worker_metrics();
     assert!(metrics.max_workers > 2, "Worker pool should have scaled up");
-    assert!(metrics.peak_utilization > 0.8, "Should have high utilization during peak");
+    assert!(
+        metrics.peak_utilization > 0.8,
+        "Should have high utilization during peak"
+    );
 }
 
 /// Test circular dependency detection
@@ -281,9 +303,7 @@ async fn test_circular_dependency_detection() {
     ]);
 
     for job_id in ["job_a", "job_b", "job_c"] {
-        let input: StateData = HashMap::from([
-            ("job_id".to_string(), json!(job_id)),
-        ]);
+        let input: StateData = HashMap::from([("job_id".to_string(), json!(job_id))]);
 
         jobs.push(BatchJob {
             id: job_id.to_string(),
@@ -294,11 +314,16 @@ async fn test_circular_dependency_detection() {
     }
 
     // Should return an error indicating circular dependency
-    let result = scheduler.execute_with_dependencies(jobs, dependencies).await;
+    let result = scheduler
+        .execute_with_dependencies(jobs, dependencies)
+        .await;
     assert!(result.is_err(), "Should detect circular dependency");
 
     let error = result.unwrap_err();
     let error_msg = error.to_string().to_lowercase();
-    assert!(error_msg.contains("circular") || error_msg.contains("cycle"),
-        "Error should mention circular dependency or cycle, got: {}", error);
+    assert!(
+        error_msg.contains("circular") || error_msg.contains("cycle"),
+        "Error should mention circular dependency or cycle, got: {}",
+        error
+    );
 }

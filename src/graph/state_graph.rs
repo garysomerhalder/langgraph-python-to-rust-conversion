@@ -1,23 +1,23 @@
+use crate::graph::{Edge, Node, StateGraph};
+use crate::state::{Reducer, StateChannels};
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use serde::{Deserialize, Serialize};
-use crate::graph::{StateGraph, Node, Edge};
-use crate::state::{StateChannels, Reducer};
-use async_trait::async_trait;
 
 #[async_trait]
-pub trait GenericCheckpointer<T>: Send + Sync 
-where 
-    T: Clone + Send + Sync + 'static + Serialize + for<'de> Deserialize<'de>
+pub trait GenericCheckpointer<T>: Send + Sync
+where
+    T: Clone + Send + Sync + 'static + Serialize + for<'de> Deserialize<'de>,
 {
     async fn save(&self, checkpoint_id: &str, state: &T) -> Result<(), Box<dyn std::error::Error>>;
     async fn load(&self, checkpoint_id: &str) -> Result<T, Box<dyn std::error::Error>>;
 }
 
-pub struct StateGraphManager<T> 
-where 
-    T: Clone + Send + Sync + 'static
+pub struct StateGraphManager<T>
+where
+    T: Clone + Send + Sync + 'static,
 {
     pub graph: StateGraph,
     pub state: Arc<RwLock<T>>,
@@ -28,8 +28,8 @@ where
 }
 
 impl<T> StateGraphManager<T>
-where 
-    T: Clone + Send + Sync + Default + 'static + Serialize + for<'de> Deserialize<'de>
+where
+    T: Clone + Send + Sync + Default + 'static + Serialize + for<'de> Deserialize<'de>,
 {
     pub fn new(name: &str) -> Self {
         Self {
@@ -57,17 +57,17 @@ where
         self.state.read().await.clone()
     }
 
-    pub async fn update_state<F>(&self, updater: F) 
+    pub async fn update_state<F>(&self, updater: F)
     where
-        F: FnOnce(&mut T)
+        F: FnOnce(&mut T),
     {
         let mut state = self.state.write().await;
         updater(&mut *state);
     }
 
-    pub async fn merge_state(&self, partial: serde_json::Value, reducer_name: &str) 
+    pub async fn merge_state(&self, partial: serde_json::Value, reducer_name: &str)
     where
-        T: Serialize + for<'de> Deserialize<'de>
+        T: Serialize + for<'de> Deserialize<'de>,
     {
         if let Some(reducer) = self.reducers.get(reducer_name) {
             let mut state = self.state.write().await;
@@ -90,13 +90,13 @@ where
     pub async fn evaluate_conditional_edges(&self) -> Vec<(String, String)> {
         let state = self.get_state().await;
         let mut edges = Vec::new();
-        
+
         for cond_edge in &self.conditional_edges {
             if (cond_edge.condition)(&state) {
                 edges.push((cond_edge.source.clone(), cond_edge.target.clone()));
             }
         }
-        
+
         edges
     }
 
@@ -125,7 +125,12 @@ where
         self.graph.add_node(node);
     }
 
-    pub fn add_edge(&mut self, from: &str, to: &str, edge: Edge) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn add_edge(
+        &mut self,
+        from: &str,
+        to: &str,
+        edge: Edge,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         self.graph.add_edge(from, to, edge)?;
         Ok(())
     }
@@ -140,9 +145,9 @@ where
     }
 }
 
-impl<T> std::fmt::Debug for StateGraphManager<T> 
-where 
-    T: Clone + Send + Sync + 'static + std::fmt::Debug
+impl<T> std::fmt::Debug for StateGraphManager<T>
+where
+    T: Clone + Send + Sync + 'static + std::fmt::Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("StateGraphManager")
@@ -156,9 +161,9 @@ where
     }
 }
 
-impl<T> Clone for StateGraphManager<T> 
-where 
-    T: Clone + Send + Sync + 'static
+impl<T> Clone for StateGraphManager<T>
+where
+    T: Clone + Send + Sync + 'static,
 {
     fn clone(&self) -> Self {
         Self {
@@ -219,12 +224,14 @@ mod tests {
     #[tokio::test]
     async fn test_state_update() {
         let graph: StateGraphManager<TestState> = StateGraphManager::new("test");
-        
-        graph.update_state(|state| {
-            state.counter = 42;
-            state.message = "Updated".to_string();
-        }).await;
-        
+
+        graph
+            .update_state(|state| {
+                state.counter = 42;
+                state.message = "Updated".to_string();
+            })
+            .await;
+
         let state = graph.get_state().await;
         assert_eq!(state.counter, 42);
         assert_eq!(state.message, "Updated");
@@ -233,20 +240,22 @@ mod tests {
     #[tokio::test]
     async fn test_conditional_edge() {
         let mut graph: StateGraphManager<TestState> = StateGraphManager::new("test");
-        
+
         graph.add_conditional_edge(StateConditionalEdge {
             source: "start".to_string(),
             target: "end".to_string(),
             condition: Box::new(|state| state.counter > 10),
         });
-        
+
         let edges = graph.evaluate_conditional_edges().await;
         assert_eq!(edges.len(), 0);
-        
-        graph.update_state(|state| {
-            state.counter = 20;
-        }).await;
-        
+
+        graph
+            .update_state(|state| {
+                state.counter = 20;
+            })
+            .await;
+
         let edges = graph.evaluate_conditional_edges().await;
         assert_eq!(edges.len(), 1);
         assert_eq!(edges[0].0, "start");

@@ -1,12 +1,12 @@
-use std::fmt::Debug;
-use std::sync::Arc;
-use std::future::Future;
-use std::pin::Pin;
-use tokio::sync::{mpsc, Mutex};
-use serde::{Serialize, Deserialize};
 use crate::batch::BatchResult;
 use crate::checkpoint::Checkpointer;
 use crate::LangGraphError;
+use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
+use std::future::Future;
+use std::pin::Pin;
+use std::sync::Arc;
+use tokio::sync::{mpsc, Mutex};
 
 /// Result aggregation framework for batch processing
 pub struct ResultAggregator {
@@ -31,8 +31,8 @@ impl std::fmt::Debug for ResultAggregator {
 #[derive(Debug)]
 pub enum AggregationStrategy {
     Collect,                          // Collect all results
-    Merge(Arc<dyn MergeFunction>),   // Custom merge function
-    Reduce(Arc<dyn ReduceFunction>), // Fold/reduce operation
+    Merge(Arc<dyn MergeFunction>),    // Custom merge function
+    Reduce(Arc<dyn ReduceFunction>),  // Fold/reduce operation
     Stream(Arc<dyn StreamProcessor>), // Stream processing
 }
 
@@ -60,17 +60,27 @@ pub trait MergeFunction: Send + Sync + Debug {
 
 /// Trait for reducing batch results
 pub trait ReduceFunction: Send + Sync + Debug {
-    fn reduce(&self, accumulator: Option<BatchResult>, result: BatchResult) -> Result<BatchResult, LangGraphError>;
+    fn reduce(
+        &self,
+        accumulator: Option<BatchResult>,
+        result: BatchResult,
+    ) -> Result<BatchResult, LangGraphError>;
 }
 
 /// Trait for stream processing
 pub trait StreamProcessor: Send + Sync + Debug {
-    fn process(&self, result: BatchResult) -> Pin<Box<dyn Future<Output = Result<Option<BatchResult>, LangGraphError>> + Send + '_>>;
+    fn process(
+        &self,
+        result: BatchResult,
+    ) -> Pin<Box<dyn Future<Output = Result<Option<BatchResult>, LangGraphError>> + Send + '_>>;
 }
 
 /// Trait for consuming aggregated results
 pub trait ResultConsumer: Send + Sync + Debug {
-    fn consume(&self, results: Vec<BatchResult>) -> Pin<Box<dyn Future<Output = Result<(), LangGraphError>> + Send + '_>>;
+    fn consume(
+        &self,
+        results: Vec<BatchResult>,
+    ) -> Pin<Box<dyn Future<Output = Result<(), LangGraphError>> + Send + '_>>;
 }
 
 /// Aggregated result collection
@@ -104,10 +114,7 @@ pub trait ResultTransformer: Send + Sync + Debug {
 
 impl ResultAggregator {
     /// Create a new result aggregator
-    pub fn new(
-        strategy: AggregationStrategy,
-        output_format: OutputFormat,
-    ) -> Self {
+    pub fn new(strategy: AggregationStrategy, output_format: OutputFormat) -> Self {
         Self {
             strategy,
             output_format,
@@ -129,17 +136,22 @@ impl ResultAggregator {
     }
 
     /// Aggregate a collection of batch results
-    pub async fn aggregate(&self, results: Vec<BatchResult>) -> Result<AggregatedResults, LangGraphError> {
+    pub async fn aggregate(
+        &self,
+        results: Vec<BatchResult>,
+    ) -> Result<AggregatedResults, LangGraphError> {
         use std::time::Instant;
 
         let start_time = Instant::now();
         let total_jobs = results.len();
 
         // Count successful and failed jobs
-        let successful_jobs = results.iter()
+        let successful_jobs = results
+            .iter()
             .filter(|r| r.status == crate::batch::BatchJobStatus::Completed)
             .count();
-        let failed_jobs = results.iter()
+        let failed_jobs = results
+            .iter()
             .filter(|r| r.status == crate::batch::BatchJobStatus::Failed)
             .count();
 
@@ -193,11 +205,20 @@ impl ResultAggregator {
 
             // Create temporary state for checkpointing
             let mut state = crate::state::StateData::new();
-            state.insert("aggregated_results".to_string(), serde_json::Value::String(checkpoint_data));
+            state.insert(
+                "aggregated_results".to_string(),
+                serde_json::Value::String(checkpoint_data),
+            );
 
-            checkpointer.save_checkpoint("aggregation", &checkpoint_id, &state)
+            checkpointer
+                .save_checkpoint("aggregation", &checkpoint_id, &state)
                 .await
-                .map_err(|e| LangGraphError::CheckpointError(format!("Failed to save aggregation checkpoint: {}", e)))?;
+                .map_err(|e| {
+                    LangGraphError::CheckpointError(format!(
+                        "Failed to save aggregation checkpoint: {}",
+                        e
+                    ))
+                })?;
         }
 
         Ok(AggregatedResults {
@@ -225,10 +246,8 @@ impl ResultAggregator {
     /// Export results in specified format
     pub async fn export(&self, results: &AggregatedResults) -> Result<String, LangGraphError> {
         match &self.output_format {
-            OutputFormat::Json => {
-                serde_json::to_string_pretty(results)
-                    .map_err(|e| LangGraphError::SerializationError(e.to_string()))
-            }
+            OutputFormat::Json => serde_json::to_string_pretty(results)
+                .map_err(|e| LangGraphError::SerializationError(e.to_string())),
             OutputFormat::Csv => {
                 // Create CSV output with basic fields
                 let mut csv_output = String::new();
@@ -252,9 +271,10 @@ impl ResultAggregator {
                 // In GREEN phase, we'll implement actual Parquet format
                 Ok("Parquet export not yet implemented".to_string())
             }
-            OutputFormat::Custom(format_name) => {
-                Ok(format!("Custom format '{}' export not yet implemented", format_name))
-            }
+            OutputFormat::Custom(format_name) => Ok(format!(
+                "Custom format '{}' export not yet implemented",
+                format_name
+            )),
         }
     }
 }
@@ -328,7 +348,10 @@ impl JsonConsumer {
 }
 
 impl ResultConsumer for JsonConsumer {
-    fn consume(&self, results: Vec<BatchResult>) -> Pin<Box<dyn Future<Output = Result<(), LangGraphError>> + Send + '_>> {
+    fn consume(
+        &self,
+        results: Vec<BatchResult>,
+    ) -> Pin<Box<dyn Future<Output = Result<(), LangGraphError>> + Send + '_>> {
         Box::pin(async move {
             // Serialize results to JSON
             let json_data = serde_json::to_string_pretty(&results)
@@ -336,7 +359,11 @@ impl ResultConsumer for JsonConsumer {
 
             // For YELLOW phase, just write to string (could write to file in GREEN phase)
             // In a real implementation, we'd write to the output_path file
-            tracing::info!("JSON Consumer would write {} bytes to {}", json_data.len(), self.output_path);
+            tracing::info!(
+                "JSON Consumer would write {} bytes to {}",
+                json_data.len(),
+                self.output_path
+            );
 
             Ok(())
         })

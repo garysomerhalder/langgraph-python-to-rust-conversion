@@ -2,7 +2,10 @@
 //! RED Phase: Writing failing tests for HIL-004
 
 use langgraph::{
-    engine::{ExecutionEngine, UserFeedback, FeedbackManager, FeedbackType, FeedbackHistory, FeedbackRequestStatus},
+    engine::{
+        ExecutionEngine, FeedbackHistory, FeedbackManager, FeedbackRequestStatus, FeedbackType,
+        UserFeedback,
+    },
     graph::GraphBuilder,
     state::StateData,
     Result,
@@ -133,7 +136,9 @@ async fn test_feedback_state_modification() -> Result<()> {
     let feedback_id = manager.submit_feedback(feedback).await;
 
     // Apply modification
-    let result = manager.apply_modification(&feedback_id, &mut original_state).await?;
+    let result = manager
+        .apply_modification(&feedback_id, &mut original_state)
+        .await?;
 
     assert!(result);
     assert_eq!(original_state.get("value"), Some(&json!(200)));
@@ -150,24 +155,24 @@ async fn test_feedback_aggregation() -> Result<()> {
 
     // Submit various feedbacks
     for _ in 0..3 {
-        manager.submit_feedback(
-            UserFeedback::new("node_a", FeedbackType::Approval, None)
-        ).await;
+        manager
+            .submit_feedback(UserFeedback::new("node_a", FeedbackType::Approval, None))
+            .await;
     }
 
     for _ in 0..2 {
-        manager.submit_feedback(
-            UserFeedback::new("node_b", FeedbackType::Rejection, None)
-        ).await;
+        manager
+            .submit_feedback(UserFeedback::new("node_b", FeedbackType::Rejection, None))
+            .await;
     }
 
-    manager.submit_feedback(
-        UserFeedback::with_modification(
+    manager
+        .submit_feedback(UserFeedback::with_modification(
             "node_c",
             None,
             StateData::new(),
-        )
-    ).await;
+        ))
+        .await;
 
     // Get aggregated stats
     let stats = manager.get_feedback_stats().await;
@@ -191,11 +196,13 @@ async fn test_feedback_timeout() -> Result<()> {
     let manager = FeedbackManager::new();
 
     // Request feedback with timeout
-    let request = manager.request_feedback(
-        "timeout_node",
-        "Please approve this action",
-        std::time::Duration::from_millis(100),
-    ).await;
+    let request = manager
+        .request_feedback(
+            "timeout_node",
+            "Please approve this action",
+            std::time::Duration::from_millis(100),
+        )
+        .await;
 
     // Wait for timeout
     tokio::time::sleep(std::time::Duration::from_millis(150)).await;
@@ -225,7 +232,11 @@ async fn test_concurrent_feedback() -> Result<()> {
         let handle = tokio::spawn(async move {
             let feedback = UserFeedback::new(
                 &format!("concurrent_{}", i),
-                if i % 2 == 0 { FeedbackType::Approval } else { FeedbackType::Rejection },
+                if i % 2 == 0 {
+                    FeedbackType::Approval
+                } else {
+                    FeedbackType::Rejection
+                },
                 Some(format!("Concurrent feedback {}", i)),
             );
             mgr.submit_feedback(feedback).await
@@ -275,7 +286,10 @@ async fn test_feedback_persistence() -> Result<()> {
     // Verify imported feedback
     let imported = manager.get_feedback(&feedback_id).await;
     assert!(imported.is_some());
-    assert_eq!(imported.unwrap().comment, Some("Persisted feedback".to_string()));
+    assert_eq!(
+        imported.unwrap().comment,
+        Some("Persisted feedback".to_string())
+    );
 
     Ok(())
 }
@@ -332,7 +346,11 @@ async fn test_feedback_search() -> Result<()> {
     for i in 0..10 {
         let feedback = UserFeedback::new(
             &format!("search_node_{}", i % 3),
-            if i < 5 { FeedbackType::Approval } else { FeedbackType::Rejection },
+            if i < 5 {
+                FeedbackType::Approval
+            } else {
+                FeedbackType::Rejection
+            },
             Some(format!("Comment {}", i)),
         );
         manager.submit_feedback(feedback).await;
@@ -344,16 +362,17 @@ async fn test_feedback_search() -> Result<()> {
 
     // Filter by time range
     let now = chrono::Utc::now();
-    let results = manager.get_history(
-        Some(now - chrono::Duration::hours(1)),
-        Some(now),
-    ).await;
+    let results = manager
+        .get_history(Some(now - chrono::Duration::hours(1)), Some(now))
+        .await;
     assert_eq!(results.len(), 10);
 
     // Complex filter
-    let results = manager.search_with_filter(|f| {
-        f.node_id.contains("node_0") && f.feedback_type == FeedbackType::Approval
-    }).await;
+    let results = manager
+        .search_with_filter(|f| {
+            f.node_id.contains("node_0") && f.feedback_type == FeedbackType::Approval
+        })
+        .await;
     assert!(results.len() > 0);
 
     Ok(())

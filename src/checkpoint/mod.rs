@@ -10,16 +10,19 @@ pub use memory::MemoryCheckpointer;
 pub use postgres::{PostgresCheckpointer, PostgresConfig};
 pub use redis::{RedisCheckpointer, RedisConfig};
 // pub use s3::{S3Checkpointer, S3Config, S3LifecyclePolicy};  // Temporarily disabled
-pub use distributed::{DistributedCheckpointer, DistributedConfig, StateEvent, NodeInfo, PerformanceMetrics, DistributedLock};
+pub use distributed::{
+    DistributedCheckpointer, DistributedConfig, DistributedLock, NodeInfo, PerformanceMetrics,
+    StateEvent,
+};
 
-use std::sync::Arc;
-use std::collections::HashMap;
-use serde_json::Value;
-use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
 use anyhow::Result;
+use async_trait::async_trait;
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::collections::HashMap;
+use std::sync::Arc;
+use thiserror::Error;
 
 use crate::state::GraphState;
 
@@ -91,7 +94,7 @@ impl Checkpoint {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        
+
         Self {
             id: format!("checkpoint-{}-{}", thread_id_str, timestamp),
             thread_id: thread_id_str,
@@ -100,18 +103,14 @@ impl Checkpoint {
             metadata: None,
         }
     }
-    
+
     /// Create a checkpoint with custom ID
-    pub fn with_id(
-        id: impl Into<String>,
-        thread_id: impl Into<String>,
-        state: GraphState,
-    ) -> Self {
+    pub fn with_id(id: impl Into<String>, thread_id: impl Into<String>, state: GraphState) -> Self {
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        
+
         Self {
             id: id.into(),
             thread_id: thread_id.into(),
@@ -120,7 +119,7 @@ impl Checkpoint {
             metadata: None,
         }
     }
-    
+
     /// Add metadata to the checkpoint
     pub fn with_metadata(mut self, metadata: serde_json::Value) -> Self {
         self.metadata = Some(metadata);
@@ -184,73 +183,69 @@ pub trait Checkpointer: Send + Sync {
 pub use memory::InMemoryCheckpointer;
 
 #[cfg(test)]
-#[cfg(feature = "disabled_tests")]  // Temporarily disable due to trait ambiguity
+#[cfg(feature = "disabled_tests")] // Temporarily disable due to trait ambiguity
 mod tests {
     use super::*;
-    
+
     #[tokio::test]
     async fn test_checkpoint_creation() {
         let state = GraphState::new();
         let checkpoint = Checkpoint::new("thread-1", state.clone());
-        
+
         assert_eq!(checkpoint.thread_id, "thread-1");
         assert!(checkpoint.id.starts_with("checkpoint-thread-1-"));
         assert!(checkpoint.created_at > 0);
     }
-    
+
     #[tokio::test]
     async fn test_in_memory_checkpointer() {
         let checkpointer = InMemoryCheckpointer::new();
         let state = GraphState::new();
         let checkpoint = Checkpoint::new("thread-1", state);
-        
+
         // Save checkpoint
         let id = checkpointer.save(checkpoint.clone()).await.unwrap();
         assert_eq!(id, checkpoint.id);
-        
+
         // Load checkpoint
         let loaded = checkpointer.load(&id).await.unwrap();
         assert_eq!(loaded.id, checkpoint.id);
         assert_eq!(loaded.thread_id, checkpoint.thread_id);
-        
+
         // List checkpoints
         let ids = checkpointer.list("thread-1").await.unwrap();
         assert_eq!(ids.len(), 1);
         assert_eq!(ids[0], id);
-        
+
         // Load latest
         let latest = checkpointer.load_latest("thread-1").await.unwrap();
         assert!(latest.is_some());
         assert_eq!(latest.unwrap().id, id);
-        
+
         // Delete checkpoint
         checkpointer.delete(&id).await.unwrap();
         let ids = checkpointer.list("thread-1").await.unwrap();
         assert_eq!(ids.len(), 0);
     }
-    
+
     #[tokio::test]
     async fn test_delete_thread() {
         let checkpointer = InMemoryCheckpointer::new();
-        
+
         // Create multiple checkpoints for same thread
         for i in 0..3 {
             let state = GraphState::new();
-            let checkpoint = Checkpoint::with_id(
-                format!("checkpoint-{}", i),
-                "thread-1",
-                state,
-            );
+            let checkpoint = Checkpoint::with_id(format!("checkpoint-{}", i), "thread-1", state);
             checkpointer.save(checkpoint).await.unwrap();
         }
-        
+
         // Verify all saved
         let ids = checkpointer.list("thread-1").await.unwrap();
         assert_eq!(ids.len(), 3);
-        
+
         // Delete entire thread
         checkpointer.delete_thread("thread-1").await.unwrap();
-        
+
         // Verify all deleted
         let ids = checkpointer.list("thread-1").await.unwrap();
         assert_eq!(ids.len(), 0);

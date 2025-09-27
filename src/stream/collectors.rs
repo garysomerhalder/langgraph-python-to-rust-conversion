@@ -1,19 +1,19 @@
+use crate::graph::GraphError;
 use async_trait::async_trait;
 use futures::stream::{Stream, StreamExt};
 use std::collections::HashMap;
 use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use crate::graph::GraphError;
 
 #[async_trait]
 pub trait StreamCollector: Send + Sync {
     type Item: Send + Sync;
     type Output: Send + Sync;
-    
+
     async fn collect_item(&mut self, item: Self::Item) -> Result<(), GraphError>;
     async fn finalize(self) -> Result<Self::Output, GraphError>;
-    
+
     async fn collect_stream(
         mut self,
         mut stream: Pin<Box<dyn Stream<Item = Self::Item> + Send>>,
@@ -40,7 +40,7 @@ impl<T> VecCollector<T> {
             max_size: None,
         }
     }
-    
+
     pub fn with_max_size(max_size: usize) -> Self {
         Self {
             items: Vec::new(),
@@ -53,20 +53,21 @@ impl<T> VecCollector<T> {
 impl<T: Send + Sync> StreamCollector for VecCollector<T> {
     type Item = T;
     type Output = Vec<T>;
-    
+
     async fn collect_item(&mut self, item: Self::Item) -> Result<(), GraphError> {
         if let Some(max) = self.max_size {
             if self.items.len() >= max {
-                return Err(GraphError::ValidationError(
-                    format!("Collector reached max size of {}", max)
-                ));
+                return Err(GraphError::ValidationError(format!(
+                    "Collector reached max size of {}",
+                    max
+                )));
             }
         }
-        
+
         self.items.push(item);
         Ok(())
     }
-    
+
     async fn finalize(self) -> Result<Self::Output, GraphError> {
         Ok(self.items)
     }
@@ -92,13 +93,13 @@ where
 {
     type Item = (K, V);
     type Output = HashMap<K, V>;
-    
+
     async fn collect_item(&mut self, item: Self::Item) -> Result<(), GraphError> {
         let (key, value) = item;
         self.map.insert(key, value);
         Ok(())
     }
-    
+
     async fn finalize(self) -> Result<Self::Output, GraphError> {
         Ok(self.map)
     }
@@ -126,12 +127,12 @@ where
 {
     type Item = T;
     type Output = Option<T>;
-    
+
     async fn collect_item(&mut self, item: Self::Item) -> Result<(), GraphError> {
         self.accumulator = Some((self.aggregator)(self.accumulator.clone(), item));
         Ok(())
     }
-    
+
     async fn finalize(self) -> Result<Self::Output, GraphError> {
         Ok(self.accumulator)
     }
@@ -157,13 +158,13 @@ where
 {
     type Item = (K, V);
     type Output = HashMap<K, Vec<V>>;
-    
+
     async fn collect_item(&mut self, item: Self::Item) -> Result<(), GraphError> {
         let (key, value) = item;
         self.groups.entry(key).or_insert_with(Vec::new).push(value);
         Ok(())
     }
-    
+
     async fn finalize(self) -> Result<Self::Output, GraphError> {
         Ok(self.groups)
     }
@@ -204,18 +205,18 @@ pub struct Statistics {
 impl StreamCollector for StatisticsCollector {
     type Item = f64;
     type Output = Statistics;
-    
+
     async fn collect_item(&mut self, item: Self::Item) -> Result<(), GraphError> {
         self.count += 1;
         self.sum += item;
-        
+
         self.min = Some(self.min.map_or(item, |m| m.min(item)));
         self.max = Some(self.max.map_or(item, |m| m.max(item)));
-        
+
         self.values.push(item);
         Ok(())
     }
-    
+
     async fn finalize(mut self) -> Result<Self::Output, GraphError> {
         if self.count == 0 {
             return Ok(Statistics {
@@ -228,9 +229,9 @@ impl StreamCollector for StatisticsCollector {
                 std_dev: None,
             });
         }
-        
+
         let mean = self.sum / self.count as f64;
-        
+
         self.values.sort_by(|a, b| a.partial_cmp(b).unwrap());
         let median = if self.count % 2 == 0 {
             let mid = self.count / 2;
@@ -238,12 +239,11 @@ impl StreamCollector for StatisticsCollector {
         } else {
             Some(self.values[self.count / 2])
         };
-        
-        let variance = self.values.iter()
-            .map(|v| (v - mean).powi(2))
-            .sum::<f64>() / self.count as f64;
+
+        let variance =
+            self.values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / self.count as f64;
         let std_dev = Some(variance.sqrt());
-        
+
         Ok(Statistics {
             count: self.count,
             sum: self.sum,
@@ -273,7 +273,7 @@ impl<T> BufferedCollector<T> {
             flush_callback: Arc::new(flush_callback),
         }
     }
-    
+
     async fn flush(&self) -> Result<(), GraphError> {
         let mut buffer = self.buffer.write().await;
         if !buffer.is_empty() {
@@ -288,20 +288,20 @@ impl<T> BufferedCollector<T> {
 impl<T: Send + Sync + Clone> StreamCollector for BufferedCollector<T> {
     type Item = T;
     type Output = ();
-    
+
     async fn collect_item(&mut self, item: Self::Item) -> Result<(), GraphError> {
         let mut buffer = self.buffer.write().await;
         buffer.push(item);
-        
+
         if buffer.len() >= self.flush_size {
             let items = std::mem::take(&mut *buffer);
             drop(buffer);
             (self.flush_callback)(items);
         }
-        
+
         Ok(())
     }
-    
+
     async fn finalize(self) -> Result<Self::Output, GraphError> {
         self.flush().await?;
         Ok(())

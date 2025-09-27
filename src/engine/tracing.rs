@@ -1,13 +1,13 @@
 //! Distributed tracing support for graph execution
 //! Provides comprehensive tracing with OpenTelemetry compatibility
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use tokio::sync::RwLock;
-use uuid::Uuid;
 use tracing::{debug, error, info, instrument};
-use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 /// Trace context for distributed tracing
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,7 +35,7 @@ impl TraceContext {
             baggage: HashMap::new(),
         }
     }
-    
+
     /// Create a child span context
     pub fn child(&self) -> Self {
         Self {
@@ -46,12 +46,12 @@ impl TraceContext {
             baggage: self.baggage.clone(),
         }
     }
-    
+
     /// Add baggage item
     pub fn add_baggage(&mut self, key: String, value: String) {
         self.baggage.insert(key, value);
     }
-    
+
     /// Get baggage item
     pub fn get_baggage(&self, key: &str) -> Option<&String> {
         self.baggage.get(key)
@@ -99,22 +99,22 @@ impl Span {
             status: SpanStatus::Unset,
         }
     }
-    
+
     /// Add a tag to the span
     pub fn add_tag(&mut self, key: String, value: String) {
         self.tags.insert(key, value);
     }
-    
+
     /// Add an event to the span
     pub fn add_event(&mut self, event: SpanEvent) {
         self.events.push(event);
     }
-    
+
     /// Set the span status
     pub fn set_status(&mut self, status: SpanStatus) {
         self.status = status;
     }
-    
+
     /// End the span
     pub fn end(&mut self) {
         let end_time = SystemTime::now();
@@ -143,7 +143,7 @@ impl SpanEvent {
             attributes: HashMap::new(),
         }
     }
-    
+
     /// Add an attribute
     pub fn add_attribute(&mut self, key: String, value: String) {
         self.attributes.insert(key, value);
@@ -180,45 +180,52 @@ impl Tracer {
             exporters: Arc::new(RwLock::new(Vec::new())),
         }
     }
-    
+
     /// Start a new span with a new trace context
     pub fn start_span(&self, operation: &str) -> SpanHandle {
         let context = TraceContext::new();
         let span = Span::new(&context, operation.to_string());
         let span_id = span.span_id.clone();
-        
+
         // Use tokio::spawn to handle the async operation
         let active_spans = self.active_spans.clone();
         tokio::spawn(async move {
             active_spans.write().await.insert(span_id.clone(), span);
         });
-        
+
         SpanHandle {
             span_id: context.span_id,
             tracer: self.clone(),
         }
     }
-    
+
     /// Start a new span with provided context
     #[instrument(skip(self))]
-    pub async fn start_span_with_context(&self, context: &TraceContext, operation: String) -> SpanHandle {
+    pub async fn start_span_with_context(
+        &self,
+        context: &TraceContext,
+        operation: String,
+    ) -> SpanHandle {
         let span = Span::new(context, operation);
         let span_id = span.span_id.clone();
-        
-        self.active_spans.write().await.insert(span_id.clone(), span);
-        
+
+        self.active_spans
+            .write()
+            .await
+            .insert(span_id.clone(), span);
+
         SpanHandle {
             span_id,
             tracer: self.clone(),
         }
     }
-    
+
     /// End a span
     async fn end_span(&self, span_id: String) {
         let mut active = self.active_spans.write().await;
         if let Some(mut span) = active.remove(&span_id) {
             span.end();
-            
+
             // Export to all exporters
             let exporters = self.exporters.read().await;
             for exporter in exporters.iter() {
@@ -226,33 +233,30 @@ impl Tracer {
                     error!("Failed to export span: {}", e);
                 }
             }
-            
+
             // Store completed span
             self.completed_spans.write().await.push(span);
         }
     }
-    
+
     /// Add a span exporter
     pub async fn add_exporter(&self, exporter: Box<dyn SpanExporter>) {
         self.exporters.write().await.push(exporter);
     }
-    
+
     /// Get metrics
     pub async fn get_metrics(&self) -> TracingMetrics {
         let active_count = self.active_spans.read().await.len();
         let completed_count = self.completed_spans.read().await.len();
-        
+
         let completed = self.completed_spans.read().await;
-        let total_duration: Duration = completed
-            .iter()
-            .filter_map(|s| s.duration)
-            .sum();
-        
+        let total_duration: Duration = completed.iter().filter_map(|s| s.duration).sum();
+
         let error_count = completed
             .iter()
             .filter(|s| matches!(s.status, SpanStatus::Error(_)))
             .count();
-        
+
         TracingMetrics {
             active_spans: active_count,
             completed_spans: completed_count,
@@ -286,25 +290,43 @@ pub struct SpanHandle {
 impl SpanHandle {
     /// Add a tag to the span
     pub async fn add_tag(&self, key: String, value: String) {
-        if let Some(span) = self.tracer.active_spans.write().await.get_mut(&self.span_id) {
+        if let Some(span) = self
+            .tracer
+            .active_spans
+            .write()
+            .await
+            .get_mut(&self.span_id)
+        {
             span.add_tag(key, value);
         }
     }
-    
+
     /// Add an event to the span
     pub async fn add_event(&self, event: SpanEvent) {
-        if let Some(span) = self.tracer.active_spans.write().await.get_mut(&self.span_id) {
+        if let Some(span) = self
+            .tracer
+            .active_spans
+            .write()
+            .await
+            .get_mut(&self.span_id)
+        {
             span.add_event(event);
         }
     }
-    
+
     /// Set the span status
     pub async fn set_status(&self, status: SpanStatus) {
-        if let Some(span) = self.tracer.active_spans.write().await.get_mut(&self.span_id) {
+        if let Some(span) = self
+            .tracer
+            .active_spans
+            .write()
+            .await
+            .get_mut(&self.span_id)
+        {
             span.set_status(status);
         }
     }
-    
+
     /// End the span
     pub fn end(self) {
         let tracer = self.tracer.clone();
@@ -328,29 +350,26 @@ pub struct ConsoleSpanExporter;
 #[async_trait::async_trait]
 impl SpanExporter for ConsoleSpanExporter {
     async fn export(&self, span: &Span) -> Result<(), Box<dyn std::error::Error>> {
-        let duration = span.duration
+        let duration = span
+            .duration
             .map(|d| format!("{}ms", d.as_millis()))
             .unwrap_or_else(|| "unknown".to_string());
-        
+
         let status = match &span.status {
             SpanStatus::Ok => "OK",
             SpanStatus::Error(e) => e,
             SpanStatus::Unset => "UNSET",
         };
-        
+
         info!(
             "[TRACE] {} - {} ({}): {} - Tags: {:?}",
-            span.trace_id,
-            span.operation_name,
-            duration,
-            status,
-            span.tags
+            span.trace_id, span.operation_name, duration, status, span.tags
         );
-        
+
         for event in &span.events {
             debug!("  Event: {} - {:?}", event.name, event.attributes);
         }
-        
+
         Ok(())
     }
 }
@@ -402,7 +421,7 @@ impl<E> InstrumentedExecutor<E> {
     pub fn new(inner: E, tracer: Tracer) -> Self {
         Self { inner, tracer }
     }
-    
+
     /// Execute with tracing
     pub async fn execute_with_tracing<F, Fut, T>(
         &self,
@@ -414,17 +433,20 @@ impl<E> InstrumentedExecutor<E> {
         F: FnOnce(&E) -> Fut,
         Fut: std::future::Future<Output = Result<T, Box<dyn std::error::Error>>>,
     {
-        let span = self.tracer.start_span_with_context(&context, operation).await;
-        
+        let span = self
+            .tracer
+            .start_span_with_context(&context, operation)
+            .await;
+
         let result = f(&self.inner).await;
-        
+
         match &result {
             Ok(_) => span.set_status(SpanStatus::Ok).await,
             Err(e) => span.set_status(SpanStatus::Error(e.to_string())).await,
         }
-        
+
         span.end();
-        
+
         result
     }
 }
@@ -438,39 +460,42 @@ impl ContextPropagator {
         let trace_id = headers.get("X-Trace-Id")?;
         let span_id = headers.get("X-Span-Id")?;
         let parent_span_id = headers.get("X-Parent-Span-Id");
-        
+
         let mut context = TraceContext {
             trace_id: trace_id.clone(),
             span_id: span_id.clone(),
             parent_span_id: parent_span_id.cloned(),
-            flags: headers.get("X-Trace-Flags")
+            flags: headers
+                .get("X-Trace-Flags")
                 .and_then(|f| f.parse().ok())
                 .unwrap_or(1),
             baggage: HashMap::new(),
         };
-        
+
         // Extract baggage
         for (key, value) in headers {
             if key.starts_with("X-Baggage-") {
                 let baggage_key = key.strip_prefix("X-Baggage-").unwrap();
-                context.baggage.insert(baggage_key.to_string(), value.clone());
+                context
+                    .baggage
+                    .insert(baggage_key.to_string(), value.clone());
             }
         }
-        
+
         Some(context)
     }
-    
+
     /// Inject trace context into headers
     pub fn inject(context: &TraceContext, headers: &mut HashMap<String, String>) {
         headers.insert("X-Trace-Id".to_string(), context.trace_id.clone());
         headers.insert("X-Span-Id".to_string(), context.span_id.clone());
-        
+
         if let Some(parent) = &context.parent_span_id {
             headers.insert("X-Parent-Span-Id".to_string(), parent.clone());
         }
-        
+
         headers.insert("X-Trace-Flags".to_string(), context.flags.to_string());
-        
+
         // Inject baggage
         for (key, value) in &context.baggage {
             headers.insert(format!("X-Baggage-{}", key), value.clone());
@@ -481,54 +506,56 @@ impl ContextPropagator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[tokio::test]
     async fn test_trace_context() {
         let context = TraceContext::new();
         assert!(!context.trace_id.is_empty());
         assert!(!context.span_id.is_empty());
         assert!(context.parent_span_id.is_none());
-        
+
         let child = context.child();
         assert_eq!(child.trace_id, context.trace_id);
         assert_eq!(child.parent_span_id, Some(context.span_id));
     }
-    
+
     #[tokio::test]
     async fn test_span_lifecycle() {
         let tracer = Tracer::new("test");
-        
+
         let span = tracer.start_span("test_operation");
-        
+
         span.add_tag("key".to_string(), "value".to_string()).await;
-        
+
         let mut event = SpanEvent::new("test_event".to_string());
         event.add_attribute("attr".to_string(), "value".to_string());
         span.add_event(event).await;
-        
+
         span.set_status(SpanStatus::Ok).await;
         span.end();
-        
+
         // Give time for the async operations to complete
         tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
-        
+
         let metrics = tracer.get_metrics().await;
         assert_eq!(metrics.completed_spans, 1);
         assert_eq!(metrics.error_count, 0);
     }
-    
+
     #[tokio::test]
     async fn test_context_propagation() {
         let mut context = TraceContext::new();
-        context.baggage.insert("user_id".to_string(), "123".to_string());
-        
+        context
+            .baggage
+            .insert("user_id".to_string(), "123".to_string());
+
         let mut headers = HashMap::new();
         ContextPropagator::inject(&context, &mut headers);
-        
+
         assert!(headers.contains_key("X-Trace-Id"));
         assert!(headers.contains_key("X-Span-Id"));
         assert!(headers.contains_key("X-Baggage-user_id"));
-        
+
         let extracted = ContextPropagator::extract(&headers).unwrap();
         assert_eq!(extracted.trace_id, context.trace_id);
         assert_eq!(extracted.span_id, context.span_id);

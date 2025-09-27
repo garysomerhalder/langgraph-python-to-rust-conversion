@@ -1,13 +1,13 @@
 //! MessageGraph implementation for message-based workflows
 //! YELLOW Phase: Minimal implementation to make tests pass
 
-use crate::{Result, LangGraphError};
+use crate::{LangGraphError, Result};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::Arc;
 use tokio::sync::RwLock;
 
 /// Role of a message sender
@@ -55,7 +55,11 @@ impl Message {
     }
 
     /// Create a message with specific type
-    pub fn with_type(role: MessageRole, content: impl Into<String>, message_type: MessageType) -> Self {
+    pub fn with_type(
+        role: MessageRole,
+        content: impl Into<String>,
+        message_type: MessageType,
+    ) -> Self {
         Self {
             id: uuid::Uuid::new_v4(),
             role,
@@ -94,7 +98,8 @@ impl Message {
 }
 
 /// Message handler function type
-pub type MessageHandler = Arc<dyn Fn(Message) -> Pin<Box<dyn Future<Output = Message> + Send>> + Send + Sync>;
+pub type MessageHandler =
+    Arc<dyn Fn(Message) -> Pin<Box<dyn Future<Output = Message> + Send>> + Send + Sync>;
 
 /// Router function type
 pub type RouterFn = Arc<dyn Fn(&Message) -> &str + Send + Sync>;

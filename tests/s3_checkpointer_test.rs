@@ -26,36 +26,49 @@ async fn test_s3_checkpointer_save_and_load() {
     // Real S3 or LocalStack connection required
     let config = get_s3_config();
 
-    let checkpointer = S3Checkpointer::new(config).await
+    let checkpointer = S3Checkpointer::new(config)
+        .await
         .expect("Failed to create S3 checkpointer");
 
     // Create bucket if it doesn't exist
-    checkpointer.ensure_bucket_exists().await
+    checkpointer
+        .ensure_bucket_exists()
+        .await
         .expect("Failed to ensure bucket exists");
 
     // Create test state
     let mut state = GraphState::new();
     state.set("s3_test_key", json!("s3_test_value"));
-    state.set("metadata", json!({
-        "timestamp": chrono::Utc::now().to_rfc3339(),
-        "version": "1.0.0"
-    }));
+    state.set(
+        "metadata",
+        json!({
+            "timestamp": chrono::Utc::now().to_rfc3339(),
+            "version": "1.0.0"
+        }),
+    );
 
     let thread_id = "test_s3_thread_001";
 
     // Save checkpoint
-    let checkpoint_id = checkpointer.save_checkpoint(thread_id, &state).await
+    let checkpoint_id = checkpointer
+        .save_checkpoint(thread_id, &state)
+        .await
         .expect("Failed to save checkpoint to S3");
 
     assert!(!checkpoint_id.is_empty());
 
     // Load checkpoint
-    let loaded_state = checkpointer.load_checkpoint(thread_id, Some(&checkpoint_id)).await
+    let loaded_state = checkpointer
+        .load_checkpoint(thread_id, Some(&checkpoint_id))
+        .await
         .expect("Failed to load checkpoint from S3")
         .expect("Checkpoint not found");
 
     // Verify state
-    assert_eq!(loaded_state.get("s3_test_key"), Some(&json!("s3_test_value")));
+    assert_eq!(
+        loaded_state.get("s3_test_key"),
+        Some(&json!("s3_test_value"))
+    );
     assert!(loaded_state.get("metadata").is_some());
 }
 
@@ -63,10 +76,13 @@ async fn test_s3_checkpointer_save_and_load() {
 async fn test_s3_checkpointer_multipart_upload() {
     let config = get_s3_config();
 
-    let checkpointer = S3Checkpointer::new(config).await
+    let checkpointer = S3Checkpointer::new(config)
+        .await
         .expect("Failed to create S3 checkpointer");
 
-    checkpointer.ensure_bucket_exists().await
+    checkpointer
+        .ensure_bucket_exists()
+        .await
         .expect("Failed to ensure bucket exists");
 
     let thread_id = "test_s3_multipart";
@@ -79,20 +95,29 @@ async fn test_s3_checkpointer_multipart_upload() {
     }
 
     // Save with multipart
-    let checkpoint_id = checkpointer.save_checkpoint(thread_id, &state).await
+    let checkpoint_id = checkpointer
+        .save_checkpoint(thread_id, &state)
+        .await
         .expect("Failed to save large checkpoint");
 
     // Verify upload completed
-    let exists = checkpointer.checkpoint_exists(thread_id, &checkpoint_id).await
+    let exists = checkpointer
+        .checkpoint_exists(thread_id, &checkpoint_id)
+        .await
         .expect("Failed to check existence");
     assert!(exists);
 
     // Load and verify
-    let loaded_state = checkpointer.load_checkpoint(thread_id, Some(&checkpoint_id)).await
+    let loaded_state = checkpointer
+        .load_checkpoint(thread_id, Some(&checkpoint_id))
+        .await
         .expect("Failed to load")
         .expect("Not found");
 
-    assert_eq!(loaded_state.get("large_field_0"), state.get("large_field_0"));
+    assert_eq!(
+        loaded_state.get("large_field_0"),
+        state.get("large_field_0")
+    );
 }
 
 #[tokio::test]
@@ -100,14 +125,19 @@ async fn test_s3_checkpointer_versioning() {
     let mut config = get_s3_config();
     config.enable_versioning = true;
 
-    let checkpointer = S3Checkpointer::new(config).await
+    let checkpointer = S3Checkpointer::new(config)
+        .await
         .expect("Failed to create S3 checkpointer");
 
-    checkpointer.ensure_bucket_exists().await
+    checkpointer
+        .ensure_bucket_exists()
+        .await
         .expect("Failed to ensure bucket exists");
 
     // Enable versioning on bucket
-    checkpointer.enable_bucket_versioning().await
+    checkpointer
+        .enable_bucket_versioning()
+        .await
         .expect("Failed to enable versioning");
 
     let thread_id = "test_s3_versioning";
@@ -119,19 +149,25 @@ async fn test_s3_checkpointer_versioning() {
         state.set("version", json!(i));
         state.set("data", json!(format!("version_{}", i)));
 
-        let checkpoint_id = checkpointer.save_checkpoint(thread_id, &state).await
+        let checkpoint_id = checkpointer
+            .save_checkpoint(thread_id, &state)
+            .await
             .expect("Failed to save checkpoint");
         version_ids.push(checkpoint_id);
     }
 
     // List all versions
-    let versions = checkpointer.list_checkpoint_versions(thread_id, &version_ids[2]).await
+    let versions = checkpointer
+        .list_checkpoint_versions(thread_id, &version_ids[2])
+        .await
         .expect("Failed to list versions");
 
     assert!(versions.len() >= 1); // Should have at least one version
 
     // Load specific version
-    let state_v1 = checkpointer.load_checkpoint_version(thread_id, &version_ids[0], None).await
+    let state_v1 = checkpointer
+        .load_checkpoint_version(thread_id, &version_ids[0], None)
+        .await
         .expect("Failed to load version")
         .expect("Version not found");
 
@@ -142,10 +178,13 @@ async fn test_s3_checkpointer_versioning() {
 async fn test_s3_checkpointer_signed_url() {
     let config = get_s3_config();
 
-    let checkpointer = S3Checkpointer::new(config).await
+    let checkpointer = S3Checkpointer::new(config)
+        .await
         .expect("Failed to create S3 checkpointer");
 
-    checkpointer.ensure_bucket_exists().await
+    checkpointer
+        .ensure_bucket_exists()
+        .await
         .expect("Failed to ensure bucket exists");
 
     let thread_id = "test_s3_signed_url";
@@ -153,15 +192,20 @@ async fn test_s3_checkpointer_signed_url() {
     state.set("signed_test", json!("data"));
 
     // Save checkpoint
-    let checkpoint_id = checkpointer.save_checkpoint(thread_id, &state).await
+    let checkpoint_id = checkpointer
+        .save_checkpoint(thread_id, &state)
+        .await
         .expect("Failed to save");
 
     // Generate signed URL for direct access
-    let signed_url = checkpointer.generate_signed_url(
-        thread_id,
-        &checkpoint_id,
-        std::time::Duration::from_secs(3600) // 1 hour expiry
-    ).await.expect("Failed to generate signed URL");
+    let signed_url = checkpointer
+        .generate_signed_url(
+            thread_id,
+            &checkpoint_id,
+            std::time::Duration::from_secs(3600), // 1 hour expiry
+        )
+        .await
+        .expect("Failed to generate signed URL");
 
     assert!(signed_url.starts_with("https://"));
 
@@ -173,10 +217,13 @@ async fn test_s3_checkpointer_signed_url() {
 async fn test_s3_checkpointer_lifecycle_policy() {
     let config = get_s3_config();
 
-    let checkpointer = S3Checkpointer::new(config).await
+    let checkpointer = S3Checkpointer::new(config)
+        .await
         .expect("Failed to create S3 checkpointer");
 
-    checkpointer.ensure_bucket_exists().await
+    checkpointer
+        .ensure_bucket_exists()
+        .await
         .expect("Failed to ensure bucket exists");
 
     // Set lifecycle policy for automatic deletion
@@ -186,11 +233,15 @@ async fn test_s3_checkpointer_lifecycle_policy() {
         enable_intelligent_tiering: true,
     };
 
-    checkpointer.set_lifecycle_policy(policy).await
+    checkpointer
+        .set_lifecycle_policy(policy)
+        .await
         .expect("Failed to set lifecycle policy");
 
     // Verify policy was set
-    let current_policy = checkpointer.get_lifecycle_policy().await
+    let current_policy = checkpointer
+        .get_lifecycle_policy()
+        .await
         .expect("Failed to get lifecycle policy");
 
     assert!(current_policy.is_some());
@@ -200,10 +251,13 @@ async fn test_s3_checkpointer_lifecycle_policy() {
 async fn test_s3_checkpointer_batch_operations() {
     let config = get_s3_config();
 
-    let checkpointer = S3Checkpointer::new(config).await
+    let checkpointer = S3Checkpointer::new(config)
+        .await
         .expect("Failed to create S3 checkpointer");
 
-    checkpointer.ensure_bucket_exists().await
+    checkpointer
+        .ensure_bucket_exists()
+        .await
         .expect("Failed to ensure bucket exists");
 
     // Prepare multiple checkpoints
@@ -215,22 +269,26 @@ async fn test_s3_checkpointer_batch_operations() {
     }
 
     // Batch save
-    let ids = checkpointer.batch_save_checkpoints(checkpoints.clone()).await
+    let ids = checkpointer
+        .batch_save_checkpoints(checkpoints.clone())
+        .await
         .expect("Failed to batch save");
 
     assert_eq!(ids.len(), 5);
 
     // Batch delete
-    let thread_ids: Vec<String> = (0..5)
-        .map(|i| format!("thread_s3_batch_{}", i))
-        .collect();
+    let thread_ids: Vec<String> = (0..5).map(|i| format!("thread_s3_batch_{}", i)).collect();
 
-    checkpointer.batch_delete_checkpoints(&thread_ids, &ids).await
+    checkpointer
+        .batch_delete_checkpoints(&thread_ids, &ids)
+        .await
         .expect("Failed to batch delete");
 
     // Verify deletion
     for (thread_id, checkpoint_id) in thread_ids.iter().zip(ids.iter()) {
-        let exists = checkpointer.checkpoint_exists(thread_id, checkpoint_id).await
+        let exists = checkpointer
+            .checkpoint_exists(thread_id, checkpoint_id)
+            .await
             .expect("Failed to check existence");
         assert!(!exists);
     }
@@ -241,10 +299,13 @@ async fn test_s3_checkpointer_compression() {
     let mut config = get_s3_config();
     config.compression = true;
 
-    let checkpointer = S3Checkpointer::new(config).await
+    let checkpointer = S3Checkpointer::new(config)
+        .await
         .expect("Failed to create S3 checkpointer");
 
-    checkpointer.ensure_bucket_exists().await
+    checkpointer
+        .ensure_bucket_exists()
+        .await
         .expect("Failed to ensure bucket exists");
 
     let thread_id = "test_s3_compression";
@@ -255,11 +316,15 @@ async fn test_s3_checkpointer_compression() {
     state.set("compressible", json!(repeated_data.clone()));
 
     // Save with compression
-    let checkpoint_id = checkpointer.save_checkpoint(thread_id, &state).await
+    let checkpoint_id = checkpointer
+        .save_checkpoint(thread_id, &state)
+        .await
         .expect("Failed to save");
 
     // Get object metadata to check size
-    let metadata = checkpointer.get_checkpoint_metadata(thread_id, &checkpoint_id).await
+    let metadata = checkpointer
+        .get_checkpoint_metadata(thread_id, &checkpoint_id)
+        .await
         .expect("Failed to get metadata");
 
     // Compressed size should be significantly smaller
@@ -267,11 +332,16 @@ async fn test_s3_checkpointer_compression() {
     assert!(metadata.size_bytes < uncompressed_size / 2);
 
     // Load and verify decompression
-    let loaded_state = checkpointer.load_checkpoint(thread_id, Some(&checkpoint_id)).await
+    let loaded_state = checkpointer
+        .load_checkpoint(thread_id, Some(&checkpoint_id))
+        .await
         .expect("Failed to load")
         .expect("Not found");
 
-    assert_eq!(loaded_state.get("compressible"), Some(&json!(repeated_data)));
+    assert_eq!(
+        loaded_state.get("compressible"),
+        Some(&json!(repeated_data))
+    );
 }
 
 #[tokio::test]
@@ -279,10 +349,13 @@ async fn test_s3_checkpointer_encryption() {
     let mut config = get_s3_config();
     config.enable_encryption = true;
 
-    let checkpointer = S3Checkpointer::new(config).await
+    let checkpointer = S3Checkpointer::new(config)
+        .await
         .expect("Failed to create S3 checkpointer");
 
-    checkpointer.ensure_bucket_exists().await
+    checkpointer
+        .ensure_bucket_exists()
+        .await
         .expect("Failed to ensure bucket exists");
 
     let thread_id = "test_s3_encryption";
@@ -290,21 +363,30 @@ async fn test_s3_checkpointer_encryption() {
     state.set("sensitive_data", json!("encrypted_content"));
 
     // Save with encryption
-    let checkpoint_id = checkpointer.save_checkpoint(thread_id, &state).await
+    let checkpoint_id = checkpointer
+        .save_checkpoint(thread_id, &state)
+        .await
         .expect("Failed to save");
 
     // Verify encryption was applied
-    let metadata = checkpointer.get_checkpoint_metadata(thread_id, &checkpoint_id).await
+    let metadata = checkpointer
+        .get_checkpoint_metadata(thread_id, &checkpoint_id)
+        .await
         .expect("Failed to get metadata");
 
     assert!(metadata.server_side_encryption.is_some());
 
     // Load and verify decryption
-    let loaded_state = checkpointer.load_checkpoint(thread_id, Some(&checkpoint_id)).await
+    let loaded_state = checkpointer
+        .load_checkpoint(thread_id, Some(&checkpoint_id))
+        .await
         .expect("Failed to load")
         .expect("Not found");
 
-    assert_eq!(loaded_state.get("sensitive_data"), Some(&json!("encrypted_content")));
+    assert_eq!(
+        loaded_state.get("sensitive_data"),
+        Some(&json!("encrypted_content"))
+    );
 }
 
 /// Lifecycle policy configuration
@@ -326,13 +408,24 @@ async fn test_s3_checkpointer_circuit_breaker_resilience() {
     config.max_retries = 1;
     config.initial_retry_delay_ms = 10;
 
-    let checkpointer = S3Checkpointer::new(config).await
+    let checkpointer = S3Checkpointer::new(config)
+        .await
         .expect("Failed to create S3 checkpointer");
 
     // Initial metrics should be zero
     let metrics = checkpointer.get_metrics();
-    assert_eq!(metrics.saves_total.load(std::sync::atomic::Ordering::Relaxed), 0);
-    assert_eq!(metrics.circuit_breaker_opened.load(std::sync::atomic::Ordering::Relaxed), 0);
+    assert_eq!(
+        metrics
+            .saves_total
+            .load(std::sync::atomic::Ordering::Relaxed),
+        0
+    );
+    assert_eq!(
+        metrics
+            .circuit_breaker_opened
+            .load(std::sync::atomic::Ordering::Relaxed),
+        0
+    );
 
     // Simulate successful operations to verify circuit is closed
     if checkpointer.ensure_bucket_exists().await.is_ok() {
@@ -342,11 +435,23 @@ async fn test_s3_checkpointer_circuit_breaker_resilience() {
 
         // This should succeed and update metrics
         if let Ok(checkpoint_id) = checkpointer.save_checkpoint(thread_id, &state).await {
-            assert!(metrics.saves_total.load(std::sync::atomic::Ordering::Relaxed) >= 1);
+            assert!(
+                metrics
+                    .saves_total
+                    .load(std::sync::atomic::Ordering::Relaxed)
+                    >= 1
+            );
 
             // Load should also work
-            let _loaded = checkpointer.load_checkpoint(thread_id, Some(&checkpoint_id)).await;
-            assert!(metrics.loads_total.load(std::sync::atomic::Ordering::Relaxed) >= 1);
+            let _loaded = checkpointer
+                .load_checkpoint(thread_id, Some(&checkpoint_id))
+                .await;
+            assert!(
+                metrics
+                    .loads_total
+                    .load(std::sync::atomic::Ordering::Relaxed)
+                    >= 1
+            );
         }
     }
 
@@ -363,11 +468,14 @@ async fn test_s3_checkpointer_retry_with_exponential_backoff() {
     config.max_retry_delay_ms = 1000;
     config.timeout_seconds = 10;
 
-    let checkpointer = S3Checkpointer::new(config).await
+    let checkpointer = S3Checkpointer::new(config)
+        .await
         .expect("Failed to create S3 checkpointer");
 
     let metrics = checkpointer.get_metrics();
-    let initial_operations = metrics.operation_duration_ms.load(std::sync::atomic::Ordering::Relaxed);
+    let initial_operations = metrics
+        .operation_duration_ms
+        .load(std::sync::atomic::Ordering::Relaxed);
 
     if checkpointer.ensure_bucket_exists().await.is_ok() {
         let thread_id = "test_retry_backoff";
@@ -378,31 +486,56 @@ async fn test_s3_checkpointer_retry_with_exponential_backoff() {
         let result = checkpointer.save_checkpoint(thread_id, &state).await;
 
         // Even if operation fails, it should track duration
-        let final_operations = metrics.operation_duration_ms.load(std::sync::atomic::Ordering::Relaxed);
+        let final_operations = metrics
+            .operation_duration_ms
+            .load(std::sync::atomic::Ordering::Relaxed);
         assert!(final_operations >= initial_operations);
 
         if let Ok(checkpoint_id) = result {
             // Test load operation timing
-            let _loaded = checkpointer.load_checkpoint(thread_id, Some(&checkpoint_id)).await;
+            let _loaded = checkpointer
+                .load_checkpoint(thread_id, Some(&checkpoint_id))
+                .await;
         }
     }
 
     // Verify metrics tracking
-    assert!(metrics.operation_duration_ms.load(std::sync::atomic::Ordering::Relaxed) > 0);
+    assert!(
+        metrics
+            .operation_duration_ms
+            .load(std::sync::atomic::Ordering::Relaxed)
+            > 0
+    );
 }
 
 #[tokio::test]
 async fn test_s3_checkpointer_metrics_and_observability() {
     let config = get_s3_config();
-    let checkpointer = S3Checkpointer::new(config).await
+    let checkpointer = S3Checkpointer::new(config)
+        .await
         .expect("Failed to create S3 checkpointer");
 
     let metrics = checkpointer.get_metrics();
 
     // Initial state
-    assert_eq!(metrics.saves_total.load(std::sync::atomic::Ordering::Relaxed), 0);
-    assert_eq!(metrics.loads_total.load(std::sync::atomic::Ordering::Relaxed), 0);
-    assert_eq!(metrics.deletes_total.load(std::sync::atomic::Ordering::Relaxed), 0);
+    assert_eq!(
+        metrics
+            .saves_total
+            .load(std::sync::atomic::Ordering::Relaxed),
+        0
+    );
+    assert_eq!(
+        metrics
+            .loads_total
+            .load(std::sync::atomic::Ordering::Relaxed),
+        0
+    );
+    assert_eq!(
+        metrics
+            .deletes_total
+            .load(std::sync::atomic::Ordering::Relaxed),
+        0
+    );
 
     if checkpointer.ensure_bucket_exists().await.is_ok() {
         let thread_id = "test_metrics";
@@ -411,16 +544,40 @@ async fn test_s3_checkpointer_metrics_and_observability() {
 
         // Perform operations and track metrics
         if let Ok(checkpoint_id) = checkpointer.save_checkpoint(thread_id, &state).await {
-            assert!(metrics.saves_total.load(std::sync::atomic::Ordering::Relaxed) >= 1);
-            assert!(metrics.bytes_transferred.load(std::sync::atomic::Ordering::Relaxed) > 0);
+            assert!(
+                metrics
+                    .saves_total
+                    .load(std::sync::atomic::Ordering::Relaxed)
+                    >= 1
+            );
+            assert!(
+                metrics
+                    .bytes_transferred
+                    .load(std::sync::atomic::Ordering::Relaxed)
+                    > 0
+            );
 
             // Load operation
-            let _loaded = checkpointer.load_checkpoint(thread_id, Some(&checkpoint_id)).await;
-            assert!(metrics.loads_total.load(std::sync::atomic::Ordering::Relaxed) >= 1);
+            let _loaded = checkpointer
+                .load_checkpoint(thread_id, Some(&checkpoint_id))
+                .await;
+            assert!(
+                metrics
+                    .loads_total
+                    .load(std::sync::atomic::Ordering::Relaxed)
+                    >= 1
+            );
 
             // Delete operation
-            let _deleted = checkpointer.delete_checkpoint(thread_id, &checkpoint_id).await;
-            assert!(metrics.deletes_total.load(std::sync::atomic::Ordering::Relaxed) >= 1);
+            let _deleted = checkpointer
+                .delete_checkpoint(thread_id, &checkpoint_id)
+                .await;
+            assert!(
+                metrics
+                    .deletes_total
+                    .load(std::sync::atomic::Ordering::Relaxed)
+                    >= 1
+            );
         }
     }
 
@@ -435,7 +592,8 @@ async fn test_s3_checkpointer_timeout_handling() {
     config.timeout_seconds = 1;
     config.max_retries = 1;
 
-    let checkpointer = S3Checkpointer::new(config).await
+    let checkpointer = S3Checkpointer::new(config)
+        .await
         .expect("Failed to create S3 checkpointer");
 
     if checkpointer.ensure_bucket_exists().await.is_ok() {
@@ -453,13 +611,20 @@ async fn test_s3_checkpointer_timeout_handling() {
         match result {
             Ok(checkpoint_id) => {
                 // If successful, verify load works
-                let _loaded = checkpointer.load_checkpoint(thread_id, Some(&checkpoint_id)).await;
+                let _loaded = checkpointer
+                    .load_checkpoint(thread_id, Some(&checkpoint_id))
+                    .await;
             }
             Err(_) => {
                 // Timeout errors should be properly categorized
                 let metrics = checkpointer.get_metrics();
                 // Should have attempted the operation
-                assert!(metrics.saves_total.load(std::sync::atomic::Ordering::Relaxed) >= 1);
+                assert!(
+                    metrics
+                        .saves_total
+                        .load(std::sync::atomic::Ordering::Relaxed)
+                        >= 1
+                );
             }
         }
     }
@@ -476,13 +641,24 @@ async fn test_s3_checkpointer_production_configuration() {
     config.circuit_breaker_threshold = 5;
     config.connection_pool_size = 10;
 
-    let checkpointer = S3Checkpointer::new(config).await
+    let checkpointer = S3Checkpointer::new(config)
+        .await
         .expect("Failed to create S3 checkpointer with production config");
 
     // Verify metrics are properly initialized
     let metrics = checkpointer.get_metrics();
-    assert_eq!(metrics.saves_total.load(std::sync::atomic::Ordering::Relaxed), 0);
-    assert_eq!(metrics.circuit_breaker_opened.load(std::sync::atomic::Ordering::Relaxed), 0);
+    assert_eq!(
+        metrics
+            .saves_total
+            .load(std::sync::atomic::Ordering::Relaxed),
+        0
+    );
+    assert_eq!(
+        metrics
+            .circuit_breaker_opened
+            .load(std::sync::atomic::Ordering::Relaxed),
+        0
+    );
 
     if checkpointer.ensure_bucket_exists().await.is_ok() {
         let thread_id = "test_production";
@@ -494,14 +670,18 @@ async fn test_s3_checkpointer_production_configuration() {
         // Production save operation
         if let Ok(checkpoint_id) = checkpointer.save_checkpoint(thread_id, &state).await {
             // Verify metadata includes encryption
-            let metadata = checkpointer.get_checkpoint_metadata(thread_id, &checkpoint_id).await;
+            let metadata = checkpointer
+                .get_checkpoint_metadata(thread_id, &checkpoint_id)
+                .await;
             if let Ok(metadata) = metadata {
                 // Should have server-side encryption when enabled
                 assert!(metadata.server_side_encryption.is_some() || true); // May not be set in LocalStack
             }
 
             // Production load operation
-            let loaded = checkpointer.load_checkpoint(thread_id, Some(&checkpoint_id)).await
+            let loaded = checkpointer
+                .load_checkpoint(thread_id, Some(&checkpoint_id))
+                .await
                 .expect("Production load should succeed")
                 .expect("Checkpoint should exist");
 

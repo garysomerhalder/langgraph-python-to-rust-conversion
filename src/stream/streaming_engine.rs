@@ -1,10 +1,10 @@
-use async_trait::async_trait;
-use futures::stream::Stream;
-use std::pin::Pin;
-use std::sync::Arc;
 use crate::graph::{Graph, GraphError};
 use crate::state::State;
-use serde::{Serialize, Deserialize};
+use async_trait::async_trait;
+use futures::stream::Stream;
+use serde::{Deserialize, Serialize};
+use std::pin::Pin;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StreamOutput<T> {
@@ -17,13 +17,13 @@ pub struct StreamOutput<T> {
 #[async_trait]
 pub trait StreamingEngine: Send + Sync {
     type Output: Send + Sync;
-    
+
     async fn stream_execution<S: State>(
         &self,
         graph: Arc<Graph>,
         initial_state: S,
     ) -> Result<Pin<Box<dyn Stream<Item = StreamOutput<Self::Output>> + Send>>, GraphError>;
-    
+
     async fn stream_with_backpressure<S: State>(
         &self,
         graph: Arc<Graph>,
@@ -44,7 +44,7 @@ impl DefaultStreamingEngine {
             enable_metrics: true,
         }
     }
-    
+
     pub fn with_metrics(mut self, enable: bool) -> Self {
         self.enable_metrics = enable;
         self
@@ -54,20 +54,20 @@ impl DefaultStreamingEngine {
 #[async_trait]
 impl StreamingEngine for DefaultStreamingEngine {
     type Output = serde_json::Value;
-    
+
     async fn stream_execution<S: State>(
         &self,
         graph: Arc<Graph>,
         _initial_state: S,
     ) -> Result<Pin<Box<dyn Stream<Item = StreamOutput<Self::Output>> + Send>>, GraphError> {
         let (tx, rx) = tokio::sync::mpsc::channel(self.buffer_size);
-        
+
         let graph_ref = graph.graph();
         let node_count = graph_ref.node_count();
-        
+
         tokio::spawn(async move {
             let mut sequence = 0;
-            
+
             // Process each node in the graph
             for i in 0..node_count {
                 let output = StreamOutput {
@@ -79,15 +79,15 @@ impl StreamingEngine for DefaultStreamingEngine {
                     node_id: format!("node_{}", i),
                     sequence,
                 };
-                
+
                 sequence += 1;
                 let _ = tx.send(output).await;
             }
         });
-        
+
         Ok(Box::pin(tokio_stream::wrappers::ReceiverStream::new(rx)))
     }
-    
+
     async fn stream_with_backpressure<S: State>(
         &self,
         graph: Arc<Graph>,
@@ -95,13 +95,13 @@ impl StreamingEngine for DefaultStreamingEngine {
         buffer_size: usize,
     ) -> Result<Pin<Box<dyn Stream<Item = StreamOutput<Self::Output>> + Send>>, GraphError> {
         let (tx, rx) = tokio::sync::mpsc::channel(buffer_size);
-        
+
         let graph_ref = graph.graph();
         let node_count = graph_ref.node_count();
-        
+
         tokio::spawn(async move {
             let mut sequence = 0;
-            
+
             // Process each node with backpressure
             for i in 0..node_count {
                 let output = StreamOutput {
@@ -114,17 +114,17 @@ impl StreamingEngine for DefaultStreamingEngine {
                     node_id: format!("node_{}", i),
                     sequence,
                 };
-                
+
                 sequence += 1;
-                
+
                 if tx.send(output).await.is_err() {
                     break;
                 }
-                
+
                 tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
             }
         });
-        
+
         Ok(Box::pin(tokio_stream::wrappers::ReceiverStream::new(rx)))
     }
 }
@@ -141,7 +141,7 @@ impl<T> StreamingNode<T> {
             stream_enabled: true,
         }
     }
-    
+
     pub fn disable_streaming(mut self) -> Self {
         self.stream_enabled = false;
         self

@@ -1,14 +1,14 @@
 use langgraph::batch::{
-    BatchResult, BatchJobStatus, ResultAggregator, AggregationStrategy, OutputFormat,
-    JsonConsumer, StatusFilter, AggregatedResults
+    AggregatedResults, AggregationStrategy, BatchJobStatus, BatchResult, JsonConsumer,
+    OutputFormat, ResultAggregator, StatusFilter,
 };
 use langgraph::checkpoint::MemoryCheckpointer;
-use langgraph::state::StateData;
 use langgraph::errors::LangGraphError;
-use std::time::Duration;
-use std::sync::Arc;
-use tokio::sync::mpsc;
+use langgraph::state::StateData;
 use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::sync::mpsc;
 
 /// Helper function to create test batch results
 fn create_test_results() -> Vec<BatchResult> {
@@ -34,7 +34,10 @@ fn create_test_results() -> Vec<BatchResult> {
             status: BatchJobStatus::Completed,
             output: Some({
                 let mut state = StateData::new();
-                state.insert("result".to_string(), serde_json::Value::String("success".to_string()));
+                state.insert(
+                    "result".to_string(),
+                    serde_json::Value::String("success".to_string()),
+                );
                 state
             }),
             error: None,
@@ -47,13 +50,13 @@ fn create_test_results() -> Vec<BatchResult> {
 #[tokio::test]
 async fn test_basic_result_collection() {
     // Test basic result aggregation with collect strategy
-    let aggregator = ResultAggregator::new(
-        AggregationStrategy::Collect,
-        OutputFormat::Json,
-    );
+    let aggregator = ResultAggregator::new(AggregationStrategy::Collect, OutputFormat::Json);
 
     let results = create_test_results();
-    let aggregated = aggregator.aggregate(results.clone()).await.expect("Aggregation should succeed");
+    let aggregated = aggregator
+        .aggregate(results.clone())
+        .await
+        .expect("Aggregation should succeed");
 
     assert_eq!(aggregated.total_jobs, 3);
     assert_eq!(aggregated.successful_jobs, 2);
@@ -65,13 +68,14 @@ async fn test_basic_result_collection() {
 async fn test_result_aggregation_with_checkpointer() {
     // Test aggregation with checkpoint persistence
     let checkpointer = Arc::new(MemoryCheckpointer::default());
-    let aggregator = ResultAggregator::new(
-        AggregationStrategy::Collect,
-        OutputFormat::Json,
-    ).with_checkpointer(checkpointer);
+    let aggregator = ResultAggregator::new(AggregationStrategy::Collect, OutputFormat::Json)
+        .with_checkpointer(checkpointer);
 
     let results = create_test_results();
-    let aggregated = aggregator.aggregate(results).await.expect("Aggregation with checkpointer should succeed");
+    let aggregated = aggregator
+        .aggregate(results)
+        .await
+        .expect("Aggregation with checkpointer should succeed");
 
     assert_eq!(aggregated.total_jobs, 3);
     assert!(aggregated.metadata.processing_time_ms > 0);
@@ -83,10 +87,8 @@ async fn test_streaming_result_aggregation() {
     let (sender, receiver) = mpsc::channel::<BatchResult>(100);
     let consumer = Arc::new(JsonConsumer::new("test_output.json".to_string()));
 
-    let aggregator = ResultAggregator::new(
-        AggregationStrategy::Collect,
-        OutputFormat::Json,
-    ).with_buffer_size(50);
+    let aggregator = ResultAggregator::new(AggregationStrategy::Collect, OutputFormat::Json)
+        .with_buffer_size(50);
 
     let result_stream = aggregator.create_stream(receiver, consumer);
 
@@ -110,24 +112,27 @@ async fn test_result_filtering() {
     let results = create_test_results();
 
     // Filter should return only completed jobs
-    let filtered_results: Vec<_> = results.iter()
+    let filtered_results: Vec<_> = results
+        .iter()
         .filter(|result| filter.filter(result))
         .collect();
 
     assert_eq!(filtered_results.len(), 2); // Only 2 completed jobs
-    assert!(filtered_results.iter().all(|r| r.status == BatchJobStatus::Completed));
+    assert!(filtered_results
+        .iter()
+        .all(|r| r.status == BatchJobStatus::Completed));
 }
 
 #[tokio::test]
 async fn test_json_export_format() {
     // Test JSON export functionality
-    let aggregator = ResultAggregator::new(
-        AggregationStrategy::Collect,
-        OutputFormat::Json,
-    );
+    let aggregator = ResultAggregator::new(AggregationStrategy::Collect, OutputFormat::Json);
 
     let results = create_test_results();
-    let aggregated = aggregator.aggregate(results).await.expect("Aggregation should succeed");
+    let aggregated = aggregator
+        .aggregate(results)
+        .await
+        .expect("Aggregation should succeed");
 
     let exported = aggregator.export(&aggregated).await;
     // This will fail until export is implemented - expected for RED phase
@@ -137,13 +142,13 @@ async fn test_json_export_format() {
 #[tokio::test]
 async fn test_csv_export_format() {
     // Test CSV export functionality
-    let aggregator = ResultAggregator::new(
-        AggregationStrategy::Collect,
-        OutputFormat::Csv,
-    );
+    let aggregator = ResultAggregator::new(AggregationStrategy::Collect, OutputFormat::Csv);
 
     let results = create_test_results();
-    let aggregated = aggregator.aggregate(results).await.expect("Aggregation should succeed");
+    let aggregated = aggregator
+        .aggregate(results)
+        .await
+        .expect("Aggregation should succeed");
 
     let exported = aggregator.export(&aggregated).await;
     // This will fail until export is implemented - expected for RED phase
@@ -153,10 +158,8 @@ async fn test_csv_export_format() {
 #[tokio::test]
 async fn test_buffer_size_configuration() {
     // Test buffer size configuration for streaming
-    let aggregator = ResultAggregator::new(
-        AggregationStrategy::Collect,
-        OutputFormat::Json,
-    ).with_buffer_size(500);
+    let aggregator = ResultAggregator::new(AggregationStrategy::Collect, OutputFormat::Json)
+        .with_buffer_size(500);
 
     // Buffer size should be configurable
     assert_eq!(aggregator.buffer_size, 500);
@@ -165,13 +168,13 @@ async fn test_buffer_size_configuration() {
 #[tokio::test]
 async fn test_aggregation_metadata() {
     // Test that aggregation metadata is properly populated
-    let aggregator = ResultAggregator::new(
-        AggregationStrategy::Collect,
-        OutputFormat::Json,
-    );
+    let aggregator = ResultAggregator::new(AggregationStrategy::Collect, OutputFormat::Json);
 
     let results = create_test_results();
-    let aggregated = aggregator.aggregate(results).await.expect("Aggregation should succeed");
+    let aggregated = aggregator
+        .aggregate(results)
+        .await
+        .expect("Aggregation should succeed");
 
     // Metadata should be populated
     assert!(!aggregated.metadata.strategy.is_empty());
@@ -187,20 +190,28 @@ async fn test_large_result_set_aggregation() {
     for i in 0..1000 {
         large_results.push(BatchResult {
             job_id: format!("job_{}", i),
-            status: if i % 3 == 0 { BatchJobStatus::Failed } else { BatchJobStatus::Completed },
+            status: if i % 3 == 0 {
+                BatchJobStatus::Failed
+            } else {
+                BatchJobStatus::Completed
+            },
             output: Some(StateData::new()),
-            error: if i % 3 == 0 { Some("Error".to_string()) } else { None },
+            error: if i % 3 == 0 {
+                Some("Error".to_string())
+            } else {
+                None
+            },
             duration: Duration::from_millis(i as u64 % 100),
             attempts: 1,
         });
     }
 
-    let aggregator = ResultAggregator::new(
-        AggregationStrategy::Collect,
-        OutputFormat::Json,
-    );
+    let aggregator = ResultAggregator::new(AggregationStrategy::Collect, OutputFormat::Json);
 
-    let aggregated = aggregator.aggregate(large_results).await.expect("Large aggregation should succeed");
+    let aggregated = aggregator
+        .aggregate(large_results)
+        .await
+        .expect("Large aggregation should succeed");
 
     assert_eq!(aggregated.total_jobs, 1000);
     assert_eq!(aggregated.failed_jobs, 334); // Every 3rd job fails (0, 3, 6, ..., 999)
@@ -216,7 +227,8 @@ async fn test_backpressure_handling() {
     let aggregator = ResultAggregator::new(
         AggregationStrategy::Stream(Arc::new(TestStreamProcessor)),
         OutputFormat::Json,
-    ).with_buffer_size(5);
+    )
+    .with_buffer_size(5);
 
     let result_stream = aggregator.create_stream(receiver, consumer);
 
@@ -238,7 +250,16 @@ async fn test_backpressure_handling() {
 struct TestStreamProcessor;
 
 impl langgraph::batch::StreamProcessor for TestStreamProcessor {
-    fn process(&self, result: BatchResult) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Option<BatchResult>, LangGraphError>> + Send + '_>> {
+    fn process(
+        &self,
+        result: BatchResult,
+    ) -> std::pin::Pin<
+        Box<
+            dyn std::future::Future<Output = Result<Option<BatchResult>, LangGraphError>>
+                + Send
+                + '_,
+        >,
+    > {
         Box::pin(async move {
             // Simple pass-through processor for testing
             Ok(Some(result))

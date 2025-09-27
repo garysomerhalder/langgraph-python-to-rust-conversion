@@ -40,15 +40,15 @@
 //! ```
 
 use crate::state::StateData;
-use crate::{Result, LangGraphError};
+use crate::{LangGraphError, Result};
 use chrono::{DateTime, Duration, Utc};
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, info, warn, error, instrument};
+use tracing::{debug, error, info, instrument, warn};
 use uuid::Uuid;
 
 /// Type of user feedback
@@ -194,7 +194,9 @@ impl FeedbackManager {
         match feedback.feedback_type {
             FeedbackType::Approval => self.metrics.approvals.fetch_add(1, Ordering::Relaxed),
             FeedbackType::Rejection => self.metrics.rejections.fetch_add(1, Ordering::Relaxed),
-            FeedbackType::Modification => self.metrics.modifications.fetch_add(1, Ordering::Relaxed),
+            FeedbackType::Modification => {
+                self.metrics.modifications.fetch_add(1, Ordering::Relaxed)
+            }
             FeedbackType::Timeout => self.metrics.timeouts.fetch_add(1, Ordering::Relaxed),
         };
 
@@ -238,7 +240,8 @@ impl FeedbackManager {
         start_time: Option<DateTime<Utc>>,
         end_time: Option<DateTime<Utc>>,
     ) -> FeedbackHistory {
-        let mut history: Vec<UserFeedback> = self.feedbacks
+        let mut history: Vec<UserFeedback> = self
+            .feedbacks
             .iter()
             .map(|entry| entry.value().clone())
             .filter(|f| {
@@ -273,7 +276,8 @@ impl FeedbackManager {
 
     /// Get feedback history by type
     pub async fn get_history_by_type(&self, feedback_type: FeedbackType) -> FeedbackHistory {
-        let mut history: Vec<UserFeedback> = self.feedbacks
+        let mut history: Vec<UserFeedback> = self
+            .feedbacks
             .iter()
             .map(|entry| entry.value().clone())
             .filter(|f| f.feedback_type == feedback_type)
@@ -285,7 +289,11 @@ impl FeedbackManager {
 
     /// Apply state modifications from feedback with validation
     #[instrument(skip(self, state))]
-    pub async fn apply_modification(&self, feedback_id: &Uuid, state: &mut StateData) -> Result<bool> {
+    pub async fn apply_modification(
+        &self,
+        feedback_id: &Uuid,
+        state: &mut StateData,
+    ) -> Result<bool> {
         if let Some(feedback) = self.get_feedback(feedback_id).await {
             if feedback.feedback_type != FeedbackType::Modification {
                 warn!("Attempted to apply modifications from non-modification feedback");
@@ -422,7 +430,8 @@ impl FeedbackManager {
     /// Export all feedback data for persistence
     #[instrument(skip(self))]
     pub async fn export_feedback(&self) -> Result<Vec<UserFeedback>> {
-        let feedbacks: Vec<UserFeedback> = self.feedbacks
+        let feedbacks: Vec<UserFeedback> = self
+            .feedbacks
             .iter()
             .map(|entry| entry.value().clone())
             .collect();
@@ -441,7 +450,10 @@ impl FeedbackManager {
         self.requests.clear();
         self.node_feedbacks.clear();
 
-        info!("Cleared {} feedbacks and {} requests", feedback_count, request_count);
+        info!(
+            "Cleared {} feedbacks and {} requests",
+            feedback_count, request_count
+        );
     }
 
     /// Import feedback data from persistence
@@ -468,15 +480,18 @@ impl FeedbackManager {
     /// Import feedback by IDs (compatibility method for tests)
     pub async fn import_feedback_by_ids(&self, feedback_ids: Vec<Uuid>) -> Result<()> {
         // For test compatibility - recreate minimal feedback
-        let feedbacks: Vec<UserFeedback> = feedback_ids.into_iter().map(|id| {
-            let mut feedback = UserFeedback::new(
-                "persist_node",
-                FeedbackType::Approval,
-                Some("Persisted feedback".to_string()),
-            );
-            feedback.id = id;
-            feedback
-        }).collect();
+        let feedbacks: Vec<UserFeedback> = feedback_ids
+            .into_iter()
+            .map(|id| {
+                let mut feedback = UserFeedback::new(
+                    "persist_node",
+                    FeedbackType::Approval,
+                    Some("Persisted feedback".to_string()),
+                );
+                feedback.id = id;
+                feedback
+            })
+            .collect();
 
         self.import_feedback(feedbacks).await
     }
@@ -486,12 +501,15 @@ impl FeedbackManager {
     pub async fn search_feedback(&self, query: &str) -> FeedbackHistory {
         let query_lower = query.to_lowercase();
 
-        let mut results: Vec<UserFeedback> = self.feedbacks
+        let mut results: Vec<UserFeedback> = self
+            .feedbacks
             .iter()
             .map(|entry| entry.value().clone())
             .filter(|f| {
-                f.node_id.to_lowercase().contains(&query_lower) ||
-                f.comment.as_ref().map_or(false, |c| c.to_lowercase().contains(&query_lower))
+                f.node_id.to_lowercase().contains(&query_lower)
+                    || f.comment
+                        .as_ref()
+                        .map_or(false, |c| c.to_lowercase().contains(&query_lower))
             })
             .collect();
 
@@ -506,7 +524,8 @@ impl FeedbackManager {
     where
         F: Fn(&UserFeedback) -> bool,
     {
-        let mut results: Vec<UserFeedback> = self.feedbacks
+        let mut results: Vec<UserFeedback> = self
+            .feedbacks
             .iter()
             .map(|entry| entry.value().clone())
             .filter(|f| filter(f))
@@ -557,10 +576,15 @@ impl FeedbackManager {
         if removed > 0 {
             // Clean up node_feedbacks as well
             for mut entry in self.node_feedbacks.iter_mut() {
-                entry.value_mut().retain(|id| self.feedbacks.contains_key(id));
+                entry
+                    .value_mut()
+                    .retain(|id| self.feedbacks.contains_key(id));
             }
 
-            info!("Cleaned up {} old feedbacks older than {:?}", removed, max_age);
+            info!(
+                "Cleaned up {} old feedbacks older than {:?}",
+                removed, max_age
+            );
         }
     }
 }

@@ -66,7 +66,12 @@ async fn test_approval_rejection() -> Result<()> {
         .add_node("reject", NodeType::Agent("reject_agent".to_string()))
         .add_node("end", NodeType::End)
         .add_conditional_edge("propose", "check_approval".to_string(), "approve")
-        .add_conditional_edge_with_fallback("propose", "check_rejection".to_string(), "reject", "end")
+        .add_conditional_edge_with_fallback(
+            "propose",
+            "check_rejection".to_string(),
+            "reject",
+            "end",
+        )
         .add_edge("approve", "end")
         .add_edge("reject", "end")
         .set_entry_point("propose")
@@ -230,7 +235,10 @@ async fn test_execution_cancellation() -> Result<()> {
 #[tokio::test]
 async fn test_resume_after_interrupt() -> Result<()> {
     let graph = GraphBuilder::new("test_resume")
-        .add_node("checkpoint", NodeType::Agent("checkpoint_agent".to_string()))
+        .add_node(
+            "checkpoint",
+            NodeType::Agent("checkpoint_agent".to_string()),
+        )
         .add_node("resume", NodeType::Agent("resume_agent".to_string()))
         .add_node("complete", NodeType::Agent("complete_agent".to_string()))
         .add_node("end", NodeType::End)

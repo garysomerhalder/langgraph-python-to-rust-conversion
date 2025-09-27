@@ -1,8 +1,8 @@
 // State inspection system for debugging and monitoring execution
 // HIL-003: State inspection during execution
 
+use crate::engine::state_diff::{ExportFormat, StateDiff, StateFilter};
 use crate::state::{GraphState, StateData};
-use crate::engine::state_diff::{StateDiff, ExportFormat, StateFilter};
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -104,7 +104,11 @@ impl StateInspector {
     }
 
     /// Capture a snapshot from GraphState
-    pub async fn capture_graph_snapshot(&self, state: &GraphState, node_id: String) -> Result<String> {
+    pub async fn capture_graph_snapshot(
+        &self,
+        state: &GraphState,
+        node_id: String,
+    ) -> Result<String> {
         if !self.is_enabled().await {
             return Ok(String::new());
         }
@@ -134,7 +138,11 @@ impl StateInspector {
     }
 
     /// Query snapshots by time range
-    pub async fn query_by_time(&self, start: DateTime<Utc>, end: DateTime<Utc>) -> Vec<StateSnapshot> {
+    pub async fn query_by_time(
+        &self,
+        start: DateTime<Utc>,
+        end: DateTime<Utc>,
+    ) -> Vec<StateSnapshot> {
         let snapshots = self.snapshots.read().await;
         snapshots
             .iter()
@@ -188,10 +196,18 @@ impl StateInspector {
     }
 
     /// Compute diff between two snapshots
-    pub async fn diff_snapshots(&self, id1: &str, id2: &str) -> Result<HashMap<String, (Option<Value>, Option<Value>)>> {
-        let snapshot1 = self.get_snapshot(id1).await
+    pub async fn diff_snapshots(
+        &self,
+        id1: &str,
+        id2: &str,
+    ) -> Result<HashMap<String, (Option<Value>, Option<Value>)>> {
+        let snapshot1 = self
+            .get_snapshot(id1)
+            .await
             .ok_or_else(|| anyhow::anyhow!("Snapshot {} not found", id1))?;
-        let snapshot2 = self.get_snapshot(id2).await
+        let snapshot2 = self
+            .get_snapshot(id2)
+            .await
             .ok_or_else(|| anyhow::anyhow!("Snapshot {} not found", id2))?;
 
         let mut diff = HashMap::new();
@@ -236,7 +252,10 @@ impl StateInspector {
     }
 
     /// Get history of changes for a specific field
-    pub async fn get_field_history(&self, field: &str) -> Vec<(DateTime<Utc>, String, Option<Value>)> {
+    pub async fn get_field_history(
+        &self,
+        field: &str,
+    ) -> Vec<(DateTime<Utc>, String, Option<Value>)> {
         let snapshots = self.snapshots.read().await;
         snapshots
             .iter()
@@ -258,8 +277,10 @@ impl StateInspector {
                     diff.added.insert(key.clone(), value.clone());
                 } else if s1.state.get(key) != Some(value) {
                     // Modified fields
-                    diff.modified.insert(key.clone(),
-                        (s1.state.get(key).cloned().unwrap(), value.clone()));
+                    diff.modified.insert(
+                        key.clone(),
+                        (s1.state.get(key).cloned().unwrap(), value.clone()),
+                    );
                 }
             }
 
@@ -308,7 +329,8 @@ impl StateInspector {
     pub async fn search_state(&self, snapshot_id: &str, pattern: &str) -> Vec<(String, Value)> {
         if let Some(snapshot) = self.get_snapshot(snapshot_id).await {
             let pattern_lower = pattern.to_lowercase();
-            snapshot.state
+            snapshot
+                .state
                 .iter()
                 .filter(|(k, v)| {
                     // Search in keys (case-insensitive)
@@ -328,7 +350,11 @@ impl StateInspector {
     }
 
     /// Get history of snapshots with optional filters
-    pub async fn get_history(&self, node_filter: Option<&str>, limit: Option<usize>) -> Vec<StateSnapshot> {
+    pub async fn get_history(
+        &self,
+        node_filter: Option<&str>,
+        limit: Option<usize>,
+    ) -> Vec<StateSnapshot> {
         let snapshots = self.snapshots.read().await;
         let mut result: Vec<StateSnapshot> = if let Some(node) = node_filter {
             snapshots

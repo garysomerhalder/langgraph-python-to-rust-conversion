@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 pub struct Edge {
     /// Type of the edge
     pub edge_type: EdgeType,
-    
+
     /// Optional metadata
     pub metadata: Option<serde_json::Value>,
 }
@@ -17,10 +17,10 @@ pub struct Edge {
 pub enum EdgeType {
     /// Direct edge - always traversed
     Direct,
-    
+
     /// Conditional edge - traversed based on condition
     Conditional(ConditionalEdge),
-    
+
     /// Parallel edge - for parallel execution
     Parallel,
 }
@@ -30,10 +30,10 @@ pub enum EdgeType {
 pub struct ConditionalEdge {
     /// Condition name or expression
     pub condition: String,
-    
+
     /// Target node if condition is true
     pub target: String,
-    
+
     /// Optional fallback target
     pub fallback: Option<String>,
 }
@@ -46,7 +46,7 @@ impl Edge {
             metadata: None,
         }
     }
-    
+
     /// Create a conditional edge
     pub fn conditional(condition: String, target: String) -> Self {
         Self {
@@ -58,13 +58,9 @@ impl Edge {
             metadata: None,
         }
     }
-    
+
     /// Create a conditional edge with fallback
-    pub fn conditional_with_fallback(
-        condition: String,
-        target: String,
-        fallback: String,
-    ) -> Self {
+    pub fn conditional_with_fallback(condition: String, target: String, fallback: String) -> Self {
         Self {
             edge_type: EdgeType::Conditional(ConditionalEdge {
                 condition,
@@ -74,7 +70,7 @@ impl Edge {
             metadata: None,
         }
     }
-    
+
     /// Create a parallel edge
     pub fn parallel() -> Self {
         Self {
@@ -82,7 +78,7 @@ impl Edge {
             metadata: None,
         }
     }
-    
+
     /// Add metadata to the edge
     pub fn with_metadata(mut self, metadata: serde_json::Value) -> Self {
         self.metadata = Some(metadata);
@@ -93,18 +89,18 @@ impl Edge {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_direct_edge() {
         let edge = Edge::direct();
         assert_eq!(edge.edge_type, EdgeType::Direct);
         assert!(edge.metadata.is_none());
     }
-    
+
     #[test]
     fn test_conditional_edge() {
         let edge = Edge::conditional("check_status".to_string(), "next_node".to_string());
-        
+
         match edge.edge_type {
             EdgeType::Conditional(ref cond) => {
                 assert_eq!(cond.condition, "check_status");
@@ -114,7 +110,7 @@ mod tests {
             _ => panic!("Expected conditional edge"),
         }
     }
-    
+
     #[test]
     fn test_conditional_edge_with_fallback() {
         let edge = Edge::conditional_with_fallback(
@@ -122,7 +118,7 @@ mod tests {
             "success_node".to_string(),
             "error_node".to_string(),
         );
-        
+
         match edge.edge_type {
             EdgeType::Conditional(ref cond) => {
                 assert_eq!(cond.condition, "check_status");
@@ -132,15 +128,15 @@ mod tests {
             _ => panic!("Expected conditional edge"),
         }
     }
-    
+
     #[test]
     fn test_edge_with_metadata() {
         let edge = Edge::direct()
             .with_metadata(serde_json::json!({"priority": 1, "description": "Main flow"}));
-        
+
         assert_eq!(edge.edge_type, EdgeType::Direct);
         assert!(edge.metadata.is_some());
-        
+
         let metadata = edge.metadata.unwrap();
         assert_eq!(metadata["priority"], 1);
         assert_eq!(metadata["description"], "Main flow");

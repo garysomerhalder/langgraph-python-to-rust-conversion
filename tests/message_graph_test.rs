@@ -2,8 +2,8 @@
 //! YELLOW Phase: Stub tests to make compilation pass
 
 use langgraph::{
-    message::{Message, MessageRole, MessageGraph},
     graph::{GraphBuilder, NodeType},
+    message::{Message, MessageGraph, MessageRole},
     state::StateData,
     Result,
 };
@@ -71,11 +71,10 @@ async fn test_message_metadata() -> Result<()> {
 /// Test message state
 #[tokio::test]
 async fn test_message_state() -> Result<()> {
-    let msg = Message::new(MessageRole::User, "Stateful message")
-        .set_state(json!({
-            "counter": 1,
-            "flag": true
-        }));
+    let msg = Message::new(MessageRole::User, "Stateful message").set_state(json!({
+        "counter": 1,
+        "flag": true
+    }));
 
     let state = msg.get_state();
     assert!(state.is_some());

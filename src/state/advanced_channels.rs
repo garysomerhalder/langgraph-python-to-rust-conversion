@@ -1,12 +1,12 @@
 //! Advanced channel implementations for LangGraph
 //! CHAN-001 through CHAN-005: LastValue, Topic, Context channels and custom reducers
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use chrono::{DateTime, Utc};
 
 use crate::state::reducer::Reducer;
 
@@ -108,7 +108,8 @@ impl TopicChannel {
     /// Get recent history
     pub async fn get_history(&self, count: usize) -> Vec<(Value, DateTime<Utc>)> {
         let history = self.history.read().await;
-        history.iter()
+        history
+            .iter()
             .rev()
             .take(count)
             .cloned()
@@ -157,7 +158,10 @@ impl ContextChannel {
     }
 
     /// Get a value from the context (checks parent if not found locally)
-    pub fn get<'a>(&'a self, key: &'a str) -> std::pin::Pin<Box<dyn std::future::Future<Output = Option<Value>> + Send + 'a>> {
+    pub fn get<'a>(
+        &'a self,
+        key: &'a str,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Option<Value>> + Send + 'a>> {
         Box::pin(async move {
             // Check local context first
             if let Some(value) = self.local_context.read().await.get(key) {
@@ -174,7 +178,10 @@ impl ContextChannel {
     }
 
     /// Get all values (including inherited from parent)
-    pub fn get_all(&self) -> std::pin::Pin<Box<dyn std::future::Future<Output = HashMap<String, Value>> + Send + '_>> {
+    pub fn get_all(
+        &self,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = HashMap<String, Value>> + Send + '_>>
+    {
         Box::pin(async move {
             let mut result = HashMap::new();
 
@@ -199,7 +206,10 @@ impl ContextChannel {
     }
 
     /// Check if key exists (locally or in parent)
-    pub fn contains<'a>(&'a self, key: &'a str) -> std::pin::Pin<Box<dyn std::future::Future<Output = bool> + Send + 'a>> {
+    pub fn contains<'a>(
+        &'a self,
+        key: &'a str,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = bool> + Send + 'a>> {
         Box::pin(async move {
             if self.local_context.read().await.contains_key(key) {
                 return true;
@@ -234,87 +244,77 @@ impl CustomReducer {
 
     /// Create a sum reducer
     pub fn sum() -> Self {
-        Self::new("sum", |existing, new| {
-            match (existing, &new) {
-                (Some(Value::Number(e)), Value::Number(n)) => {
-                    let sum = e.as_f64().unwrap_or(0.0) + n.as_f64().unwrap_or(0.0);
-                    Value::Number(serde_json::Number::from_f64(sum).unwrap())
-                }
-                (None, Value::Number(n)) => Value::Number(n.clone()),
-                _ => new,
+        Self::new("sum", |existing, new| match (existing, &new) {
+            (Some(Value::Number(e)), Value::Number(n)) => {
+                let sum = e.as_f64().unwrap_or(0.0) + n.as_f64().unwrap_or(0.0);
+                Value::Number(serde_json::Number::from_f64(sum).unwrap())
             }
+            (None, Value::Number(n)) => Value::Number(n.clone()),
+            _ => new,
         })
     }
 
     /// Create a max reducer
     pub fn max() -> Self {
-        Self::new("max", |existing, new| {
-            match (existing, &new) {
-                (Some(Value::Number(e)), Value::Number(n)) => {
-                    let e_val = e.as_f64().unwrap_or(f64::MIN);
-                    let n_val = n.as_f64().unwrap_or(f64::MIN);
-                    Value::Number(serde_json::Number::from_f64(e_val.max(n_val)).unwrap())
-                }
-                (None, Value::Number(n)) => Value::Number(n.clone()),
-                _ => new,
+        Self::new("max", |existing, new| match (existing, &new) {
+            (Some(Value::Number(e)), Value::Number(n)) => {
+                let e_val = e.as_f64().unwrap_or(f64::MIN);
+                let n_val = n.as_f64().unwrap_or(f64::MIN);
+                Value::Number(serde_json::Number::from_f64(e_val.max(n_val)).unwrap())
             }
+            (None, Value::Number(n)) => Value::Number(n.clone()),
+            _ => new,
         })
     }
 
     /// Create a min reducer
     pub fn min() -> Self {
-        Self::new("min", |existing, new| {
-            match (existing, &new) {
-                (Some(Value::Number(e)), Value::Number(n)) => {
-                    let e_val = e.as_f64().unwrap_or(f64::MAX);
-                    let n_val = n.as_f64().unwrap_or(f64::MAX);
-                    Value::Number(serde_json::Number::from_f64(e_val.min(n_val)).unwrap())
-                }
-                (None, Value::Number(n)) => Value::Number(n.clone()),
-                _ => new,
+        Self::new("min", |existing, new| match (existing, &new) {
+            (Some(Value::Number(e)), Value::Number(n)) => {
+                let e_val = e.as_f64().unwrap_or(f64::MAX);
+                let n_val = n.as_f64().unwrap_or(f64::MAX);
+                Value::Number(serde_json::Number::from_f64(e_val.min(n_val)).unwrap())
             }
+            (None, Value::Number(n)) => Value::Number(n.clone()),
+            _ => new,
         })
     }
 
     /// Create an append reducer for arrays
     pub fn append() -> Self {
-        Self::new("append", |existing, new| {
-            match existing {
-                Some(Value::Array(arr)) => {
-                    let mut result = arr.clone();
-                    if let Value::Array(new_arr) = &new {
-                        result.extend(new_arr.clone());
-                    } else {
-                        result.push(new);
-                    }
-                    Value::Array(result)
+        Self::new("append", |existing, new| match existing {
+            Some(Value::Array(arr)) => {
+                let mut result = arr.clone();
+                if let Value::Array(new_arr) = &new {
+                    result.extend(new_arr.clone());
+                } else {
+                    result.push(new);
                 }
-                None => {
-                    if matches!(new, Value::Array(_)) {
-                        new
-                    } else {
-                        Value::Array(vec![new])
-                    }
-                }
-                _ => new,
+                Value::Array(result)
             }
+            None => {
+                if matches!(new, Value::Array(_)) {
+                    new
+                } else {
+                    Value::Array(vec![new])
+                }
+            }
+            _ => new,
         })
     }
 
     /// Create a merge reducer for objects
     pub fn merge() -> Self {
-        Self::new("merge", |existing, new| {
-            match (existing, &new) {
-                (Some(Value::Object(e)), Value::Object(n)) => {
-                    let mut result = e.clone();
-                    for (key, value) in n {
-                        result.insert(key.clone(), value.clone());
-                    }
-                    Value::Object(result)
+        Self::new("merge", |existing, new| match (existing, &new) {
+            (Some(Value::Object(e)), Value::Object(n)) => {
+                let mut result = e.clone();
+                for (key, value) in n {
+                    result.insert(key.clone(), value.clone());
                 }
-                (None, Value::Object(n)) => Value::Object(n.clone()),
-                _ => new,
+                Value::Object(result)
             }
+            (None, Value::Object(n)) => Value::Object(n.clone()),
+            _ => new,
         })
     }
 }
@@ -349,7 +349,8 @@ impl ChannelComposer {
     pub fn add_last_value(&mut self, name: impl Into<String>) -> LastValueChannel {
         let name = name.into();
         let channel = LastValueChannel::new(name.clone());
-        self.channels.insert(name, ChannelType::LastValue(channel.clone()));
+        self.channels
+            .insert(name, ChannelType::LastValue(channel.clone()));
         channel
     }
 
@@ -357,7 +358,8 @@ impl ChannelComposer {
     pub fn add_topic(&mut self, name: impl Into<String>) -> TopicChannel {
         let name = name.into();
         let channel = TopicChannel::new(name.clone());
-        self.channels.insert(name, ChannelType::Topic(channel.clone()));
+        self.channels
+            .insert(name, ChannelType::Topic(channel.clone()));
         channel
     }
 
@@ -365,7 +367,8 @@ impl ChannelComposer {
     pub fn add_context(&mut self, name: impl Into<String>) -> ContextChannel {
         let name = name.into();
         let channel = ContextChannel::new(name.clone());
-        self.channels.insert(name, ChannelType::Context(channel.clone()));
+        self.channels
+            .insert(name, ChannelType::Context(channel.clone()));
         channel
     }
 
@@ -394,10 +397,11 @@ impl ChannelComposer {
                     }
                     ChannelType::Context(ch) => {
                         result = Value::Object(
-                            ch.get_all().await
+                            ch.get_all()
+                                .await
                                 .into_iter()
                                 .map(|(k, v)| (k, v))
-                                .collect()
+                                .collect(),
                         );
                     }
                 }
@@ -436,12 +440,14 @@ mod tests {
         let received = Arc::new(RwLock::new(Vec::new()));
         let received_clone = received.clone();
 
-        channel.subscribe(move |value| {
-            let received = received_clone.clone();
-            tokio::spawn(async move {
-                received.write().await.push(value);
-            });
-        }).await;
+        channel
+            .subscribe(move |value| {
+                let received = received_clone.clone();
+                tokio::spawn(async move {
+                    received.write().await.push(value);
+                });
+            })
+            .await;
 
         channel.publish(json!("message 1")).await;
         channel.publish(json!("message 2")).await;
@@ -476,16 +482,10 @@ mod tests {
     #[test]
     fn test_custom_reducers() {
         let sum = CustomReducer::sum();
-        assert_eq!(
-            sum.reduce(Some(&json!(5)), json!(3)),
-            json!(8)
-        );
+        assert_eq!(sum.reduce(Some(&json!(5)), json!(3)), json!(8));
 
         let max = CustomReducer::max();
-        assert_eq!(
-            max.reduce(Some(&json!(5)), json!(10)),
-            json!(10)
-        );
+        assert_eq!(max.reduce(Some(&json!(5)), json!(10)), json!(10));
 
         let append = CustomReducer::append();
         assert_eq!(

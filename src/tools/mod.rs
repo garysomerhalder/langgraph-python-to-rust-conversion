@@ -3,11 +3,11 @@
 //! This module provides abstractions for integrating external tools
 //! and functions into LangGraph workflows.
 
-use std::sync::Arc;
-use std::collections::HashMap;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashMap;
+use std::sync::Arc;
 use thiserror::Error;
 
 use crate::Result;
@@ -17,19 +17,19 @@ use crate::Result;
 pub enum ToolError {
     #[error("Tool not found: {0}")]
     NotFound(String),
-    
+
     #[error("Invalid parameters: {0}")]
     InvalidParameters(String),
-    
+
     #[error("Tool execution failed: {0}")]
     ExecutionFailed(String),
-    
+
     #[error("Permission denied: {0}")]
     PermissionDenied(String),
-    
+
     #[error("Tool timeout: {0}")]
     Timeout(String),
-    
+
     #[error("Serialization error: {0}")]
     SerializationError(String),
 }
@@ -39,19 +39,19 @@ pub enum ToolError {
 pub struct ToolParameter {
     /// Parameter name
     pub name: String,
-    
+
     /// Parameter type (string, number, boolean, object, array)
     pub param_type: String,
-    
+
     /// Whether the parameter is required
     pub required: bool,
-    
+
     /// Parameter description
     pub description: Option<String>,
-    
+
     /// Default value if not provided
     pub default: Option<Value>,
-    
+
     /// Validation schema (JSON Schema format)
     pub schema: Option<Value>,
 }
@@ -61,19 +61,19 @@ pub struct ToolParameter {
 pub struct ToolSpec {
     /// Tool name
     pub name: String,
-    
+
     /// Tool description
     pub description: String,
-    
+
     /// Parameters accepted by the tool
     pub parameters: Vec<ToolParameter>,
-    
+
     /// Return type description
     pub returns: Option<String>,
-    
+
     /// Categories or tags
     pub tags: Vec<String>,
-    
+
     /// Usage examples
     pub examples: Vec<ToolExample>,
 }
@@ -83,10 +83,10 @@ pub struct ToolSpec {
 pub struct ToolExample {
     /// Example description
     pub description: String,
-    
+
     /// Input parameters
     pub input: Value,
-    
+
     /// Expected output
     pub output: Option<Value>,
 }
@@ -96,13 +96,13 @@ pub struct ToolExample {
 pub struct ToolContext {
     /// Current state data
     pub state: HashMap<String, Value>,
-    
+
     /// Execution metadata
     pub metadata: HashMap<String, Value>,
-    
+
     /// Authentication/authorization info
     pub auth: Option<ToolAuth>,
-    
+
     /// Execution timeout in seconds
     pub timeout: Option<u64>,
 }
@@ -112,10 +112,10 @@ pub struct ToolContext {
 pub struct ToolAuth {
     /// User or service identifier
     pub principal: String,
-    
+
     /// Permissions granted
     pub permissions: Vec<String>,
-    
+
     /// Additional auth metadata
     pub metadata: HashMap<String, Value>,
 }
@@ -125,13 +125,13 @@ pub struct ToolAuth {
 pub struct ToolResult {
     /// Success flag
     pub success: bool,
-    
+
     /// Result data
     pub data: Option<Value>,
-    
+
     /// Error message if failed
     pub error: Option<String>,
-    
+
     /// Execution metadata
     pub metadata: HashMap<String, Value>,
 }
@@ -141,13 +141,13 @@ pub struct ToolResult {
 pub trait Tool: Send + Sync {
     /// Get tool specification
     fn spec(&self) -> ToolSpec;
-    
+
     /// Validate parameters before execution
     async fn validate(&self, params: &Value) -> Result<()>;
-    
+
     /// Execute the tool
     async fn execute(&self, params: Value, context: ToolContext) -> Result<ToolResult>;
-    
+
     /// Check if the tool can be executed in the given context
     async fn can_execute(&self, _context: &ToolContext) -> bool {
         true
@@ -158,7 +158,7 @@ pub trait Tool: Send + Sync {
 pub struct ToolRegistry {
     /// Registered tools
     tools: HashMap<String, Arc<dyn Tool>>,
-    
+
     /// Tool categories
     categories: HashMap<String, Vec<String>>,
 }
@@ -171,15 +171,15 @@ impl ToolRegistry {
             categories: HashMap::new(),
         }
     }
-    
+
     /// Register a tool
     pub fn register(&mut self, tool: Arc<dyn Tool>) {
         let spec = tool.spec();
         let name = spec.name.clone();
-        
+
         // Register tool
         self.tools.insert(name.clone(), tool);
-        
+
         // Update categories
         for tag in spec.tags {
             self.categories
@@ -188,25 +188,22 @@ impl ToolRegistry {
                 .push(name.clone());
         }
     }
-    
+
     /// Get a tool by name
     pub fn get(&self, name: &str) -> Option<Arc<dyn Tool>> {
         self.tools.get(name).cloned()
     }
-    
+
     /// List all available tools
     pub fn list(&self) -> Vec<String> {
         self.tools.keys().cloned().collect()
     }
-    
+
     /// Get tools by category
     pub fn get_by_category(&self, category: &str) -> Vec<String> {
-        self.categories
-            .get(category)
-            .cloned()
-            .unwrap_or_default()
+        self.categories.get(category).cloned().unwrap_or_default()
     }
-    
+
     /// Execute a tool
     pub async fn execute(
         &self,
@@ -214,17 +211,18 @@ impl ToolRegistry {
         params: Value,
         context: ToolContext,
     ) -> Result<ToolResult> {
-        let tool = self.get(name)
+        let tool = self
+            .get(name)
             .ok_or_else(|| ToolError::NotFound(name.to_string()))?;
-        
+
         // Check permissions
         if !tool.can_execute(&context).await {
             return Err(ToolError::PermissionDenied(name.to_string()).into());
         }
-        
+
         // Validate parameters
         tool.validate(&params).await?;
-        
+
         // Execute tool
         tool.execute(params, context).await
     }
@@ -251,19 +249,21 @@ where
     fn spec(&self) -> ToolSpec {
         self.spec.clone()
     }
-    
+
     async fn validate(&self, params: &Value) -> Result<()> {
         // Basic validation based on spec
         for param in &self.spec.parameters {
             if param.required && !params.get(&param.name).is_some() {
-                return Err(ToolError::InvalidParameters(
-                    format!("Missing required parameter: {}", param.name)
-                ).into());
+                return Err(ToolError::InvalidParameters(format!(
+                    "Missing required parameter: {}",
+                    param.name
+                ))
+                .into());
             }
         }
         Ok(())
     }
-    
+
     async fn execute(&self, params: Value, context: ToolContext) -> Result<ToolResult> {
         (self.function)(params, context)
     }
@@ -299,19 +299,21 @@ impl Tool for HttpTool {
     fn spec(&self) -> ToolSpec {
         self.spec.clone()
     }
-    
+
     async fn validate(&self, params: &Value) -> Result<()> {
         // Validate required parameters
         for param in &self.spec.parameters {
             if param.required && !params.get(&param.name).is_some() {
-                return Err(ToolError::InvalidParameters(
-                    format!("Missing required parameter: {}", param.name)
-                ).into());
+                return Err(ToolError::InvalidParameters(format!(
+                    "Missing required parameter: {}",
+                    param.name
+                ))
+                .into());
             }
         }
         Ok(())
     }
-    
+
     async fn execute(&self, params: Value, _context: ToolContext) -> Result<ToolResult> {
         // TODO: Implement actual HTTP call
         // This would use reqwest or similar to make the actual API call
@@ -328,7 +330,7 @@ impl Tool for HttpTool {
 pub struct ToolChain {
     /// Tools to execute in order
     tools: Vec<(String, Arc<dyn Tool>)>,
-    
+
     /// Whether to stop on first failure
     stop_on_error: bool,
 }
@@ -341,12 +343,12 @@ impl ToolChain {
             stop_on_error,
         }
     }
-    
+
     /// Add a tool to the chain
     pub fn add_tool(&mut self, name: String, tool: Arc<dyn Tool>) {
         self.tools.push((name, tool));
     }
-    
+
     /// Execute the tool chain
     pub async fn execute(
         &self,
@@ -355,24 +357,28 @@ impl ToolChain {
     ) -> Result<Vec<ToolResult>> {
         let mut results = Vec::new();
         let mut current_params = initial_params;
-        
+
         for (name, tool) in &self.tools {
-            let result = tool.execute(current_params.clone(), context.clone()).await?;
-            
+            let result = tool
+                .execute(current_params.clone(), context.clone())
+                .await?;
+
             if !result.success && self.stop_on_error {
-                return Err(ToolError::ExecutionFailed(
-                    format!("Tool {} failed: {:?}", name, result.error)
-                ).into());
+                return Err(ToolError::ExecutionFailed(format!(
+                    "Tool {} failed: {:?}",
+                    name, result.error
+                ))
+                .into());
             }
-            
+
             // Pass output of previous tool as input to next
             if let Some(data) = &result.data {
                 current_params = data.clone();
             }
-            
+
             results.push(result);
         }
-        
+
         Ok(results)
     }
 }
@@ -381,11 +387,11 @@ impl ToolChain {
 mod tests {
     use super::*;
     use serde_json::json;
-    
+
     #[tokio::test]
     async fn test_tool_registry() {
         let mut registry = ToolRegistry::new();
-        
+
         // Create a simple function tool
         let spec = ToolSpec {
             name: "test_tool".to_string(),
@@ -395,7 +401,7 @@ mod tests {
             tags: vec!["test".to_string()],
             examples: vec![],
         };
-        
+
         let tool = FunctionTool::new(spec, |_params, _context| {
             Ok(ToolResult {
                 success: true,
@@ -404,14 +410,14 @@ mod tests {
                 metadata: HashMap::new(),
             })
         });
-        
+
         registry.register(Arc::new(tool));
-        
+
         assert!(registry.get("test_tool").is_some());
         assert_eq!(registry.list(), vec!["test_tool"]);
         assert_eq!(registry.get_by_category("test"), vec!["test_tool"]);
     }
-    
+
     #[tokio::test]
     async fn test_function_tool_execution() {
         let spec = ToolSpec {
@@ -439,11 +445,11 @@ mod tests {
             tags: vec!["math".to_string()],
             examples: vec![],
         };
-        
+
         let tool = FunctionTool::new(spec, |params: Value, _context: ToolContext| {
             let a = params["a"].as_f64().unwrap_or(0.0);
             let b = params["b"].as_f64().unwrap_or(0.0);
-            
+
             Ok(ToolResult {
                 success: true,
                 data: Some(json!({"result": a + b})),
@@ -451,7 +457,7 @@ mod tests {
                 metadata: HashMap::new(),
             })
         });
-        
+
         let params = json!({"a": 5, "b": 3});
         let context = ToolContext {
             state: HashMap::new(),
@@ -459,7 +465,7 @@ mod tests {
             auth: None,
             timeout: None,
         };
-        
+
         let result = tool.execute(params, context).await.unwrap();
         assert!(result.success);
         assert_eq!(result.data.unwrap()["result"], json!(8.0));

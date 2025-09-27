@@ -6,9 +6,8 @@ use std::sync::Arc;
 use tokio::sync::oneshot;
 
 use crate::engine::{
-    ExecutionEngine, BreakpointManager, BreakpointExecution,
-    BreakpointCallback, BreakpointHit, BreakpointAction,
-    ExecutionHandle, InterruptCallback,
+    BreakpointAction, BreakpointCallback, BreakpointExecution, BreakpointHit, BreakpointManager,
+    ExecutionEngine, ExecutionHandle, InterruptCallback,
 };
 use crate::graph::CompiledGraph;
 use crate::state::StateData;
@@ -46,11 +45,9 @@ impl BreakpointExecution for ExecutionEngine {
         // Spawn the execution task
         tokio::spawn(async move {
             // Execute the graph with breakpoint checks
-            let result = engine.execute_graph_with_breakpoints_internal(
-                graph,
-                input,
-                bp_manager_clone,
-            ).await;
+            let result = engine
+                .execute_graph_with_breakpoints_internal(graph, input, bp_manager_clone)
+                .await;
 
             // Send the result back
             let _ = result_tx.send(result);
@@ -89,11 +86,9 @@ impl BreakpointExecution for ExecutionEngine {
         // Spawn the execution task
         tokio::spawn(async move {
             // Execute with both systems active
-            let result = engine.execute_graph_with_breakpoints_internal(
-                graph,
-                input,
-                bp_manager_clone,
-            ).await;
+            let result = engine
+                .execute_graph_with_breakpoints_internal(graph, input, bp_manager_clone)
+                .await;
 
             // Send the result back
             let _ = result_tx.send(result);
@@ -111,11 +106,11 @@ impl ExecutionEngine {
         input: StateData,
         bp_manager: Arc<BreakpointManager>,
     ) -> Result<StateData> {
-        use crate::state::GraphState;
-        use crate::engine::node_executor::{DefaultNodeExecutor, NodeExecutor};
         use crate::engine::graph_traversal::{GraphTraverser, TraversalStrategy};
-        use tokio::sync::RwLock;
+        use crate::engine::node_executor::{DefaultNodeExecutor, NodeExecutor};
+        use crate::state::GraphState;
         use std::collections::HashMap;
+        use tokio::sync::RwLock;
 
         // Initialize execution state
         let mut graph_state = GraphState::new();
@@ -167,7 +162,9 @@ impl ExecutionEngine {
             };
 
             if bp_manager.is_breakpoint(&node_id, &current_state).await {
-                let action = bp_manager.handle_breakpoint(&node_id, current_state.clone()).await?;
+                let action = bp_manager
+                    .handle_breakpoint(&node_id, current_state.clone())
+                    .await?;
 
                 match action {
                     BreakpointAction::Continue => {
@@ -192,17 +189,21 @@ impl ExecutionEngine {
             }
 
             // Get and execute the node
-            let node = graph.graph().get_node(&node_id)
-                .ok_or_else(|| crate::engine::ExecutionError::NodeExecutionFailed(
-                    format!("Node not found: {}", node_id)
-                ))?;
+            let node = graph.graph().get_node(&node_id).ok_or_else(|| {
+                crate::engine::ExecutionError::NodeExecutionFailed(format!(
+                    "Node not found: {}",
+                    node_id
+                ))
+            })?;
 
             let mut state_data = {
                 let state = state_arc.read().await;
                 state.snapshot()
             };
 
-            let result = node_executor.execute(node, &mut state_data, &context).await?;
+            let result = node_executor
+                .execute(node, &mut state_data, &context)
+                .await?;
 
             // Update state with result
             {

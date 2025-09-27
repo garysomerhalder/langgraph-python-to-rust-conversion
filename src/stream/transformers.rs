@@ -1,7 +1,7 @@
+use crate::graph::GraphError;
 use async_trait::async_trait;
 use futures::stream::{Stream, StreamExt};
 use std::pin::Pin;
-use crate::graph::GraphError;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -9,22 +9,21 @@ use tokio::sync::RwLock;
 pub trait StreamTransformer: Send + Sync {
     type Input: Send + Sync;
     type Output: Send + Sync;
-    
-    async fn transform(
-        &self,
-        input: Self::Input,
-    ) -> Result<Self::Output, GraphError>;
-    
+
+    async fn transform(&self, input: Self::Input) -> Result<Self::Output, GraphError>;
+
     async fn transform_stream(
         &self,
         _input_stream: Pin<Box<dyn Stream<Item = Self::Input> + Send>>,
-    ) -> Result<Pin<Box<dyn Stream<Item = Self::Output> + Send>>, GraphError> 
+    ) -> Result<Pin<Box<dyn Stream<Item = Self::Output> + Send>>, GraphError>
     where
         Self: Sized + 'static,
     {
         // Default implementation that requires self to be 'static
         // Override this method in implementations that don't need 'static
-        Err(GraphError::RuntimeError("Stream transformation not implemented".to_string()))
+        Err(GraphError::RuntimeError(
+            "Stream transformation not implemented".to_string(),
+        ))
     }
 }
 
@@ -35,7 +34,7 @@ pub struct MapTransformer<F, I, O> {
 
 impl<F, I, O> MapTransformer<F, I, O> {
     pub fn new(mapper: F) -> Self {
-        Self { 
+        Self {
             mapper,
             _phantom: std::marker::PhantomData,
         }
@@ -51,7 +50,7 @@ where
 {
     type Input = I;
     type Output = O;
-    
+
     async fn transform(&self, input: Self::Input) -> Result<Self::Output, GraphError> {
         Ok((self.mapper)(input))
     }
@@ -64,7 +63,7 @@ pub struct FilterTransformer<F, T> {
 
 impl<F, T> FilterTransformer<F, T> {
     pub fn new(predicate: F) -> Self {
-        Self { 
+        Self {
             predicate,
             _phantom: std::marker::PhantomData,
         }
@@ -79,7 +78,7 @@ where
 {
     type Input = T;
     type Output = T;
-    
+
     async fn transform(&self, input: Self::Input) -> Result<Self::Output, GraphError> {
         if (self.predicate)(&input) {
             Ok(input)
@@ -110,11 +109,11 @@ where
 {
     type Input = T;
     type Output = Vec<T>;
-    
+
     async fn transform(&self, input: Self::Input) -> Result<Self::Output, GraphError> {
         let mut buffer = self.buffer.write().await;
         buffer.push(input);
-        
+
         if buffer.len() >= self.batch_size {
             let batch = buffer.clone();
             buffer.clear();
@@ -123,17 +122,15 @@ where
             Err(GraphError::ValidationError("Batch not full".to_string()))
         }
     }
-    
+
     async fn transform_stream(
         &self,
         input_stream: Pin<Box<dyn Stream<Item = Self::Input> + Send>>,
     ) -> Result<Pin<Box<dyn Stream<Item = Self::Output> + Send>>, GraphError> {
         let batch_size = self.batch_size;
-        
-        let output_stream = input_stream
-            .chunks(batch_size)
-            .map(|chunk| chunk);
-        
+
+        let output_stream = input_stream.chunks(batch_size).map(|chunk| chunk);
+
         Ok(Box::pin(output_stream))
     }
 }
@@ -159,19 +156,17 @@ where
 {
     type Input = T;
     type Output = Vec<T>;
-    
+
     async fn transform(&self, input: Self::Input) -> Result<Self::Output, GraphError> {
         let now = std::time::Instant::now();
         let mut buffer = self.buffer.write().await;
-        
+
         buffer.push((input, now));
-        
-        buffer.retain(|(_, timestamp)| {
-            now.duration_since(*timestamp) <= self.window_size
-        });
-        
+
+        buffer.retain(|(_, timestamp)| now.duration_since(*timestamp) <= self.window_size);
+
         let window: Vec<T> = buffer.iter().map(|(item, _)| item.clone()).collect();
-        
+
         Ok(window)
     }
 }
@@ -198,7 +193,7 @@ where
 {
     type Input = T1::Input;
     type Output = T2::Output;
-    
+
     async fn transform(&self, input: Self::Input) -> Result<Self::Output, GraphError> {
         let intermediate = self.first.transform(input).await?;
         self.second.transform(intermediate).await

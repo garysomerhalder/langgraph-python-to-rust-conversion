@@ -1,9 +1,9 @@
 //! Conditional edge implementation for dynamic graph routing
 
-use std::sync::Arc;
-use crate::state::StateData;
 use crate::graph::GraphError;
+use crate::state::StateData;
 use crate::Result;
+use std::sync::Arc;
 
 /// Type alias for conditional functions
 pub type ConditionFn = Arc<dyn Fn(&StateData) -> bool + Send + Sync>;
@@ -16,10 +16,10 @@ pub type RoutingFn = Arc<dyn Fn(&StateData) -> String + Send + Sync>;
 pub struct ConditionalEdge {
     /// Source node ID
     pub from: String,
-    
+
     /// Possible target nodes with their conditions
     pub branches: Vec<ConditionalBranch>,
-    
+
     /// Default target if no conditions match
     pub default: Option<String>,
 }
@@ -29,13 +29,13 @@ pub struct ConditionalEdge {
 pub struct ConditionalBranch {
     /// Target node ID
     pub target: String,
-    
+
     /// Condition that must be true to take this branch
     pub condition: ConditionFn,
-    
+
     /// Optional priority (higher = evaluated first)
     pub priority: Option<i32>,
-    
+
     /// Optional metadata
     pub metadata: Option<serde_json::Value>,
 }
@@ -49,7 +49,7 @@ impl ConditionalEdge {
             default: None,
         }
     }
-    
+
     /// Add a conditional branch
     pub fn add_branch(
         mut self,
@@ -71,13 +71,13 @@ impl ConditionalEdge {
         });
         self
     }
-    
+
     /// Set the default target
     pub fn with_default(mut self, default: impl Into<String>) -> Self {
         self.default = Some(default.into());
         self
     }
-    
+
     /// Evaluate the condition and return the target node
     pub fn evaluate(&self, state: &StateData) -> Result<String> {
         // Check each branch in priority order
@@ -86,13 +86,12 @@ impl ConditionalEdge {
                 return Ok(branch.target.clone());
             }
         }
-        
+
         // Use default if no conditions matched
-        self.default
-            .clone()
-            .ok_or_else(|| GraphError::EdgeError(
-                format!("No matching condition for edge from {}", self.from)
-            ).into())
+        self.default.clone().ok_or_else(|| {
+            GraphError::EdgeError(format!("No matching condition for edge from {}", self.from))
+                .into()
+        })
     }
 }
 
@@ -111,26 +110,30 @@ impl ConditionalRouter {
             edges: Vec::new(),
         }
     }
-    
+
     /// Add a conditional edge
     pub fn add_edge(mut self, edge: ConditionalEdge) -> Self {
         self.edges.push(edge);
         self
     }
-    
+
     /// Route from a given node based on state
     pub fn route(&self, from: &str, state: &StateData) -> Result<String> {
         self.edges
             .iter()
             .find(|e| e.from == from)
-            .ok_or_else(|| GraphError::EdgeError(
-                format!("No conditional edge from {}", from)
-            ).into())
+            .ok_or_else(|| {
+                GraphError::EdgeError(format!("No conditional edge from {}", from)).into()
+            })
             .and_then(|edge| edge.evaluate(state))
     }
-    
+
     /// Route with specific branches (for testing)
-    pub fn route_with_branches(&self, state: &StateData, branches: Vec<ConditionalBranch>) -> Option<String> {
+    pub fn route_with_branches(
+        &self,
+        state: &StateData,
+        branches: Vec<ConditionalBranch>,
+    ) -> Option<String> {
         for branch in branches {
             if (branch.condition)(state) {
                 return Some(branch.target);
@@ -144,7 +147,7 @@ impl ConditionalRouter {
 pub struct MultiConditionalRouter {
     /// Routing function that returns next node based on state
     router: RoutingFn,
-    
+
     /// Valid target nodes
     valid_targets: Vec<String>,
 }
@@ -157,17 +160,15 @@ impl MultiConditionalRouter {
             valid_targets,
         }
     }
-    
+
     /// Route to next node
     pub fn route(&self, state: &StateData) -> Result<String> {
         let target = (self.router)(state);
-        
+
         if self.valid_targets.contains(&target) {
             Ok(target)
         } else {
-            Err(GraphError::EdgeError(
-                format!("Invalid routing target: {}", target)
-            ).into())
+            Err(GraphError::EdgeError(format!("Invalid routing target: {}", target)).into())
         }
     }
 }
@@ -176,12 +177,12 @@ impl MultiConditionalRouter {
 mod tests {
     use super::*;
     use serde_json::json;
-    
+
     #[test]
     fn test_conditional_edge() {
         let mut state = StateData::new();
         state.insert("score".to_string(), json!(75));
-        
+
         let edge = ConditionalEdge::new("start")
             .add_branch(
                 "high_score",
@@ -204,42 +205,41 @@ mod tests {
                 5,
             )
             .with_default("low_score");
-        
+
         let target = edge.evaluate(&state).unwrap();
         assert_eq!(target, "medium_score");
     }
-    
+
     #[test]
     fn test_conditional_router() {
         let mut state = StateData::new();
         state.insert("type".to_string(), json!("question"));
-        
-        let router = ConditionalRouter::new("start")
-            .add_edge(
-                ConditionalEdge::new("classifier")
-                    .add_branch(
-                        "question_handler",
-                        Arc::new(|s| {
-                            s.get("type")
-                                .and_then(|v| v.as_str())
-                                .map(|t| t == "question")
-                                .unwrap_or(false)
-                        }),
-                        10,
-                    )
-                    .add_branch(
-                        "statement_handler",
-                        Arc::new(|s| {
-                            s.get("type")
-                                .and_then(|v| v.as_str())
-                                .map(|t| t == "statement")
-                                .unwrap_or(false)
-                        }),
-                        5,
-                    )
-                    .with_default("unknown_handler")
-            );
-        
+
+        let router = ConditionalRouter::new("start").add_edge(
+            ConditionalEdge::new("classifier")
+                .add_branch(
+                    "question_handler",
+                    Arc::new(|s| {
+                        s.get("type")
+                            .and_then(|v| v.as_str())
+                            .map(|t| t == "question")
+                            .unwrap_or(false)
+                    }),
+                    10,
+                )
+                .add_branch(
+                    "statement_handler",
+                    Arc::new(|s| {
+                        s.get("type")
+                            .and_then(|v| v.as_str())
+                            .map(|t| t == "statement")
+                            .unwrap_or(false)
+                    }),
+                    5,
+                )
+                .with_default("unknown_handler"),
+        );
+
         let target = router.route("classifier", &state).unwrap();
         assert_eq!(target, "question_handler");
     }

@@ -2,15 +2,17 @@
 //! GREEN Phase: Production-ready implementation with full integration
 
 use async_trait::async_trait;
-use tokio::sync::{oneshot, RwLock};
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
-use std::collections::HashMap;
+use tokio::sync::{oneshot, RwLock};
 
 use crate::engine::{
-    ExecutionEngine, ExecutionContext, ExecutionStatus,
-    human_in_loop::{InterruptManager, InterruptMode, InterruptCallback, HumanInLoopExecution,
-                    ExecutionHandle, ApprovalDecision},
+    human_in_loop::{
+        ApprovalDecision, ExecutionHandle, HumanInLoopExecution, InterruptCallback,
+        InterruptManager, InterruptMode,
+    },
+    ExecutionContext, ExecutionEngine, ExecutionStatus,
 };
 use crate::graph::CompiledGraph;
 use crate::state::StateData;
@@ -128,9 +130,9 @@ impl ExecutionEngine {
         graph: CompiledGraph,
         input: StateData,
     ) -> Result<StateData> {
-        use crate::state::GraphState;
-        use crate::engine::node_executor::{DefaultNodeExecutor, NodeExecutor};
         use crate::engine::graph_traversal::{GraphTraverser, TraversalStrategy};
+        use crate::engine::node_executor::{DefaultNodeExecutor, NodeExecutor};
+        use crate::state::GraphState;
         use tokio::sync::RwLock;
 
         // Initialize execution state
@@ -184,10 +186,12 @@ impl ExecutionEngine {
             }
 
             // Get node from graph
-            let node = graph.graph().get_node(&node_id)
-                .ok_or_else(|| crate::engine::ExecutionError::NodeExecutionFailed(
-                    format!("Node not found: {}", node_id)
-                ))?;
+            let node = graph.graph().get_node(&node_id).ok_or_else(|| {
+                crate::engine::ExecutionError::NodeExecutionFailed(format!(
+                    "Node not found: {}",
+                    node_id
+                ))
+            })?;
 
             // Check node metadata for interrupt configuration
             let interrupt_mode = if let Some(metadata) = &node.metadata {
@@ -208,17 +212,12 @@ impl ExecutionEngine {
                         state.snapshot()
                     };
 
-                    let decision = self.handle_interrupt(
-                        &node_id,
-                        current_state,
-                        None,
-                    ).await?;
+                    let decision = self.handle_interrupt(&node_id, current_state, None).await?;
 
-                    if !self.process_interrupt_decision(
-                        decision,
-                        &state_arc,
-                        &node_id,
-                    ).await? {
+                    if !self
+                        .process_interrupt_decision(decision, &state_arc, &node_id)
+                        .await?
+                    {
                         continue; // Skip this node
                     }
                 }
@@ -230,7 +229,9 @@ impl ExecutionEngine {
                 state.snapshot()
             };
 
-            let result = node_executor.execute(node, &mut state_data, &context).await?;
+            let result = node_executor
+                .execute(node, &mut state_data, &context)
+                .await?;
 
             // Update state with result
             {
@@ -248,17 +249,14 @@ impl ExecutionEngine {
                         state.snapshot()
                     };
 
-                    let decision = self.handle_interrupt(
-                        &format!("{}_after", node_id),
-                        current_state,
-                        None,
-                    ).await?;
+                    let decision = self
+                        .handle_interrupt(&format!("{}_after", node_id), current_state, None)
+                        .await?;
 
-                    if !self.process_interrupt_decision(
-                        decision,
-                        &state_arc,
-                        &node_id,
-                    ).await? {
+                    if !self
+                        .process_interrupt_decision(decision, &state_arc, &node_id)
+                        .await?
+                    {
                         break; // Stop execution
                     }
                 }
@@ -275,7 +273,7 @@ impl ExecutionEngine {
                     std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
                         .unwrap()
-                        .as_secs()
+                        .as_secs(),
                 );
             }
         }
@@ -290,7 +288,6 @@ impl ExecutionEngine {
         Ok(final_state.snapshot())
     }
 
-
     /// Handle an interrupt point
     async fn handle_interrupt(
         &self,
@@ -301,17 +298,16 @@ impl ExecutionEngine {
         let manager = self.interrupt_manager.read().await;
 
         // Check if interrupts are configured for this node
-        if !manager.should_interrupt(node_id, InterruptMode::Before) &&
-           !manager.should_interrupt(node_id, InterruptMode::After) {
+        if !manager.should_interrupt(node_id, InterruptMode::Before)
+            && !manager.should_interrupt(node_id, InterruptMode::After)
+        {
             return Ok(ApprovalDecision::Continue);
         }
 
         // Create and handle the interrupt
-        manager.create_interrupt(
-            node_id.to_string(),
-            state,
-            timeout,
-        ).await
+        manager
+            .create_interrupt(node_id.to_string(), state, timeout)
+            .await
     }
 
     /// Process an interrupt decision

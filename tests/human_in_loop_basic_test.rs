@@ -1,11 +1,11 @@
 //! Basic integration tests for Human-in-the-Loop functionality
 //! YELLOW Phase: Minimal tests to verify basic compilation and functionality
 
-use langgraph::engine::{ExecutionEngine, InterruptManager, ApprovalDecision};
+use langgraph::engine::{ApprovalDecision, ExecutionEngine, InterruptManager};
 use langgraph::state::StateData;
 use langgraph::Result;
-use std::collections::HashMap;
 use serde_json::json;
+use std::collections::HashMap;
 
 /// Test that the interrupt manager can be created
 #[test]

@@ -1,10 +1,10 @@
-use crate::checkpoint::{Checkpoint, CheckpointError, CheckpointerOld, Checkpointer};
+use crate::checkpoint::{Checkpoint, CheckpointError, Checkpointer, CheckpointerOld};
 use crate::state::GraphState;
+use anyhow::Result;
 use async_trait::async_trait;
+use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
-use serde_json::Value;
-use anyhow::Result;
 
 /// Alias for InMemoryCheckpointer
 pub type InMemoryCheckpointer = MemoryCheckpointer;
@@ -30,7 +30,10 @@ impl MemoryCheckpointer {
         if let Some(checkpoint) = self.load_latest(thread_id).await? {
             Ok(checkpoint.id)
         } else {
-            Err(CheckpointError::NotFound(format!("No checkpoints for thread {}", thread_id)))
+            Err(CheckpointError::NotFound(format!(
+                "No checkpoints for thread {}",
+                thread_id
+            )))
         }
     }
 }
@@ -134,13 +137,16 @@ impl Checkpointer for MemoryCheckpointer {
         }
 
         // Store the checkpoint
-        self.checkpoints.insert(checkpoint_id.clone(), Checkpoint {
-            id: checkpoint_id.clone(),
-            thread_id: thread_id.to_string(),
-            state: GraphState::new(), // Placeholder - will be set from checkpoint data
-            created_at: timestamp,
-            metadata: Some(serde_json::to_value(&checkpoint_data)?),
-        });
+        self.checkpoints.insert(
+            checkpoint_id.clone(),
+            Checkpoint {
+                id: checkpoint_id.clone(),
+                thread_id: thread_id.to_string(),
+                state: GraphState::new(), // Placeholder - will be set from checkpoint data
+                created_at: timestamp,
+                metadata: Some(serde_json::to_value(&checkpoint_data)?),
+            },
+        );
 
         // Update thread index
         self.thread_index

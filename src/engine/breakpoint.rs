@@ -1,13 +1,13 @@
 //! Breakpoint management system for debugging graph execution
 //! GREEN Phase: Production-ready implementation with full test coverage
 
-use std::sync::Arc;
-use std::time::SystemTime;
-use tokio::sync::RwLock;
-use uuid::Uuid;
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use std::time::SystemTime;
 use thiserror::Error;
+use tokio::sync::RwLock;
+use uuid::Uuid;
 
 use crate::state::StateData;
 use crate::Result;
@@ -129,7 +129,14 @@ pub enum BreakpointAction {
 }
 
 /// Callback for handling breakpoint hits
-pub type BreakpointCallback = Box<dyn Fn(BreakpointHit) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<BreakpointAction>> + Send>> + Send + Sync>;
+pub type BreakpointCallback = Box<
+    dyn Fn(
+            BreakpointHit,
+        )
+            -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<BreakpointAction>> + Send>>
+        + Send
+        + Sync,
+>;
 
 /// Manager for handling breakpoints during execution
 pub struct BreakpointManager {
@@ -158,7 +165,11 @@ impl BreakpointManager {
     }
 
     /// Set a breakpoint on a node
-    pub async fn set_breakpoint(&self, node_id: String, condition: Option<BreakpointCondition>) -> Uuid {
+    pub async fn set_breakpoint(
+        &self,
+        node_id: String,
+        condition: Option<BreakpointCondition>,
+    ) -> Uuid {
         let condition_arc = condition.map(Arc::new);
         let breakpoint = Arc::new(RwLock::new(Breakpoint::new(node_id.clone(), condition_arc)));
         let bp_id = {
@@ -167,7 +178,8 @@ impl BreakpointManager {
         };
 
         // Add to node-based map
-        self.breakpoints.entry(node_id)
+        self.breakpoints
+            .entry(node_id)
             .or_insert(Vec::new())
             .push(breakpoint.clone());
 
@@ -178,7 +190,11 @@ impl BreakpointManager {
     }
 
     /// Set a breakpoint that triggers an interrupt
-    pub async fn set_breakpoint_with_interrupt(&self, node_id: String, _trigger_interrupt: bool) -> Uuid {
+    pub async fn set_breakpoint_with_interrupt(
+        &self,
+        node_id: String,
+        _trigger_interrupt: bool,
+    ) -> Uuid {
         // For now, just create a regular breakpoint
         // In GREEN phase, will integrate with interrupt system
         self.set_breakpoint(node_id, None).await
@@ -245,7 +261,11 @@ impl BreakpointManager {
     }
 
     /// Handle a breakpoint hit
-    pub async fn handle_breakpoint(&self, node_id: &str, state: StateData) -> Result<BreakpointAction> {
+    pub async fn handle_breakpoint(
+        &self,
+        node_id: &str,
+        state: StateData,
+    ) -> Result<BreakpointAction> {
         // Find the breakpoint that triggered
         let breakpoint_id = {
             if let Some(node_bps) = self.breakpoints.get(node_id) {
@@ -320,7 +340,8 @@ impl BreakpointManager {
     /// Get hit history for a specific breakpoint
     pub async fn get_hit_history(&self, breakpoint_id: Uuid) -> Vec<BreakpointHit> {
         let history = self.hit_history.read().await;
-        history.iter()
+        history
+            .iter()
             .filter(|hit| hit.breakpoint_id == breakpoint_id)
             .cloned()
             .collect()
@@ -416,9 +437,8 @@ mod tests {
 
     #[test]
     fn test_conditional_breakpoint() {
-        let condition = BreakpointCondition::new(Box::new(|state: &StateData| {
-            state.contains_key("debug")
-        }));
+        let condition =
+            BreakpointCondition::new(Box::new(|state: &StateData| state.contains_key("debug")));
 
         let mut state1 = HashMap::new();
         assert!(!condition.evaluate(&state1));

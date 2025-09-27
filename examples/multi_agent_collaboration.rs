@@ -1,12 +1,10 @@
 //! Multi-agent collaboration example
-//! 
+//!
 //! This example demonstrates a sophisticated 9-agent system working together
 //! to develop a complete feature from research to deployment.
 
 use langgraph::{
-    agents::{
-        MultiAgentSystem, AgentRole, AgentMessage, MessageType,
-    },
+    agents::{AgentMessage, AgentRole, MessageType, MultiAgentSystem},
     Result,
 };
 use serde_json::json;
@@ -18,18 +16,18 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter("langgraph=debug")
         .init();
-    
+
     println!("🤖 Multi-Agent System Demonstration");
     println!("===================================");
     println!("Demonstrating 9 specialized agents collaborating on complex workflows\n");
-    
+
     // Initialize the multi-agent system
     let system = MultiAgentSystem::new();
-    
+
     // Example 1: Feature Development Workflow
     println!("📋 Workflow 1: Full-Stack Feature Development");
     println!("----------------------------------------------");
-    
+
     let feature_workflow = json!({
         "type": "feature_development",
         "name": "Real-Time Chat System",
@@ -47,14 +45,14 @@ async fn main() -> Result<()> {
             "technologies": ["Rust", "React", "PostgreSQL", "Redis"]
         }
     });
-    
+
     let start = Instant::now();
     let result = system.execute_workflow(feature_workflow).await?;
     let elapsed = start.elapsed();
-    
+
     println!("✅ Workflow completed in {:?}", elapsed);
     println!("📊 Workflow ID: {}", result["workflow_id"]);
-    
+
     // Display results from each agent
     if let Some(stages) = result["stages"].as_array() {
         for (i, stage) in stages.iter().enumerate() {
@@ -100,11 +98,11 @@ async fn main() -> Result<()> {
             }
         }
     }
-    
+
     // Example 2: Data Analysis Workflow
     println!("\n\n📋 Workflow 2: Data Analysis Pipeline");
     println!("----------------------------------------");
-    
+
     let data_workflow = json!({
         "type": "data_analysis",
         "name": "Customer Behavior Analysis",
@@ -120,18 +118,18 @@ async fn main() -> Result<()> {
             "Recommend personalization strategies"
         ]
     });
-    
+
     let start = Instant::now();
     let result = system.execute_workflow(data_workflow).await?;
     let elapsed = start.elapsed();
-    
+
     println!("✅ Analysis completed in {:?}", elapsed);
     display_workflow_summary(&result);
-    
+
     // Example 3: Security Audit Workflow
     println!("\n📋 Workflow 3: Security Audit");
     println!("--------------------------------");
-    
+
     let security_workflow = json!({
         "type": "security_audit",
         "name": "API Security Review",
@@ -142,55 +140,72 @@ async fn main() -> Result<()> {
             "compliance_requirements": ["PCI-DSS", "SOC2", "GDPR"]
         }
     });
-    
+
     let start = Instant::now();
     let result = system.execute_workflow(security_workflow).await?;
     let elapsed = start.elapsed();
-    
+
     println!("✅ Audit completed in {:?}", elapsed);
     display_workflow_summary(&result);
-    
+
     // Example 4: Parallel Agent Execution
     println!("\n📋 Example 4: Parallel Agent Execution");
     println!("----------------------------------------");
     println!("Running 4 agents in parallel on independent tasks...\n");
-    
+
     let parallel_tasks = vec![
-        (AgentRole::Research, json!({
-            "topic": "Latest trends in distributed systems"
-        })),
-        (AgentRole::Security, json!({
-            "name": "vulnerability_scan",
-            "target": "web_application"
-        })),
-        (AgentRole::Data, json!({
-            "name": "performance_metrics",
-            "period": "last_30_days"
-        })),
-        (AgentRole::Product, json!({
-            "features": ["search", "filtering", "sorting", "export"],
-            "user_feedback": "positive"
-        })),
+        (
+            AgentRole::Research,
+            json!({
+                "topic": "Latest trends in distributed systems"
+            }),
+        ),
+        (
+            AgentRole::Security,
+            json!({
+                "name": "vulnerability_scan",
+                "target": "web_application"
+            }),
+        ),
+        (
+            AgentRole::Data,
+            json!({
+                "name": "performance_metrics",
+                "period": "last_30_days"
+            }),
+        ),
+        (
+            AgentRole::Product,
+            json!({
+                "features": ["search", "filtering", "sorting", "export"],
+                "user_feedback": "positive"
+            }),
+        ),
     ];
-    
+
     let start = Instant::now();
     let results = system.parallel_execution(parallel_tasks).await?;
     let elapsed = start.elapsed();
-    
+
     println!("✅ Parallel execution completed in {:?}", elapsed);
     println!("📊 Results from {} agents:", results.len());
-    
+
     for (i, result) in results.iter().enumerate() {
-        println!("  Agent {}: {:?}", i + 1, result.get("topic")
-            .or(result.get("name"))
-            .or(result.get("features"))
-            .unwrap_or(&json!("completed")));
+        println!(
+            "  Agent {}: {:?}",
+            i + 1,
+            result
+                .get("topic")
+                .or(result.get("name"))
+                .or(result.get("features"))
+                .unwrap_or(&json!("completed"))
+        );
     }
-    
+
     // Example 5: Inter-Agent Communication
     println!("\n📋 Example 5: Direct Inter-Agent Communication");
     println!("------------------------------------------------");
-    
+
     // Product agent requests research from Research agent
     let research_request = AgentMessage {
         from: AgentRole::Product,
@@ -203,12 +218,12 @@ async fn main() -> Result<()> {
         priority: 1,
         correlation_id: "prod-research-001".to_string(),
     };
-    
+
     println!("📤 Product Agent → Research Agent: Research request");
     let response = system.send_message(research_request).await?;
     println!("📥 Research Agent → Product Agent: Research complete");
     println!("   Findings: {:?}", response.payload["findings"]);
-    
+
     // Architect requests security review from Security agent
     let security_review = AgentMessage {
         from: AgentRole::Architect,
@@ -222,17 +237,17 @@ async fn main() -> Result<()> {
         priority: 2,
         correlation_id: "arch-sec-001".to_string(),
     };
-    
+
     println!("\n📤 Architect Agent → Security Agent: Security review request");
     let response = system.send_message(security_review).await?;
     println!("📥 Security Agent → Architect Agent: Review complete");
     println!("   Compliance: {}", response.payload["compliance"]);
     println!("   Risk Level: {}", response.payload["risk_level"]);
-    
+
     // Example 6: Product Planning Workflow
     println!("\n📋 Workflow 6: Quarterly Product Planning");
     println!("-------------------------------------------");
-    
+
     let planning_workflow = json!({
         "type": "product_planning",
         "name": "Q2 2024 Roadmap",
@@ -261,26 +276,31 @@ async fn main() -> Result<()> {
             }
         }
     });
-    
+
     let start = Instant::now();
     let result = system.execute_workflow(planning_workflow).await?;
     let elapsed = start.elapsed();
-    
+
     println!("✅ Planning completed in {:?}", elapsed);
-    
+
     if let Some(final_output) = result.get("final_output") {
         if let Some(high_priority) = final_output.get("high_priority") {
             println!("\n🎯 High Priority Features:");
-            for (i, feature) in high_priority.as_array().unwrap_or(&vec![]).iter().enumerate() {
+            for (i, feature) in high_priority
+                .as_array()
+                .unwrap_or(&vec![])
+                .iter()
+                .enumerate()
+            {
                 println!("  {}. {}", i + 1, feature);
             }
         }
-        
+
         if let Some(rationale) = final_output.get("rationale") {
             println!("\n📝 Prioritization Rationale: {}", rationale);
         }
     }
-    
+
     // Summary
     println!("\n========================================");
     println!("🎉 Multi-Agent System Demonstration Complete!");
@@ -298,22 +318,23 @@ async fn main() -> Result<()> {
     println!("  • Security auditing and compliance");
     println!("  • Product planning and prioritization");
     println!("  • DevOps automation and deployment");
-    
+
     Ok(())
 }
 
 fn display_workflow_summary(result: &serde_json::Value) {
     println!("  Workflow ID: {}", result["workflow_id"]);
     println!("  Status: {}", result["status"]);
-    
+
     if let Some(stages) = result["stages"].as_array() {
         println!("  Stages Completed: {}", stages.len());
-        
-        let agents: Vec<String> = stages.iter()
+
+        let agents: Vec<String> = stages
+            .iter()
             .filter_map(|s| s["agent"].as_str())
             .map(|s| s.to_string())
             .collect();
-        
+
         println!("  Agents Involved: {}", agents.join(" → "));
     }
 }

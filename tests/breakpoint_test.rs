@@ -3,18 +3,17 @@
 
 use langgraph::{
     engine::{
-        ExecutionEngine, BreakpointManager, Breakpoint, BreakpointAction,
-        BreakpointCondition, BreakpointHit, BreakpointExecution,
-        InterruptCallback, ApprovalDecision,
+        ApprovalDecision, Breakpoint, BreakpointAction, BreakpointCondition, BreakpointExecution,
+        BreakpointHit, BreakpointManager, ExecutionEngine, InterruptCallback,
     },
     graph::GraphBuilder,
     state::StateData,
     Result,
 };
 use serde_json::json;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use std::collections::HashMap;
 
 /// Test basic breakpoint setting and removal
 #[tokio::test]
@@ -22,7 +21,9 @@ async fn test_set_and_remove_breakpoint() -> Result<()> {
     let manager = BreakpointManager::new();
 
     // Set a breakpoint on a node
-    let bp_id = manager.set_breakpoint("process_node".to_string(), None).await;
+    let bp_id = manager
+        .set_breakpoint("process_node".to_string(), None)
+        .await;
 
     // Verify breakpoint was set
     let breakpoints = manager.list_breakpoints().await;
@@ -56,7 +57,9 @@ async fn test_conditional_breakpoint() -> Result<()> {
         false
     }));
 
-    let _bp_id = manager.set_breakpoint("check_node".to_string(), Some(condition)).await;
+    let _bp_id = manager
+        .set_breakpoint("check_node".to_string(), Some(condition))
+        .await;
 
     // Test with value <= 10 (should not trigger)
     let mut state1 = HashMap::new();
@@ -80,8 +83,14 @@ async fn test_execution_pause_at_breakpoint() -> Result<()> {
     // Create a simple graph
     let graph = GraphBuilder::new("test_graph")
         .add_node("start", langgraph::graph::NodeType::Start)
-        .add_node("process", langgraph::graph::NodeType::Agent("processor".to_string()))
-        .add_node("validate", langgraph::graph::NodeType::Agent("validator".to_string()))
+        .add_node(
+            "process",
+            langgraph::graph::NodeType::Agent("processor".to_string()),
+        )
+        .add_node(
+            "validate",
+            langgraph::graph::NodeType::Agent("validator".to_string()),
+        )
         .add_node("end", langgraph::graph::NodeType::End)
         .set_entry_point("start")
         .add_edge("start", "process")
@@ -91,7 +100,9 @@ async fn test_execution_pause_at_breakpoint() -> Result<()> {
         .compile()?;
 
     // Set a breakpoint on the validate node
-    bp_manager.set_breakpoint("validate".to_string(), None).await;
+    bp_manager
+        .set_breakpoint("validate".to_string(), None)
+        .await;
 
     let paused = Arc::new(RwLock::new(false));
     let paused_clone = paused.clone();
@@ -100,23 +111,25 @@ async fn test_execution_pause_at_breakpoint() -> Result<()> {
     let mut input = StateData::new();
     input.insert("input".to_string(), json!("test"));
 
-    let handle = engine.execute_with_breakpoints(
-        graph,
-        input,
-        Box::new(move |hit: BreakpointHit| {
-            let paused = paused_clone.clone();
-            Box::pin(async move {
-                // Mark that we hit the breakpoint
-                *paused.write().await = true;
+    let handle = engine
+        .execute_with_breakpoints(
+            graph,
+            input,
+            Box::new(move |hit: BreakpointHit| {
+                let paused = paused_clone.clone();
+                Box::pin(async move {
+                    // Mark that we hit the breakpoint
+                    *paused.write().await = true;
 
-                // Verify we're at the right node
-                assert_eq!(hit.node_id, "validate");
+                    // Verify we're at the right node
+                    assert_eq!(hit.node_id, "validate");
 
-                // Continue execution
-                Ok(BreakpointAction::Continue)
-            })
-        })
-    ).await?;
+                    // Continue execution
+                    Ok(BreakpointAction::Continue)
+                })
+            }),
+        )
+        .await?;
 
     let result = handle.await?;
 
@@ -135,9 +148,18 @@ async fn test_step_operations() -> Result<()> {
     // Create a graph with nested execution
     let graph = GraphBuilder::new("step_test")
         .add_node("start", langgraph::graph::NodeType::Start)
-        .add_node("outer1", langgraph::graph::NodeType::Agent("outer1".to_string()))
-        .add_node("subgraph", langgraph::graph::NodeType::Subgraph("sub".to_string()))
-        .add_node("outer2", langgraph::graph::NodeType::Agent("outer2".to_string()))
+        .add_node(
+            "outer1",
+            langgraph::graph::NodeType::Agent("outer1".to_string()),
+        )
+        .add_node(
+            "subgraph",
+            langgraph::graph::NodeType::Subgraph("sub".to_string()),
+        )
+        .add_node(
+            "outer2",
+            langgraph::graph::NodeType::Agent("outer2".to_string()),
+        )
         .add_node("end", langgraph::graph::NodeType::End)
         .set_entry_point("start")
         .add_edge("start", "outer1")
@@ -155,37 +177,39 @@ async fn test_step_operations() -> Result<()> {
 
     let input = StateData::new();
 
-    let handle = engine.execute_with_breakpoints(
-        graph,
-        input,
-        Box::new(move |hit: BreakpointHit| {
-            let step_count = step_count_clone.clone();
-            Box::pin(async move {
-                let mut count = step_count.lock().await;
-                *count += 1;
-                let current_step = *count;
+    let handle = engine
+        .execute_with_breakpoints(
+            graph,
+            input,
+            Box::new(move |hit: BreakpointHit| {
+                let step_count = step_count_clone.clone();
+                Box::pin(async move {
+                    let mut count = step_count.lock().await;
+                    *count += 1;
+                    let current_step = *count;
 
-                match current_step {
-                    1 => {
-                        // At outer1, step over (should go to outer2)
-                        assert_eq!(hit.node_id, "outer1");
-                        Ok(BreakpointAction::StepOver)
+                    match current_step {
+                        1 => {
+                            // At outer1, step over (should go to outer2)
+                            assert_eq!(hit.node_id, "outer1");
+                            Ok(BreakpointAction::StepOver)
+                        }
+                        2 => {
+                            // Should be at outer2 after stepping over subgraph
+                            assert_eq!(hit.node_id, "outer2");
+                            Ok(BreakpointAction::Continue)
+                        }
+                        _ => Ok(BreakpointAction::Continue),
                     }
-                    2 => {
-                        // Should be at outer2 after stepping over subgraph
-                        assert_eq!(hit.node_id, "outer2");
-                        Ok(BreakpointAction::Continue)
-                    }
-                    _ => Ok(BreakpointAction::Continue)
-                }
-            })
-        })
-    ).await?;
+                })
+            }),
+        )
+        .await?;
 
     handle.await?;
 
     let final_count = *step_count.lock().await;
-    assert_eq!(final_count, 1);  // For YELLOW phase, only hitting the first breakpoint
+    assert_eq!(final_count, 1); // For YELLOW phase, only hitting the first breakpoint
 
     Ok(())
 }
@@ -220,9 +244,8 @@ async fn test_concurrent_breakpoint_operations() -> Result<()> {
     // Spawn multiple tasks that set breakpoints concurrently
     for i in 0..10 {
         let mgr = manager.clone();
-        let handle = tokio::spawn(async move {
-            mgr.set_breakpoint(format!("node_{}", i), None).await
-        });
+        let handle =
+            tokio::spawn(async move { mgr.set_breakpoint(format!("node_{}", i), None).await });
         handles.push(handle);
     }
 
@@ -240,9 +263,7 @@ async fn test_concurrent_breakpoint_operations() -> Result<()> {
     let mut remove_handles = Vec::new();
     for id in ids {
         let mgr = manager.clone();
-        let handle = tokio::spawn(async move {
-            mgr.remove_breakpoint(id).await
-        });
+        let handle = tokio::spawn(async move { mgr.remove_breakpoint(id).await });
         remove_handles.push(handle);
     }
 
@@ -263,7 +284,9 @@ async fn test_breakpoint_hit_history() -> Result<()> {
     let manager = BreakpointManager::new();
 
     // Set a breakpoint
-    let bp_id = manager.set_breakpoint("tracked_node".to_string(), None).await;
+    let bp_id = manager
+        .set_breakpoint("tracked_node".to_string(), None)
+        .await;
 
     // Simulate hitting the breakpoint multiple times
     for i in 0..5 {
@@ -295,10 +318,11 @@ async fn test_breakpoint_persistence() -> Result<()> {
     // Set some breakpoints with different configurations
     let _bp1 = manager1.set_breakpoint("node1".to_string(), None).await;
 
-    let condition = BreakpointCondition::new(Box::new(|state: &StateData| {
-        state.contains_key("debug")
-    }));
-    let _bp2 = manager1.set_breakpoint("node2".to_string(), Some(condition)).await;
+    let condition =
+        BreakpointCondition::new(Box::new(|state: &StateData| state.contains_key("debug")));
+    let _bp2 = manager1
+        .set_breakpoint("node2".to_string(), Some(condition))
+        .await;
 
     // Export breakpoint configuration
     let config = manager1.export_config().await?;
@@ -327,11 +351,16 @@ async fn test_interrupt_integration() -> Result<()> {
     let interrupt_manager = engine.interrupt_manager.read().await;
 
     // Set a breakpoint that should trigger an interrupt
-    bp_manager.set_breakpoint_with_interrupt("critical_node".to_string(), true).await;
+    bp_manager
+        .set_breakpoint_with_interrupt("critical_node".to_string(), true)
+        .await;
 
     let graph = GraphBuilder::new("interrupt_test")
         .add_node("start", langgraph::graph::NodeType::Start)
-        .add_node("critical_node", langgraph::graph::NodeType::Agent("critical".to_string()))
+        .add_node(
+            "critical_node",
+            langgraph::graph::NodeType::Agent("critical".to_string()),
+        )
         .add_node("end", langgraph::graph::NodeType::End)
         .set_entry_point("start")
         .add_edge("start", "critical_node")
@@ -345,23 +374,25 @@ async fn test_interrupt_integration() -> Result<()> {
     let input = StateData::new();
 
     // Execute with both breakpoint and interrupt handlers
-    let handle = engine.execute_with_breakpoints_and_interrupts(
-        graph,
-        input,
-        Box::new(move |hit: BreakpointHit| {
-            Box::pin(async move {
-                // Breakpoint hit should trigger interrupt
-                Ok(BreakpointAction::Continue)
-            })
-        }),
-        Box::new(move |interrupt| {
-            let interrupted = interrupted_clone.clone();
-            Box::pin(async move {
-                *interrupted.write().await = true;
-                Ok(langgraph::engine::ApprovalDecision::Continue)
-            })
-        })
-    ).await?;
+    let handle = engine
+        .execute_with_breakpoints_and_interrupts(
+            graph,
+            input,
+            Box::new(move |hit: BreakpointHit| {
+                Box::pin(async move {
+                    // Breakpoint hit should trigger interrupt
+                    Ok(BreakpointAction::Continue)
+                })
+            }),
+            Box::new(move |interrupt| {
+                let interrupted = interrupted_clone.clone();
+                Box::pin(async move {
+                    *interrupted.write().await = true;
+                    Ok(langgraph::engine::ApprovalDecision::Continue)
+                })
+            }),
+        )
+        .await?;
 
     handle.await?;
 

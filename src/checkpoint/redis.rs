@@ -82,10 +82,11 @@ pub struct RedisCheckpointer {
 impl RedisCheckpointer {
     /// Create a new Redis checkpointer
     pub async fn new(config: RedisConfig) -> Result<Self> {
-        let client = Client::open(config.redis_url.as_str())
-            .context("Failed to create Redis client")?;
+        let client =
+            Client::open(config.redis_url.as_str()).context("Failed to create Redis client")?;
 
-        let connection_manager = ConnectionManager::new(client.clone()).await
+        let connection_manager = ConnectionManager::new(client.clone())
+            .await
             .context("Failed to create connection manager")?;
 
         let pubsub_client = if config.enable_pubsub {
@@ -104,7 +105,10 @@ impl RedisCheckpointer {
 
     /// Get key for checkpoint
     fn get_checkpoint_key(&self, thread_id: &str, checkpoint_id: &str) -> String {
-        format!("{}checkpoint:{}:{}", self.config.key_prefix, thread_id, checkpoint_id)
+        format!(
+            "{}checkpoint:{}:{}",
+            self.config.key_prefix, thread_id, checkpoint_id
+        )
     }
 
     /// Get key for thread's latest checkpoint
@@ -164,19 +168,23 @@ impl RedisCheckpointer {
         let mut conn = self.connection_manager.write().await;
 
         // Save checkpoint with TTL
-        conn.set_ex(&key, data, self.config.default_ttl_secs).await
+        conn.set_ex(&key, data, self.config.default_ttl_secs)
+            .await
             .context("Failed to save checkpoint")?;
 
         // Update latest pointer
-        conn.set_ex(&latest_key, &checkpoint_id, self.config.default_ttl_secs).await
+        conn.set_ex(&latest_key, &checkpoint_id, self.config.default_ttl_secs)
+            .await
             .context("Failed to update latest pointer")?;
 
         // Add to checkpoint list
-        conn.lpush(&list_key, &checkpoint_id).await
+        conn.lpush(&list_key, &checkpoint_id)
+            .await
             .context("Failed to add to checkpoint list")?;
 
         // Trim list to reasonable size
-        conn.ltrim(&list_key, 0, 99).await
+        conn.ltrim(&list_key, 0, 99)
+            .await
             .context("Failed to trim checkpoint list")?;
 
         // Publish notification if enabled
@@ -243,7 +251,8 @@ impl RedisCheckpointer {
         }
 
         let mut conn = self.connection_manager.write().await;
-        pipe.query_async(&mut *conn).await
+        pipe.query_async(&mut *conn)
+            .await
             .context("Failed to execute pipeline")?;
 
         Ok(ids)
@@ -356,7 +365,7 @@ impl RedisCheckpointer {
             else
                 return 0
             end
-            "
+            ",
         );
 
         let latest_key = self.get_thread_latest_key(thread_id);
@@ -389,7 +398,10 @@ impl RedisCheckpointer {
     /// Get connection statistics
     pub async fn get_connection_stats(&self) -> Result<ConnectionStats> {
         let mut conn = self.connection_manager.write().await;
-        let info: String = redis::cmd("INFO").arg("stats").query_async(&mut *conn).await?;
+        let info: String = redis::cmd("INFO")
+            .arg("stats")
+            .query_async(&mut *conn)
+            .await?;
 
         // Parse INFO output (simplified)
         let mut total_commands = 0u64;
@@ -397,7 +409,9 @@ impl RedisCheckpointer {
 
         for line in info.lines() {
             if line.starts_with("total_commands_processed:") {
-                total_commands = line.split(':').nth(1)
+                total_commands = line
+                    .split(':')
+                    .nth(1)
                     .and_then(|s| s.trim().parse().ok())
                     .unwrap_or(0);
             }
@@ -433,7 +447,10 @@ impl PubSubReceiver {
     /// Receive next notification
     pub async fn recv(&mut self) -> Result<StateChangeNotification> {
         let mut pubsub = self.pubsub.write().await;
-        let msg = pubsub.on_message().next().await
+        let msg = pubsub
+            .on_message()
+            .next()
+            .await
             .ok_or_else(|| anyhow::anyhow!("No message received"))?;
 
         let payload: String = msg.get_payload()?;
@@ -465,14 +482,16 @@ impl Checkpointer for RedisCheckpointer {
             let metadata_json = serde_json::to_vec(&metadata)?;
 
             let mut conn = self.connection_manager.write().await;
-            conn.set_ex(metadata_key, metadata_json, self.config.default_ttl_secs).await?;
+            conn.set_ex(metadata_key, metadata_json, self.config.default_ttl_secs)
+                .await?;
         }
 
         // Store parent reference if provided
         if let Some(parent_id) = parent_checkpoint_id {
             let parent_key = format!("{}parent:{}", self.config.key_prefix, checkpoint_id);
             let mut conn = self.connection_manager.write().await;
-            conn.set_ex(parent_key, parent_id, self.config.default_ttl_secs).await?;
+            conn.set_ex(parent_key, parent_id, self.config.default_ttl_secs)
+                .await?;
         }
 
         Ok(checkpoint_id)
@@ -483,7 +502,10 @@ impl Checkpointer for RedisCheckpointer {
         thread_id: &str,
         checkpoint_id: Option<String>,
     ) -> Result<Option<(HashMap<String, Value>, HashMap<String, Value>)>> {
-        if let Some(state) = self.load_checkpoint(thread_id, checkpoint_id.as_deref()).await? {
+        if let Some(state) = self
+            .load_checkpoint(thread_id, checkpoint_id.as_deref())
+            .await?
+        {
             let checkpoint = state.values.clone();
 
             // Load metadata if checkpoint_id is provided
@@ -515,13 +537,18 @@ impl Checkpointer for RedisCheckpointer {
             let list_key = self.get_thread_list_key(tid);
             let mut conn = self.connection_manager.write().await;
 
-            let checkpoint_ids: Vec<String> = conn.lrange(list_key, 0, limit.unwrap_or(100) as isize).await?;
+            let checkpoint_ids: Vec<String> = conn
+                .lrange(list_key, 0, limit.unwrap_or(100) as isize)
+                .await?;
 
             let mut results = Vec::new();
             for checkpoint_id in checkpoint_ids {
                 let mut metadata = HashMap::new();
                 metadata.insert("thread_id".to_string(), Value::String(tid.to_string()));
-                metadata.insert("checkpoint_id".to_string(), Value::String(checkpoint_id.clone()));
+                metadata.insert(
+                    "checkpoint_id".to_string(),
+                    Value::String(checkpoint_id.clone()),
+                );
                 results.push((checkpoint_id, metadata));
             }
 

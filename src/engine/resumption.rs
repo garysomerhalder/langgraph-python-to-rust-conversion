@@ -1,11 +1,11 @@
 //! Workflow Resumption System for suspended execution
 //! YELLOW Phase: Minimal implementation to make tests pass
 
+use crate::checkpoint::Checkpointer;
 use crate::engine::{ExecutionEngine, ExecutionStatus};
 use crate::graph::CompiledGraph;
 use crate::state::StateData;
-use crate::checkpoint::Checkpointer;
-use crate::{Result, LangGraphError};
+use crate::{LangGraphError, Result};
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
@@ -54,11 +54,10 @@ impl WorkflowSnapshot {
         last_completed_node: String,
         state: StateData,
     ) -> Result<Self> {
-        let execution_uuid = Uuid::parse_str(execution_id)
-            .unwrap_or_else(|_| {
-                // Create a new random UUID if parsing fails
-                Uuid::new_v4()
-            });
+        let execution_uuid = Uuid::parse_str(execution_id).unwrap_or_else(|_| {
+            // Create a new random UUID if parsing fails
+            Uuid::new_v4()
+        });
         Ok(Self {
             id: Uuid::new_v4(),
             execution_id: execution_uuid,
@@ -140,7 +139,8 @@ impl ResumptionManager {
             created_at: Utc::now(),
         };
 
-        self.resumption_points.insert(node_id.to_string(), resumption_point);
+        self.resumption_points
+            .insert(node_id.to_string(), resumption_point);
 
         Ok(snapshot)
     }
@@ -165,17 +165,21 @@ impl ResumptionManager {
 
     /// Get resumption point for a node
     pub async fn get_resumption_point(&self, node_id: &str) -> Option<ResumptionPoint> {
-        self.resumption_points.get(node_id).map(|entry| entry.clone())
+        self.resumption_points
+            .get(node_id)
+            .map(|entry| entry.clone())
     }
 
     /// Mark execution as suspended
     pub async fn suspend_execution(&self, execution_id: Uuid) {
-        self.active_executions.insert(execution_id, ExecutionStatus::Suspended);
+        self.active_executions
+            .insert(execution_id, ExecutionStatus::Suspended);
     }
 
     /// Mark execution as resumed
     pub async fn mark_resumed(&self, execution_id: Uuid) {
-        self.active_executions.insert(execution_id, ExecutionStatus::Running);
+        self.active_executions
+            .insert(execution_id, ExecutionStatus::Running);
     }
 
     /// Check if execution is suspended
@@ -207,7 +211,8 @@ impl ResumptionManager {
         let cutoff = Utc::now() - max_age;
         let mut removed_count = 0;
 
-        let to_remove: Vec<Uuid> = self.snapshots
+        let to_remove: Vec<Uuid> = self
+            .snapshots
             .iter()
             .filter(|entry| entry.value().timestamp < cutoff)
             .map(|entry| *entry.key())
@@ -229,11 +234,8 @@ impl ResumptionManager {
         checkpointer: &dyn Checkpointer,
     ) -> Result<WorkflowSnapshot> {
         // For tests, generate a random execution ID
-        self.create_from_checkpoint_with_id(
-            checkpointer,
-            checkpoint_id,
-            Uuid::new_v4(),
-        ).await
+        self.create_from_checkpoint_with_id(checkpointer, checkpoint_id, Uuid::new_v4())
+            .await
     }
 
     /// Create snapshot from checkpointer with explicit execution ID
@@ -281,7 +283,9 @@ impl ResumptionManager {
         engine: &ExecutionEngine,
         graph: Arc<CompiledGraph>,
     ) -> Result<StateData> {
-        let snapshot = self.load_snapshot(snapshot_id).await
+        let snapshot = self
+            .load_snapshot(snapshot_id)
+            .await
             .ok_or_else(|| LangGraphError::Execution("Snapshot not found".to_string()))?;
 
         // Mark as resumed
@@ -289,11 +293,9 @@ impl ResumptionManager {
 
         // Resume execution from the next node
         let next_node = snapshot.next_node.unwrap_or_else(|| "end".to_string());
-        engine.resume_from_node(
-            graph,
-            snapshot.state.clone(),
-            &next_node,
-        ).await?;
+        engine
+            .resume_from_node(graph, snapshot.state.clone(), &next_node)
+            .await?;
 
         Ok(snapshot.state)
     }
@@ -306,7 +308,9 @@ impl ResumptionManager {
         engine: &ExecutionEngine,
         graph: Arc<CompiledGraph>,
     ) -> Result<StateData> {
-        let mut snapshot = self.load_snapshot(snapshot_id).await
+        let mut snapshot = self
+            .load_snapshot(snapshot_id)
+            .await
             .ok_or_else(|| LangGraphError::Execution("Snapshot not found".to_string()))?;
 
         // Update snapshot with modified state
@@ -319,11 +323,9 @@ impl ResumptionManager {
 
         // Resume execution with modified state
         let next_node = snapshot.next_node.unwrap_or_else(|| "end".to_string());
-        engine.resume_from_node(
-            graph,
-            modified_state.clone(),
-            &next_node,
-        ).await?;
+        engine
+            .resume_from_node(graph, modified_state.clone(), &next_node)
+            .await?;
 
         Ok(modified_state)
     }
@@ -394,7 +396,9 @@ impl ResumptionManager {
         let mut results = Vec::new();
 
         for snapshot_id in snapshot_ids {
-            let result = self.resume_workflow(&snapshot_id, engine, graph.clone()).await?;
+            let result = self
+                .resume_workflow(&snapshot_id, engine, graph.clone())
+                .await?;
             results.push(result);
         }
 
@@ -465,19 +469,22 @@ impl ResumptionManager {
     /// Get resumption statistics
     pub async fn get_resumption_stats(&self) -> ResumptionStats {
         let total_snapshots = self.snapshots.len();
-        let unique_executions: std::collections::HashSet<_> =
-            self.snapshots.iter()
-                .map(|entry| entry.value().execution_id)
-                .collect();
+        let unique_executions: std::collections::HashSet<_> = self
+            .snapshots
+            .iter()
+            .map(|entry| entry.value().execution_id)
+            .collect();
 
         ResumptionStats {
             total_resumptions: total_snapshots,
             unique_executions: unique_executions.len(),
-            oldest_snapshot: self.snapshots
+            oldest_snapshot: self
+                .snapshots
                 .iter()
                 .map(|entry| entry.value().timestamp)
                 .min(),
-            newest_snapshot: self.snapshots
+            newest_snapshot: self
+                .snapshots
                 .iter()
                 .map(|entry| entry.value().timestamp)
                 .max(),

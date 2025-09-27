@@ -1,10 +1,10 @@
+use crate::graph::GraphError;
 use async_trait::async_trait;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{RwLock, Semaphore};
 use tokio::time::sleep;
-use crate::graph::GraphError;
 
 #[async_trait]
 pub trait FlowController: Send + Sync {
@@ -32,11 +32,11 @@ impl BackpressureController {
             in_flight: Arc::new(AtomicUsize::new(0)),
         }
     }
-    
+
     pub fn current_load(&self) -> usize {
         self.in_flight.load(Ordering::Relaxed)
     }
-    
+
     pub fn load_percentage(&self) -> f64 {
         (self.current_load() as f64 / self.max_in_flight as f64) * 100.0
     }
@@ -45,21 +45,23 @@ impl BackpressureController {
 #[async_trait]
 impl FlowController for BackpressureController {
     async fn acquire(&self) -> Result<FlowPermit, GraphError> {
-        self.semaphore.acquire().await
+        self.semaphore
+            .acquire()
+            .await
             .map_err(|_| GraphError::RuntimeError("Failed to acquire permit".to_string()))?;
-        
+
         let count = self.in_flight.fetch_add(1, Ordering::Relaxed);
-        
+
         Ok(FlowPermit {
             id: count,
             timestamp: Instant::now(),
         })
     }
-    
+
     async fn release(&self, _permit: FlowPermit) {
         self.in_flight.fetch_sub(1, Ordering::Relaxed);
     }
-    
+
     fn is_healthy(&self) -> bool {
         self.load_percentage() < 90.0
     }
@@ -77,7 +79,7 @@ impl RateLimiter {
             window: Arc::new(RwLock::new(Vec::new())),
         }
     }
-    
+
     async fn clean_window(&self) {
         let mut window = self.window.write().await;
         let now = Instant::now();
@@ -90,28 +92,27 @@ impl FlowController for RateLimiter {
     async fn acquire(&self) -> Result<FlowPermit, GraphError> {
         loop {
             self.clean_window().await;
-            
+
             let window = self.window.read().await;
             if window.len() < self.max_per_second {
                 drop(window);
-                
+
                 let now = Instant::now();
                 self.window.write().await.push(now);
-                
+
                 return Ok(FlowPermit {
                     id: 0,
                     timestamp: now,
                 });
             }
-            
+
             drop(window);
             sleep(Duration::from_millis(10)).await;
         }
     }
-    
-    async fn release(&self, _permit: FlowPermit) {
-    }
-    
+
+    async fn release(&self, _permit: FlowPermit) {}
+
     fn is_healthy(&self) -> bool {
         true
     }
@@ -121,7 +122,7 @@ pub struct CircuitBreaker {
     failure_threshold: usize,
     success_threshold: usize,
     timeout: Duration,
-    
+
     failures: Arc<AtomicUsize>,
     successes: Arc<AtomicUsize>,
     state: Arc<RwLock<CircuitState>>,
@@ -136,11 +137,7 @@ enum CircuitState {
 }
 
 impl CircuitBreaker {
-    pub fn new(
-        failure_threshold: usize,
-        success_threshold: usize,
-        timeout: Duration,
-    ) -> Self {
+    pub fn new(failure_threshold: usize, success_threshold: usize, timeout: Duration) -> Self {
         Self {
             failure_threshold,
             success_threshold,
@@ -151,10 +148,10 @@ impl CircuitBreaker {
             last_failure: Arc::new(RwLock::new(None)),
         }
     }
-    
+
     pub async fn record_success(&self) {
         self.successes.fetch_add(1, Ordering::Relaxed);
-        
+
         let mut state = self.state.write().await;
         if *state == CircuitState::HalfOpen {
             let successes = self.successes.load(Ordering::Relaxed);
@@ -165,22 +162,22 @@ impl CircuitBreaker {
             }
         }
     }
-    
+
     pub async fn record_failure(&self) {
         self.failures.fetch_add(1, Ordering::Relaxed);
         *self.last_failure.write().await = Some(Instant::now());
-        
+
         let mut state = self.state.write().await;
         let failures = self.failures.load(Ordering::Relaxed);
-        
+
         if failures >= self.failure_threshold && *state == CircuitState::Closed {
             *state = CircuitState::Open;
         }
     }
-    
+
     async fn check_timeout(&self) {
         let last_failure = *self.last_failure.read().await;
-        
+
         if let Some(last) = last_failure {
             if Instant::now().duration_since(last) >= self.timeout {
                 let mut state = self.state.write().await;
@@ -197,24 +194,21 @@ impl CircuitBreaker {
 impl FlowController for CircuitBreaker {
     async fn acquire(&self) -> Result<FlowPermit, GraphError> {
         self.check_timeout().await;
-        
+
         let state = self.state.read().await;
         match *state {
-            CircuitState::Open => {
-                Err(GraphError::RuntimeError("Circuit breaker is open".to_string()))
-            }
-            CircuitState::Closed | CircuitState::HalfOpen => {
-                Ok(FlowPermit {
-                    id: 0,
-                    timestamp: Instant::now(),
-                })
-            }
+            CircuitState::Open => Err(GraphError::RuntimeError(
+                "Circuit breaker is open".to_string(),
+            )),
+            CircuitState::Closed | CircuitState::HalfOpen => Ok(FlowPermit {
+                id: 0,
+                timestamp: Instant::now(),
+            }),
         }
     }
-    
-    async fn release(&self, _permit: FlowPermit) {
-    }
-    
+
+    async fn release(&self, _permit: FlowPermit) {}
+
     fn is_healthy(&self) -> bool {
         true
     }
@@ -242,25 +236,25 @@ impl AdaptiveFlowController {
             })),
         }
     }
-    
+
     pub async fn record_latency(&self, latency: Duration) {
         let mut metrics = self.metrics.write().await;
         metrics.latencies.push(latency);
-        
+
         if metrics.latencies.len() > 1000 {
             metrics.latencies.remove(0);
         }
     }
-    
+
     pub async fn get_p99_latency(&self) -> Option<Duration> {
         let metrics = self.metrics.read().await;
         if metrics.latencies.is_empty() {
             return None;
         }
-        
+
         let mut sorted = metrics.latencies.clone();
         sorted.sort();
-        
+
         let index = (sorted.len() as f64 * 0.99) as usize;
         sorted.get(index).copied()
     }
@@ -271,13 +265,13 @@ impl FlowController for AdaptiveFlowController {
     async fn acquire(&self) -> Result<FlowPermit, GraphError> {
         self.base_controller.acquire().await
     }
-    
+
     async fn release(&self, permit: FlowPermit) {
         let latency = permit.timestamp.elapsed();
         self.record_latency(latency).await;
         self.base_controller.release(permit).await;
     }
-    
+
     fn is_healthy(&self) -> bool {
         self.base_controller.is_healthy()
     }

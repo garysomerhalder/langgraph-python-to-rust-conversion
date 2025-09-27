@@ -14,10 +14,10 @@ use crate::Result;
 pub struct Node {
     /// Unique identifier for the node
     pub id: String,
-    
+
     /// Type of the node
     pub node_type: NodeType,
-    
+
     /// Optional metadata
     pub metadata: Option<serde_json::Value>,
 }
@@ -27,38 +27,39 @@ pub struct Node {
 pub enum NodeType {
     /// Start node of the graph
     Start,
-    
+
     /// End node of the graph
     End,
-    
+
     /// Agent node that performs actions
     Agent(String),
-    
+
     /// Conditional node for branching
     Conditional,
-    
+
     /// Parallel execution node
     Parallel,
-    
+
     /// Tool node for external integrations
     Tool(String),
-    
+
     /// Subgraph node
     Subgraph(String),
-    
+
     /// Custom node type
     Custom(String),
 }
 
 /// Function signature for node execution
-pub type NodeFn = Box<dyn Fn(StateData) -> Pin<Box<dyn Future<Output = Result<StateData>> + Send>> + Send + Sync>;
+pub type NodeFn =
+    Box<dyn Fn(StateData) -> Pin<Box<dyn Future<Output = Result<StateData>> + Send>> + Send + Sync>;
 
 /// Trait for executable nodes
 #[async_trait]
 pub trait NodeFunction: Send + Sync {
     /// Execute the node with given state
     async fn execute(&self, state: StateData) -> Result<StateData>;
-    
+
     /// Get node metadata
     fn metadata(&self) -> Option<serde_json::Value> {
         None
@@ -91,7 +92,7 @@ impl NodeFunction for AgentNode {
         // Add agent-specific logic here
         (self.function)(state).await
     }
-    
+
     fn metadata(&self) -> Option<serde_json::Value> {
         Some(serde_json::json!({
             "agent": self.agent_name,
@@ -113,7 +114,7 @@ impl NodeFunction for ToolNode {
         // Add tool-specific logic here
         (self.function)(state).await
     }
-    
+
     fn metadata(&self) -> Option<serde_json::Value> {
         Some(serde_json::json!({
             "tool": self.tool_name,
@@ -135,7 +136,7 @@ impl NodeFunction for ConditionalNode {
         // This is handled by the execution engine
         Ok(state)
     }
-    
+
     fn metadata(&self) -> Option<serde_json::Value> {
         Some(serde_json::json!({
             "type": "conditional"
@@ -146,7 +147,7 @@ impl NodeFunction for ConditionalNode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_node_creation() {
         let node = Node {
@@ -154,12 +155,12 @@ mod tests {
             node_type: NodeType::Agent("test_agent".to_string()),
             metadata: Some(serde_json::json!({"key": "value"})),
         };
-        
+
         assert_eq!(node.id, "test_node");
         assert_eq!(node.node_type, NodeType::Agent("test_agent".to_string()));
         assert!(node.metadata.is_some());
     }
-    
+
     #[test]
     fn test_node_type_equality() {
         assert_eq!(NodeType::Start, NodeType::Start);
@@ -173,7 +174,7 @@ mod tests {
             NodeType::Agent("agent2".to_string())
         );
     }
-    
+
     #[tokio::test]
     async fn test_basic_node_execution() {
         let node = BasicNode {
@@ -185,10 +186,10 @@ mod tests {
                 })
             }),
         };
-        
+
         let mut state = StateData::new();
         state.insert("input".to_string(), serde_json::json!("test"));
-        
+
         let result = node.execute(state).await.unwrap();
         assert_eq!(result.get("result"), Some(&serde_json::json!("success")));
     }

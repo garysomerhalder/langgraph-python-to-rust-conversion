@@ -2,17 +2,17 @@ use std::collections::HashMap;
 use tokio::sync::mpsc;
 
 #[derive(Debug)]
-pub struct StateChannels<T> 
-where 
-    T: Clone + Send + Sync + 'static
+pub struct StateChannels<T>
+where
+    T: Clone + Send + Sync + 'static,
 {
     channels: HashMap<String, mpsc::Sender<T>>,
     receivers: HashMap<String, mpsc::Receiver<T>>,
 }
 
 impl<T> StateChannels<T>
-where 
-    T: Clone + Send + Sync + 'static
+where
+    T: Clone + Send + Sync + 'static,
 {
     pub fn new() -> Self {
         Self {
@@ -27,7 +27,11 @@ where
         self.receivers.insert(name, rx);
     }
 
-    pub async fn send(&self, channel_name: &str, value: T) -> Result<(), mpsc::error::SendError<T>> {
+    pub async fn send(
+        &self,
+        channel_name: &str,
+        value: T,
+    ) -> Result<(), mpsc::error::SendError<T>> {
         if let Some(sender) = self.channels.get(channel_name) {
             sender.send(value).await
         } else {
@@ -49,8 +53,8 @@ where
 }
 
 impl<T> Clone for StateChannels<T>
-where 
-    T: Clone + Send + Sync + 'static
+where
+    T: Clone + Send + Sync + 'static,
 {
     fn clone(&self) -> Self {
         Self {
@@ -68,7 +72,7 @@ mod tests {
     async fn test_channel_creation() {
         let mut channels: StateChannels<String> = StateChannels::new();
         channels.create_channel("test".to_string(), 10);
-        
+
         assert!(channels.get_sender("test").is_some());
     }
 
@@ -76,10 +80,10 @@ mod tests {
     async fn test_send_receive() {
         let mut channels: StateChannels<String> = StateChannels::new();
         channels.create_channel("test".to_string(), 10);
-        
+
         let result = channels.send("test", "Hello".to_string()).await;
         assert!(result.is_ok());
-        
+
         let received = channels.receive("test").await;
         assert_eq!(received, Some("Hello".to_string()));
     }

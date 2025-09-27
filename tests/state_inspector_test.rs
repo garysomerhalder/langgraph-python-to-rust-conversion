@@ -2,7 +2,9 @@
 //! RED Phase: Writing failing tests for HIL-003
 
 use langgraph::{
-    engine::{ExecutionEngine, StateInspector, StateSnapshot, StateDiff, ExportFormat, StateFilter},
+    engine::{
+        ExecutionEngine, ExportFormat, StateDiff, StateFilter, StateInspector, StateSnapshot,
+    },
     graph::GraphBuilder,
     state::StateData,
     Result,
@@ -44,14 +46,17 @@ async fn test_state_query() -> Result<()> {
 
     // Create nested state
     let mut state = StateData::new();
-    state.insert("user".to_string(), json!({
-        "name": "Bob",
-        "age": 30,
-        "address": {
-            "city": "Seattle",
-            "zip": "98101"
-        }
-    }));
+    state.insert(
+        "user".to_string(),
+        json!({
+            "name": "Bob",
+            "age": 30,
+            "address": {
+                "city": "Seattle",
+                "zip": "98101"
+            }
+        }),
+    );
 
     let snapshot_id = inspector.capture_snapshot("query_test", &state).await;
 
@@ -62,7 +67,9 @@ async fn test_state_query() -> Result<()> {
     );
 
     assert_eq!(
-        inspector.query_state(&snapshot_id, "user.address.city").await,
+        inspector
+            .query_state(&snapshot_id, "user.address.city")
+            .await,
         Some(json!("Seattle"))
     );
 
@@ -89,7 +96,7 @@ async fn test_state_diff() -> Result<()> {
 
     // Second state with changes
     let mut state2 = StateData::new();
-    state2.insert("counter".to_string(), json!(2));  // Changed
+    state2.insert("counter".to_string(), json!(2)); // Changed
     state2.insert("name".to_string(), json!("Alice")); // Same
     state2.insert("new_field".to_string(), json!("value")); // Added
 
@@ -119,12 +126,18 @@ async fn test_state_export() -> Result<()> {
     let snapshot_id = inspector.capture_snapshot("export_test", &state).await;
 
     // Export as JSON
-    let json_export = inspector.export_snapshot(&snapshot_id, ExportFormat::Json).await;
-    assert!(json_export.contains("\"test\": \"data\"") || json_export.contains("\"test\":\"data\""));
+    let json_export = inspector
+        .export_snapshot(&snapshot_id, ExportFormat::Json)
+        .await;
+    assert!(
+        json_export.contains("\"test\": \"data\"") || json_export.contains("\"test\":\"data\"")
+    );
     assert!(json_export.contains("\"number\": 123") || json_export.contains("\"number\":123"));
 
     // Export as YAML
-    let yaml_export = inspector.export_snapshot(&snapshot_id, ExportFormat::Yaml).await;
+    let yaml_export = inspector
+        .export_snapshot(&snapshot_id, ExportFormat::Yaml)
+        .await;
     assert!(yaml_export.contains("test: data"));
     assert!(yaml_export.contains("number: 123"));
 
@@ -166,7 +179,9 @@ async fn test_state_history() -> Result<()> {
         state.insert("iteration".to_string(), json!(i));
         state.insert("node".to_string(), json!(format!("node_{}", i)));
 
-        inspector.capture_snapshot(&format!("node_{}", i), &state).await;
+        inspector
+            .capture_snapshot(&format!("node_{}", i), &state)
+            .await;
     }
 
     // Get history
@@ -191,8 +206,14 @@ async fn test_execution_integration() -> Result<()> {
     // Create a simple graph
     let graph = GraphBuilder::new("inspection_test")
         .add_node("start", langgraph::graph::NodeType::Start)
-        .add_node("process", langgraph::graph::NodeType::Agent("processor".to_string()))
-        .add_node("validate", langgraph::graph::NodeType::Agent("validator".to_string()))
+        .add_node(
+            "process",
+            langgraph::graph::NodeType::Agent("processor".to_string()),
+        )
+        .add_node(
+            "validate",
+            langgraph::graph::NodeType::Agent("validator".to_string()),
+        )
         .add_node("end", langgraph::graph::NodeType::End)
         .set_entry_point("start")
         .add_edge("start", "process")
@@ -229,7 +250,8 @@ async fn test_concurrent_inspection() -> Result<()> {
             let mut state = StateData::new();
             state.insert("thread".to_string(), json!(i));
 
-            insp.capture_snapshot(&format!("thread_{}", i), &state).await
+            insp.capture_snapshot(&format!("thread_{}", i), &state)
+                .await
         });
         handles.push(handle);
     }
@@ -297,11 +319,9 @@ async fn test_state_filter() -> Result<()> {
         .exclude_field("private_key")
         .exclude_field("api_token");
 
-    let snapshot_id = inspector.capture_snapshot_with_filter(
-        "filtered_node",
-        &state,
-        &filter
-    ).await;
+    let snapshot_id = inspector
+        .capture_snapshot_with_filter("filtered_node", &state, &filter)
+        .await;
 
     let snapshot = inspector.get_snapshot(&snapshot_id).await.unwrap();
 

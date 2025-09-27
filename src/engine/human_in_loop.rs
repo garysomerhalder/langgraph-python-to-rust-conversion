@@ -1,14 +1,14 @@
 //! Human-in-the-Loop functionality for graph execution
 //! YELLOW Phase: Minimal implementation to make tests pass
 
+use dashmap::DashMap;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
-use tokio::sync::{RwLock, mpsc, oneshot};
-use uuid::Uuid;
-use serde::{Deserialize, Serialize};
-use dashmap::DashMap;
 use thiserror::Error;
+use tokio::sync::{mpsc, oneshot, RwLock};
+use uuid::Uuid;
 
 use crate::state::StateData;
 use crate::Result;
@@ -71,14 +71,18 @@ impl Clone for InterruptHandle {
             timestamp: self.timestamp,
             state_snapshot: self.state_snapshot.clone(),
             timeout: self.timeout,
-            response_tx: None,  // Don't clone the sender
+            response_tx: None, // Don't clone the sender
         }
     }
 }
 
 impl InterruptHandle {
     /// Create a new interrupt handle
-    pub fn new(node_id: String, state_snapshot: StateData, timeout: Option<Duration>) -> (Self, oneshot::Receiver<ApprovalDecision>) {
+    pub fn new(
+        node_id: String,
+        state_snapshot: StateData,
+        timeout: Option<Duration>,
+    ) -> (Self, oneshot::Receiver<ApprovalDecision>) {
         let (tx, rx) = oneshot::channel();
 
         let handle = Self {
@@ -132,7 +136,14 @@ pub enum ApprovalDecision {
 }
 
 /// Callback for handling interrupts
-pub type InterruptCallback = Box<dyn Fn(InterruptHandle) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<ApprovalDecision>> + Send>> + Send + Sync>;
+pub type InterruptCallback = Box<
+    dyn Fn(
+            InterruptHandle,
+        )
+            -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<ApprovalDecision>> + Send>>
+        + Send
+        + Sync,
+>;
 
 /// Manager for handling interrupts during execution
 pub struct InterruptManager {
@@ -169,7 +180,8 @@ impl InterruptManager {
 
     /// Check if a node should interrupt
     pub fn should_interrupt(&self, node_id: &str, mode: InterruptMode) -> bool {
-        self.node_configs.get(node_id)
+        self.node_configs
+            .get(node_id)
             .map(|&config_mode| config_mode == mode)
             .unwrap_or(false)
     }
@@ -216,7 +228,8 @@ impl InterruptManager {
 
     /// Get all pending interrupts
     pub fn get_pending(&self) -> Vec<InterruptHandle> {
-        self.pending.iter()
+        self.pending
+            .iter()
             .map(|entry| entry.value().clone())
             .collect()
     }
@@ -276,7 +289,8 @@ impl ExecutionHandle {
 
     /// Wait for execution to complete
     pub async fn await_result(self) -> Result<StateData> {
-        self.result_rx.await
+        self.result_rx
+            .await
             .map_err(|_| InterruptError::Cancelled("Execution cancelled".to_string()))?
     }
 }
@@ -295,10 +309,10 @@ impl std::future::Future for ExecutionHandle {
             Err(oneshot::error::TryRecvError::Empty) => {
                 cx.waker().wake_by_ref();
                 std::task::Poll::Pending
-            },
-            Err(oneshot::error::TryRecvError::Closed) => {
-                std::task::Poll::Ready(Err(InterruptError::Cancelled("Channel closed".to_string()).into()))
             }
+            Err(oneshot::error::TryRecvError::Closed) => std::task::Poll::Ready(Err(
+                InterruptError::Cancelled("Channel closed".to_string()).into(),
+            )),
         }
     }
 }

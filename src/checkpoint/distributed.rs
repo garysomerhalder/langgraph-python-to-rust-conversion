@@ -5,17 +5,17 @@
 use crate::checkpoint::{CheckpointError, CheckpointResult, Checkpointer};
 use crate::state::GraphState;
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{self, Value};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::{broadcast, RwLock, Mutex};
+use tokio::sync::{broadcast, Mutex, RwLock};
 use tokio::time::{sleep, timeout};
-use tracing::{info, warn, error, debug, instrument};
+use tracing::{debug, error, info, instrument, warn};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 /// Configuration for distributed checkpointer
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -50,11 +50,26 @@ impl Default for DistributedConfig {
 /// Events broadcast across the distributed cluster
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum StateEvent {
-    CheckpointSaved { thread_id: String, checkpoint_id: String, node_id: String },
-    CheckpointDeleted { thread_id: String, checkpoint_id: String, node_id: String },
-    NodeJoined { node_id: String },
-    NodeLeft { node_id: String },
-    LeaderChanged { old_leader: Option<String>, new_leader: String },
+    CheckpointSaved {
+        thread_id: String,
+        checkpoint_id: String,
+        node_id: String,
+    },
+    CheckpointDeleted {
+        thread_id: String,
+        checkpoint_id: String,
+        node_id: String,
+    },
+    NodeJoined {
+        node_id: String,
+    },
+    NodeLeft {
+        node_id: String,
+    },
+    LeaderChanged {
+        old_leader: Option<String>,
+        new_leader: String,
+    },
 }
 
 /// Node information for cluster membership
@@ -164,7 +179,9 @@ impl DistributedCheckpointer {
             version: "0.1.0".to_string(),
         };
 
-        global_state.members.insert(self.config.node_id.clone(), node_info);
+        global_state
+            .members
+            .insert(self.config.node_id.clone(), node_info);
 
         // Elect leader if none exists
         if global_state.leader_id.is_none() {
@@ -179,7 +196,7 @@ impl DistributedCheckpointer {
 
         // Broadcast join event
         let _ = self.event_tx.send(StateEvent::NodeJoined {
-            node_id: self.config.node_id.clone()
+            node_id: self.config.node_id.clone(),
         });
 
         self.is_in_cluster.store(true, Ordering::Relaxed);
@@ -210,7 +227,7 @@ impl DistributedCheckpointer {
 
         // Broadcast leave event
         let _ = self.event_tx.send(StateEvent::NodeLeft {
-            node_id: self.config.node_id.clone()
+            node_id: self.config.node_id.clone(),
         });
 
         self.is_in_cluster.store(false, Ordering::Relaxed);
@@ -238,7 +255,11 @@ impl DistributedCheckpointer {
     }
 
     /// Acquire a distributed lock
-    pub async fn acquire_lock(&self, key: &str, timeout: Duration) -> Result<Option<DistributedLock>, CheckpointError> {
+    pub async fn acquire_lock(
+        &self,
+        key: &str,
+        timeout: Duration,
+    ) -> Result<Option<DistributedLock>, CheckpointError> {
         let start_time = Instant::now();
 
         while start_time.elapsed() < timeout {
@@ -272,7 +293,9 @@ impl DistributedCheckpointer {
     }
 
     /// Subscribe to cluster events
-    pub async fn subscribe_to_events(&self) -> Result<broadcast::Receiver<StateEvent>, CheckpointError> {
+    pub async fn subscribe_to_events(
+        &self,
+    ) -> Result<broadcast::Receiver<StateEvent>, CheckpointError> {
         Ok(self.event_tx.subscribe())
     }
 
@@ -283,7 +306,10 @@ impl DistributedCheckpointer {
     }
 
     /// Simulate network partition (for testing)
-    pub async fn simulate_network_partition(&self, _isolated_nodes: Vec<&str>) -> Result<(), CheckpointError> {
+    pub async fn simulate_network_partition(
+        &self,
+        _isolated_nodes: Vec<&str>,
+    ) -> Result<(), CheckpointError> {
         // Simplified simulation - just stop participating in cluster operations
         warn!("Simulating network partition for testing");
         Ok(())
@@ -297,7 +323,12 @@ impl DistributedCheckpointer {
     }
 
     /// Synchronize state across cluster nodes (simplified)
-    async fn sync_state(&self, thread_id: &str, checkpoint_id: &str, operation: &str) -> Result<(), CheckpointError> {
+    async fn sync_state(
+        &self,
+        thread_id: &str,
+        checkpoint_id: &str,
+        operation: &str,
+    ) -> Result<(), CheckpointError> {
         let mut global_state = GLOBAL_CLUSTER_STATE.write().await;
 
         let sync_key = format!("{}_{}_{}", thread_id, checkpoint_id, operation);
@@ -307,7 +338,10 @@ impl DistributedCheckpointer {
             "timestamp": Utc::now().to_rfc3339()
         });
 
-        let checkpoint_data: HashMap<String, Value> = sync_data.as_object().unwrap().iter()
+        let checkpoint_data: HashMap<String, Value> = sync_data
+            .as_object()
+            .unwrap()
+            .iter()
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect();
         global_state.checkpoints.insert(sync_key, checkpoint_data);
@@ -328,8 +362,14 @@ impl Checkpointer for DistributedCheckpointer {
         let start_time = Instant::now();
 
         // Save to local checkpointer first
-        let checkpoint_id = self.local_checkpointer
-            .save(thread_id, checkpoint.clone(), metadata, parent_checkpoint_id)
+        let checkpoint_id = self
+            .local_checkpointer
+            .save(
+                thread_id,
+                checkpoint.clone(),
+                metadata,
+                parent_checkpoint_id,
+            )
             .await?;
 
         // Synchronize across cluster (simplified)
@@ -356,7 +396,10 @@ impl Checkpointer for DistributedCheckpointer {
         let mut metrics = self.performance_metrics.write().await;
         metrics.average_save_latency = (metrics.average_save_latency + elapsed) / 2;
 
-        debug!("Distributed save completed for checkpoint {} in thread {}", checkpoint_id, thread_id);
+        debug!(
+            "Distributed save completed for checkpoint {} in thread {}",
+            checkpoint_id, thread_id
+        );
 
         Ok(checkpoint_id)
     }
@@ -370,7 +413,10 @@ impl Checkpointer for DistributedCheckpointer {
         let start_time = Instant::now();
 
         // Try to load from local checkpointer first
-        let mut result = self.local_checkpointer.load(thread_id, checkpoint_id.clone()).await?;
+        let mut result = self
+            .local_checkpointer
+            .load(thread_id, checkpoint_id.clone())
+            .await?;
 
         // If not found locally, try to load from global state (simulating sync)
         if result.is_none() {
@@ -406,7 +452,9 @@ impl Checkpointer for DistributedCheckpointer {
     #[instrument(skip(self))]
     async fn delete(&self, thread_id: &str, checkpoint_id: Option<&str>) -> anyhow::Result<()> {
         // Delete from local checkpointer
-        self.local_checkpointer.delete(thread_id, checkpoint_id).await?;
+        self.local_checkpointer
+            .delete(thread_id, checkpoint_id)
+            .await?;
 
         // Delete from global state
         if let Some(id) = checkpoint_id {
@@ -437,7 +485,10 @@ impl GraphState {
         // Convert GraphState to HashMap<String, Value>
         // This is a simplified implementation - in reality would need proper serialization
         let mut checkpoint = HashMap::new();
-        checkpoint.insert("state".to_string(), serde_json::to_value(self).unwrap_or(Value::Null));
+        checkpoint.insert(
+            "state".to_string(),
+            serde_json::to_value(self).unwrap_or(Value::Null),
+        );
         checkpoint
     }
 }

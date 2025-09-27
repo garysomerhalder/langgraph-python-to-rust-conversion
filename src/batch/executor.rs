@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::{Semaphore, mpsc};
+use tokio::sync::{mpsc, Semaphore};
 use tokio::time::timeout;
 
 use crate::batch::types::*;
@@ -102,8 +102,9 @@ impl BatchExecutor {
 
             let result = timeout(
                 config.timeout_duration,
-                Self::run_single_job(&job, Arc::clone(&engine))
-            ).await;
+                Self::run_single_job(&job, Arc::clone(&engine)),
+            )
+            .await;
 
             match result {
                 Ok(Ok(output)) => {
@@ -142,10 +143,7 @@ impl BatchExecutor {
     }
 
     /// Run a single job through the execution engine
-    async fn run_single_job(
-        job: &BatchJob,
-        engine: Arc<ExecutionEngine>,
-    ) -> Result<StateData> {
+    async fn run_single_job(job: &BatchJob, engine: Arc<ExecutionEngine>) -> Result<StateData> {
         // Integration-First: Use real execution engine
         engine.execute(job.graph.clone(), job.input.clone()).await
     }

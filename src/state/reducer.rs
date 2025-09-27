@@ -6,7 +6,7 @@ use serde_json::Value;
 pub trait Reducer: Send + Sync {
     /// Reduce/merge a new value with an existing value
     fn reduce(&self, existing: Option<&Value>, new: Value) -> Value;
-    
+
     /// Get reducer metadata
     fn metadata(&self) -> Option<Value> {
         None
@@ -170,25 +170,28 @@ impl Reducer for CustomReducer {
 mod tests {
     use super::*;
     use serde_json::json;
-    
+
     #[test]
     fn test_default_reducer() {
         let reducer = DefaultReducer;
-        
+
         // Should always return new value
         assert_eq!(reducer.reduce(None, json!("new")), json!("new"));
-        assert_eq!(reducer.reduce(Some(&json!("old")), json!("new")), json!("new"));
+        assert_eq!(
+            reducer.reduce(Some(&json!("old")), json!("new")),
+            json!("new")
+        );
         assert_eq!(reducer.reduce(Some(&json!(42)), json!(100)), json!(100));
     }
-    
+
     #[test]
     fn test_append_reducer() {
         let reducer = AppendReducer;
-        
+
         // None -> wrap in array
         assert_eq!(reducer.reduce(None, json!("value")), json!(["value"]));
         assert_eq!(reducer.reduce(None, json!([1, 2])), json!([1, 2]));
-        
+
         // Existing array -> append
         assert_eq!(
             reducer.reduce(Some(&json!([1, 2])), json!(3)),
@@ -198,92 +201,96 @@ mod tests {
             reducer.reduce(Some(&json!([1, 2])), json!([3, 4])),
             json!([1, 2, 3, 4])
         );
-        
+
         // Non-array existing -> create array with both
         assert_eq!(
             reducer.reduce(Some(&json!("first")), json!("second")),
             json!(["first", "second"])
         );
     }
-    
+
     #[test]
     fn test_merge_reducer() {
         let reducer = MergeReducer;
-        
+
         // Merge objects
         let existing = json!({"a": 1, "b": 2});
         let new = json!({"b": 3, "c": 4});
         let expected = json!({"a": 1, "b": 3, "c": 4});
         assert_eq!(reducer.reduce(Some(&existing), new), expected);
-        
+
         // Non-object -> replace
-        assert_eq!(reducer.reduce(Some(&json!("old")), json!("new")), json!("new"));
-        
+        assert_eq!(
+            reducer.reduce(Some(&json!("old")), json!("new")),
+            json!("new")
+        );
+
         // None -> use new
         assert_eq!(reducer.reduce(None, json!({"a": 1})), json!({"a": 1}));
     }
-    
+
     #[test]
     fn test_add_reducer() {
         let reducer = AddReducer;
-        
+
         // Add integers
         assert_eq!(reducer.reduce(Some(&json!(5)), json!(3)), json!(8));
-        
+
         // Add floats
         assert_eq!(reducer.reduce(Some(&json!(5.5)), json!(2.5)), json!(8.0));
-        
+
         // Non-numeric -> replace
-        assert_eq!(reducer.reduce(Some(&json!("old")), json!("new")), json!("new"));
-        
+        assert_eq!(
+            reducer.reduce(Some(&json!("old")), json!("new")),
+            json!("new")
+        );
+
         // None -> use new
         assert_eq!(reducer.reduce(None, json!(42)), json!(42));
     }
-    
+
     #[test]
     fn test_max_reducer() {
         let reducer = MaxReducer;
-        
+
         // Max of integers
         assert_eq!(reducer.reduce(Some(&json!(5)), json!(10)), json!(10));
         assert_eq!(reducer.reduce(Some(&json!(10)), json!(5)), json!(10));
-        
+
         // Max of floats
         assert_eq!(reducer.reduce(Some(&json!(5.5)), json!(2.5)), json!(5.5));
-        
+
         // None -> use new
         assert_eq!(reducer.reduce(None, json!(42)), json!(42));
     }
-    
+
     #[test]
     fn test_min_reducer() {
         let reducer = MinReducer;
-        
+
         // Min of integers
         assert_eq!(reducer.reduce(Some(&json!(5)), json!(10)), json!(5));
         assert_eq!(reducer.reduce(Some(&json!(10)), json!(5)), json!(5));
-        
+
         // Min of floats
         assert_eq!(reducer.reduce(Some(&json!(5.5)), json!(2.5)), json!(2.5));
-        
+
         // None -> use new
         assert_eq!(reducer.reduce(None, json!(42)), json!(42));
     }
-    
+
     #[test]
     fn test_custom_reducer() {
         // Custom reducer that concatenates strings
         let reducer = CustomReducer {
-            function: Box::new(|existing, new| {
-                match (existing, &new) {
-                    (Some(Value::String(existing_str)), Value::String(new_str)) => {
-                        json!(format!("{} {}", existing_str, new_str))
-                    }
-                    _ => new,
+            function: Box::new(|existing, new| match (existing, &new) {
+                (Some(Value::String(existing_str)), Value::String(new_str)) => {
+                    json!(format!("{} {}", existing_str, new_str))
                 }
+                _ => new,
             }),
         };
-        
+
         assert_eq!(
             reducer.reduce(Some(&json!("hello")), json!("world")),
             json!("hello world")
