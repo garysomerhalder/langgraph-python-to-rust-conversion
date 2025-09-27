@@ -16,6 +16,12 @@ use flate2::write::GzEncoder;
 use flate2::read::GzDecoder;
 use flate2::Compression;
 use std::io::{Write, Read};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+use tokio::time::{sleep, timeout};
+use tracing::{info, warn, error, debug, instrument};
+use std::sync::atomic::{AtomicU64, AtomicBool, Ordering};
+use std::collections::VecDeque;
 
 /// S3 checkpointer configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29,6 +35,14 @@ pub struct S3Config {
     pub multipart_threshold_mb: u64,
     pub endpoint_url: Option<String>,
     pub force_path_style: bool,
+    // Production resilience configuration
+    pub max_retries: u32,
+    pub initial_retry_delay_ms: u64,
+    pub max_retry_delay_ms: u64,
+    pub timeout_seconds: u64,
+    pub circuit_breaker_threshold: u32,
+    pub circuit_breaker_timeout_seconds: u64,
+    pub connection_pool_size: u32,
 }
 
 impl Default for S3Config {
@@ -43,7 +57,172 @@ impl Default for S3Config {
             multipart_threshold_mb: 5,
             endpoint_url: None,
             force_path_style: false,
+            // Production defaults for resilience
+            max_retries: 3,
+            initial_retry_delay_ms: 100,
+            max_retry_delay_ms: 5000,
+            timeout_seconds: 30,
+            circuit_breaker_threshold: 5,
+            circuit_breaker_timeout_seconds: 60,
+            connection_pool_size: 10,
         }
+    }
+}
+
+/// Circuit breaker state for S3 operations
+#[derive(Debug)]
+enum CircuitBreakerState {
+    Closed,
+    Open { opened_at: Instant },
+    HalfOpen,
+}
+
+/// Circuit breaker for S3 operations to prevent cascading failures
+#[derive(Debug)]
+struct CircuitBreaker {
+    state: Arc<tokio::sync::RwLock<CircuitBreakerState>>,
+    failure_count: AtomicU64,
+    threshold: u32,
+    timeout: Duration,
+    metrics: Arc<S3Metrics>,
+}
+
+impl CircuitBreaker {
+    fn new(threshold: u32, timeout: Duration, metrics: Arc<S3Metrics>) -> Self {
+        Self {
+            state: Arc::new(tokio::sync::RwLock::new(CircuitBreakerState::Closed)),
+            failure_count: AtomicU64::new(0),
+            threshold,
+            timeout,
+            metrics,
+        }
+    }
+
+    async fn execute<F, Fut, T>(&self, operation: F) -> Result<T, CheckpointError>
+    where
+        F: FnOnce() -> Fut,
+        Fut: std::future::Future<Output = Result<T, CheckpointError>>,
+    {
+        // Check circuit breaker state
+        let should_attempt = {
+            let state = self.state.read().await;
+            match *state {
+                CircuitBreakerState::Closed => true,
+                CircuitBreakerState::Open { opened_at } => {
+                    if opened_at.elapsed() >= self.timeout {
+                        // Transition to half-open
+                        drop(state);
+                        let mut state = self.state.write().await;
+                        *state = CircuitBreakerState::HalfOpen;
+                        self.metrics.circuit_breaker_half_open.fetch_add(1, Ordering::Relaxed);
+                        true
+                    } else {
+                        false
+                    }
+                }
+                CircuitBreakerState::HalfOpen => true,
+            }
+        };
+
+        if !should_attempt {
+            self.metrics.circuit_breaker_rejections.fetch_add(1, Ordering::Relaxed);
+            return Err(CheckpointError::StorageError("Circuit breaker is open".to_string()));
+        }
+
+        // Execute the operation
+        match operation().await {
+            Ok(result) => {
+                // Success - reset failure count and close circuit if it was half-open
+                self.failure_count.store(0, Ordering::Relaxed);
+                let mut state = self.state.write().await;
+                if matches!(*state, CircuitBreakerState::HalfOpen) {
+                    *state = CircuitBreakerState::Closed;
+                    self.metrics.circuit_breaker_closed.fetch_add(1, Ordering::Relaxed);
+                }
+                Ok(result)
+            }
+            Err(err) => {
+                // Failure - increment count and potentially open circuit
+                let new_count = self.failure_count.fetch_add(1, Ordering::Relaxed) + 1;
+                if new_count >= self.threshold as u64 {
+                    let mut state = self.state.write().await;
+                    *state = CircuitBreakerState::Open { opened_at: Instant::now() };
+                    self.metrics.circuit_breaker_opened.fetch_add(1, Ordering::Relaxed);
+                }
+                Err(err)
+            }
+        }
+    }
+}
+
+/// Metrics for S3 operations
+#[derive(Debug)]
+struct S3Metrics {
+    // Operation counters
+    saves_total: AtomicU64,
+    saves_failed: AtomicU64,
+    loads_total: AtomicU64,
+    loads_failed: AtomicU64,
+    deletes_total: AtomicU64,
+    deletes_failed: AtomicU64,
+
+    // Circuit breaker metrics
+    circuit_breaker_opened: AtomicU64,
+    circuit_breaker_closed: AtomicU64,
+    circuit_breaker_half_open: AtomicU64,
+    circuit_breaker_rejections: AtomicU64,
+
+    // Retry metrics
+    retries_total: AtomicU64,
+    retry_delays_total_ms: AtomicU64,
+
+    // Performance metrics
+    operation_duration_ms: AtomicU64,
+    bytes_transferred: AtomicU64,
+}
+
+impl S3Metrics {
+    fn new() -> Self {
+        Self {
+            saves_total: AtomicU64::new(0),
+            saves_failed: AtomicU64::new(0),
+            loads_total: AtomicU64::new(0),
+            loads_failed: AtomicU64::new(0),
+            deletes_total: AtomicU64::new(0),
+            deletes_failed: AtomicU64::new(0),
+            circuit_breaker_opened: AtomicU64::new(0),
+            circuit_breaker_closed: AtomicU64::new(0),
+            circuit_breaker_half_open: AtomicU64::new(0),
+            circuit_breaker_rejections: AtomicU64::new(0),
+            retries_total: AtomicU64::new(0),
+            retry_delays_total_ms: AtomicU64::new(0),
+            operation_duration_ms: AtomicU64::new(0),
+            bytes_transferred: AtomicU64::new(0),
+        }
+    }
+
+    fn log_metrics(&self) {
+        info!(
+            "S3 Metrics: saves={}/{} loads={}/{} deletes={}/{} \
+             circuit_breaker=(opened={}, rejections={}) retries={} avg_delay={}ms",
+            self.saves_total.load(Ordering::Relaxed),
+            self.saves_failed.load(Ordering::Relaxed),
+            self.loads_total.load(Ordering::Relaxed),
+            self.loads_failed.load(Ordering::Relaxed),
+            self.deletes_total.load(Ordering::Relaxed),
+            self.deletes_failed.load(Ordering::Relaxed),
+            self.circuit_breaker_opened.load(Ordering::Relaxed),
+            self.circuit_breaker_rejections.load(Ordering::Relaxed),
+            self.retries_total.load(Ordering::Relaxed),
+            {
+                let total_retries = self.retries_total.load(Ordering::Relaxed);
+                if total_retries > 0 {
+                    self.retry_delays_total_ms.load(Ordering::Relaxed) / total_retries
+                } else {
+                    0
+                }
+            }
+        );
     }
 }
 
@@ -51,6 +230,8 @@ impl Default for S3Config {
 pub struct S3Checkpointer {
     client: Client,
     config: S3Config,
+    circuit_breaker: CircuitBreaker,
+    metrics: Arc<S3Metrics>,
 }
 
 impl S3Checkpointer {
@@ -74,10 +255,106 @@ impl S3Checkpointer {
 
         let client = Client::from_conf(s3_config_builder.build());
 
+        let metrics = Arc::new(S3Metrics::new());
+        let circuit_breaker = CircuitBreaker::new(
+            config.circuit_breaker_threshold,
+            Duration::from_secs(config.circuit_breaker_timeout_seconds),
+            metrics.clone(),
+        );
+
         Ok(Self {
             client,
             config,
+            circuit_breaker,
+            metrics,
         })
+    }
+
+    /// Execute an operation with retry logic and exponential backoff
+    async fn retry_with_backoff<F, Fut, T>(&self, operation: F) -> Result<T, CheckpointError>
+    where
+        F: Fn() -> Fut,
+        Fut: std::future::Future<Output = Result<T, CheckpointError>>,
+    {
+        let mut attempt = 0;
+        let mut current_delay = Duration::from_millis(self.config.initial_retry_delay_ms);
+
+        loop {
+            let start_time = Instant::now();
+
+            // Apply timeout to the operation
+            let result = timeout(
+                Duration::from_secs(self.config.timeout_seconds),
+                operation()
+            ).await;
+
+            let elapsed = start_time.elapsed();
+            self.metrics.operation_duration_ms.fetch_add(elapsed.as_millis() as u64, Ordering::Relaxed);
+
+            match result {
+                Ok(Ok(value)) => return Ok(value),
+                Ok(Err(err)) => {
+                    attempt += 1;
+
+                    // Check if we should retry based on error type
+                    let should_retry = matches!(err,
+                        CheckpointError::StorageError(_) |
+                        CheckpointError::SerializationError(_)
+                    ) && attempt <= self.config.max_retries;
+
+                    if !should_retry {
+                        error!("Operation failed after {} attempts: {:?}", attempt, err);
+                        return Err(err);
+                    }
+
+                    // Log retry attempt
+                    warn!("Operation failed on attempt {}, retrying in {:?}: {:?}",
+                          attempt, current_delay, err);
+
+                    // Track retry metrics
+                    self.metrics.retries_total.fetch_add(1, Ordering::Relaxed);
+                    self.metrics.retry_delays_total_ms.fetch_add(current_delay.as_millis() as u64, Ordering::Relaxed);
+
+                    // Sleep before retry
+                    sleep(current_delay).await;
+
+                    // Exponential backoff with jitter
+                    current_delay = std::cmp::min(
+                        Duration::from_millis((current_delay.as_millis() as u64 * 2).min(self.config.max_retry_delay_ms)),
+                        Duration::from_millis(self.config.max_retry_delay_ms)
+                    );
+                }
+                Err(_timeout_err) => {
+                    attempt += 1;
+                    if attempt > self.config.max_retries {
+                        error!("Operation timed out after {} attempts", attempt);
+                        return Err(CheckpointError::StorageError("Operation timed out".to_string()));
+                    }
+
+                    warn!("Operation timed out on attempt {}, retrying in {:?}", attempt, current_delay);
+
+                    // Track retry metrics
+                    self.metrics.retries_total.fetch_add(1, Ordering::Relaxed);
+                    self.metrics.retry_delays_total_ms.fetch_add(current_delay.as_millis() as u64, Ordering::Relaxed);
+
+                    sleep(current_delay).await;
+                    current_delay = std::cmp::min(
+                        Duration::from_millis(current_delay.as_millis() as u64 * 2),
+                        Duration::from_millis(self.config.max_retry_delay_ms)
+                    );
+                }
+            }
+        }
+    }
+
+    /// Get metrics for monitoring and observability
+    pub fn get_metrics(&self) -> &Arc<S3Metrics> {
+        &self.metrics
+    }
+
+    /// Log current metrics (should be called periodically)
+    pub fn log_metrics(&self) {
+        self.metrics.log_metrics();
     }
 
     /// Ensure the S3 bucket exists, create if it doesn't
@@ -532,107 +809,155 @@ pub trait S3CheckpointerTrait: Send + Sync {
 
 #[async_trait]
 impl S3CheckpointerTrait for S3Checkpointer {
+    #[instrument(skip(self, state))]
     async fn save_checkpoint(&self, thread_id: &str, state: &GraphState) -> CheckpointResult<String> {
+        self.metrics.saves_total.fetch_add(1, Ordering::Relaxed);
         let checkpoint_id = Uuid::new_v4().to_string();
-        let key = self.generate_key(thread_id, &checkpoint_id);
 
-        let checkpoint = VersionedCheckpoint {
-            version: checkpoint_id.clone(),
-            state: state.clone(),
-            metadata: HashMap::new(),
-            timestamp: Utc::now(),
-        };
+        let result = self.circuit_breaker.execute(|| {
+            let checkpoint_id = checkpoint_id.clone();
+            let thread_id = thread_id.to_string();
+            let state = state.clone();
 
-        let serialized = serde_json::to_vec(&checkpoint)
-            .map_err(|e| CheckpointError::SerializationError(format!("Failed to serialize: {}", e)))?;
+            self.retry_with_backoff(|| async {
+                let key = self.generate_key(&thread_id, &checkpoint_id);
 
-        let compressed = self.compress_data(&serialized)?;
+                let checkpoint = VersionedCheckpoint {
+                    version: checkpoint_id.clone(),
+                    state: state.clone(),
+                    metadata: HashMap::new(),
+                    timestamp: Utc::now(),
+                };
 
-        // Use multipart upload for large files
-        let size_mb = compressed.len() / (1024 * 1024);
-        let should_multipart = size_mb >= self.config.multipart_threshold_mb as usize;
+                let serialized = serde_json::to_vec(&checkpoint)
+                    .map_err(|e| CheckpointError::SerializationError(format!("Failed to serialize: {}", e)))?;
 
-        if should_multipart {
-            // Multipart upload for large objects
-            let multipart_upload = self.client
-                .create_multipart_upload()
-                .bucket(&self.config.bucket_name)
-                .key(&key)
-                .send()
-                .await
-                .map_err(|e| CheckpointError::StorageError(format!("Failed to create multipart upload: {}", e)))?;
+                let compressed = self.compress_data(&serialized)?;
 
-            let upload_id = multipart_upload.upload_id()
-                .ok_or_else(|| CheckpointError::StorageError("No upload ID returned".to_string()))?;
+                // Track bytes transferred
+                self.metrics.bytes_transferred.fetch_add(compressed.len() as u64, Ordering::Relaxed);
 
-            // Upload parts (5MB each)
-            const PART_SIZE: usize = 5 * 1024 * 1024;
-            let mut parts = Vec::new();
+                // Use multipart upload for large files
+                let size_mb = compressed.len() / (1024 * 1024);
+                let should_multipart = size_mb >= self.config.multipart_threshold_mb as usize;
 
-            for (part_number, chunk) in compressed.chunks(PART_SIZE).enumerate() {
-                let part_response = self.client
-                    .upload_part()
-                    .bucket(&self.config.bucket_name)
-                    .key(&key)
-                    .upload_id(upload_id)
-                    .part_number((part_number + 1) as i32)
-                    .body(ByteStream::from(chunk.to_vec()))
-                    .send()
-                    .await
-                    .map_err(|e| CheckpointError::StorageError(format!("Failed to upload part: {}", e)))?;
+                if should_multipart {
+                    // Multipart upload for large objects
+                    let multipart_upload = self.client
+                        .create_multipart_upload()
+                        .bucket(&self.config.bucket_name)
+                        .key(&key)
+                        .send()
+                        .await
+                        .map_err(|e| CheckpointError::StorageError(format!("Failed to create multipart upload: {}", e)))?;
 
-                parts.push(
-                    aws_sdk_s3::types::CompletedPart::builder()
-                        .part_number((part_number + 1) as i32)
-                        .e_tag(part_response.e_tag().unwrap_or_default())
-                        .build()
-                );
+                    let upload_id = multipart_upload.upload_id()
+                        .ok_or_else(|| CheckpointError::StorageError("No upload ID returned".to_string()))?;
+
+                    // Upload parts (5MB each)
+                    const PART_SIZE: usize = 5 * 1024 * 1024;
+                    let mut parts = Vec::new();
+
+                    for (part_number, chunk) in compressed.chunks(PART_SIZE).enumerate() {
+                        let part_response = self.client
+                            .upload_part()
+                            .bucket(&self.config.bucket_name)
+                            .key(&key)
+                            .upload_id(upload_id)
+                            .part_number((part_number + 1) as i32)
+                            .body(ByteStream::from(chunk.to_vec()))
+                            .send()
+                            .await
+                            .map_err(|e| CheckpointError::StorageError(format!("Failed to upload part: {}", e)))?;
+
+                        parts.push(
+                            aws_sdk_s3::types::CompletedPart::builder()
+                                .part_number((part_number + 1) as i32)
+                                .e_tag(part_response.e_tag().unwrap_or_default())
+                                .build()
+                        );
+                    }
+
+                    // Complete multipart upload
+                    let completed_multipart = aws_sdk_s3::types::CompletedMultipartUpload::builder()
+                        .set_parts(Some(parts))
+                        .build();
+
+                    self.client
+                        .complete_multipart_upload()
+                        .bucket(&self.config.bucket_name)
+                        .key(&key)
+                        .upload_id(upload_id)
+                        .multipart_upload(completed_multipart)
+                        .send()
+                        .await
+                        .map_err(|e| CheckpointError::StorageError(format!("Failed to complete multipart upload: {}", e)))?;
+                } else {
+                    // Regular upload for smaller objects
+                    let mut put_request = self.client
+                        .put_object()
+                        .bucket(&self.config.bucket_name)
+                        .key(&key)
+                        .body(ByteStream::from(compressed));
+
+                    if self.config.enable_encryption {
+                        put_request = put_request
+                            .server_side_encryption(aws_sdk_s3::types::ServerSideEncryption::Aes256);
+                    }
+
+                    if self.config.compression {
+                        put_request = put_request.content_encoding("gzip");
+                    }
+
+                    put_request.send().await
+                        .map_err(|e| CheckpointError::StorageError(format!("Failed to save checkpoint: {}", e)))?;
+                }
+
+                Ok(checkpoint_id.clone())
+            })
+        }).await;
+
+        match result {
+            Ok(id) => {
+                debug!("Successfully saved checkpoint {} for thread {}", id, thread_id);
+                Ok(id)
             }
-
-            // Complete multipart upload
-            let completed_multipart = aws_sdk_s3::types::CompletedMultipartUpload::builder()
-                .set_parts(Some(parts))
-                .build();
-
-            self.client
-                .complete_multipart_upload()
-                .bucket(&self.config.bucket_name)
-                .key(&key)
-                .upload_id(upload_id)
-                .multipart_upload(completed_multipart)
-                .send()
-                .await
-                .map_err(|e| CheckpointError::StorageError(format!("Failed to complete multipart upload: {}", e)))?;
-        } else {
-            // Regular upload for smaller objects
-            let mut put_request = self.client
-                .put_object()
-                .bucket(&self.config.bucket_name)
-                .key(&key)
-                .body(ByteStream::from(compressed));
-
-            if self.config.enable_encryption {
-                put_request = put_request
-                    .server_side_encryption(aws_sdk_s3::types::ServerSideEncryption::Aes256);
+            Err(err) => {
+                self.metrics.saves_failed.fetch_add(1, Ordering::Relaxed);
+                error!("Failed to save checkpoint for thread {}: {:?}", thread_id, err);
+                Err(err)
             }
-
-            if self.config.compression {
-                put_request = put_request.content_encoding("gzip");
-            }
-
-            put_request.send().await
-                .map_err(|e| CheckpointError::StorageError(format!("Failed to save checkpoint: {}", e)))?;
         }
-
-        Ok(checkpoint_id)
     }
 
+    #[instrument(skip(self))]
     async fn load_checkpoint(&self, thread_id: &str, checkpoint_id: Option<&str>) -> CheckpointResult<Option<GraphState>> {
+        self.metrics.loads_total.fetch_add(1, Ordering::Relaxed);
+
         let checkpoint_id = checkpoint_id.ok_or_else(||
             CheckpointError::NotFound("Checkpoint ID required for S3 load".to_string())
         )?;
 
-        self.load_checkpoint_version(thread_id, checkpoint_id, None).await
+        let result = self.circuit_breaker.execute(|| {
+            let thread_id = thread_id.to_string();
+            let checkpoint_id = checkpoint_id.to_string();
+
+            self.retry_with_backoff(|| async {
+                self.load_checkpoint_version(&thread_id, &checkpoint_id, None).await
+            })
+        }).await;
+
+        match result {
+            Ok(state) => {
+                debug!("Successfully loaded checkpoint {} for thread {}", checkpoint_id, thread_id);
+                Ok(state)
+            }
+            Err(err) => {
+                self.metrics.loads_failed.fetch_add(1, Ordering::Relaxed);
+                error!("Failed to load checkpoint {} for thread {}: {:?}", checkpoint_id, thread_id, err);
+                Err(err)
+            }
+        }
     }
 
     async fn list_checkpoints(&self, thread_id: &str) -> CheckpointResult<Vec<String>> {
@@ -661,18 +986,40 @@ impl S3CheckpointerTrait for S3Checkpointer {
         Ok(checkpoint_ids)
     }
 
+    #[instrument(skip(self))]
     async fn delete_checkpoint(&self, thread_id: &str, checkpoint_id: &str) -> CheckpointResult<()> {
-        let key = self.generate_key(thread_id, checkpoint_id);
+        self.metrics.deletes_total.fetch_add(1, Ordering::Relaxed);
 
-        self.client
-            .delete_object()
-            .bucket(&self.config.bucket_name)
-            .key(&key)
-            .send()
-            .await
-            .map_err(|e| CheckpointError::StorageError(format!("Failed to delete checkpoint: {}", e)))?;
+        let result = self.circuit_breaker.execute(|| {
+            let thread_id = thread_id.to_string();
+            let checkpoint_id = checkpoint_id.to_string();
 
-        Ok(())
+            self.retry_with_backoff(|| async {
+                let key = self.generate_key(&thread_id, &checkpoint_id);
+
+                self.client
+                    .delete_object()
+                    .bucket(&self.config.bucket_name)
+                    .key(&key)
+                    .send()
+                    .await
+                    .map_err(|e| CheckpointError::StorageError(format!("Failed to delete checkpoint: {}", e)))?;
+
+                Ok(())
+            })
+        }).await;
+
+        match result {
+            Ok(()) => {
+                debug!("Successfully deleted checkpoint {} for thread {}", checkpoint_id, thread_id);
+                Ok(())
+            }
+            Err(err) => {
+                self.metrics.deletes_failed.fetch_add(1, Ordering::Relaxed);
+                error!("Failed to delete checkpoint {} for thread {}: {:?}", checkpoint_id, thread_id, err);
+                Err(err)
+            }
+        }
     }
 }
 
