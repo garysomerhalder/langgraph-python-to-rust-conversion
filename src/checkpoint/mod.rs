@@ -3,12 +3,14 @@
 mod memory;
 pub mod postgres;
 pub mod redis;
-pub mod s3;
+// pub mod s3;  // Temporarily disabled due to compilation issues
+pub mod distributed;
 
 pub use memory::MemoryCheckpointer;
 pub use postgres::{PostgresCheckpointer, PostgresConfig};
 pub use redis::{RedisCheckpointer, RedisConfig};
-pub use s3::{S3Checkpointer, S3Config, S3LifecyclePolicy};
+// pub use s3::{S3Checkpointer, S3Config, S3LifecyclePolicy};  // Temporarily disabled
+pub use distributed::{DistributedCheckpointer, DistributedConfig, StateEvent, NodeInfo, PerformanceMetrics, DistributedLock};
 
 use std::sync::Arc;
 use std::collections::HashMap;

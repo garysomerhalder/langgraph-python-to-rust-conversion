@@ -71,6 +71,10 @@ aws-config = "1.5"
 aws-types = "1.3"
 flate2 = "1.0"
 
+# For distributed state synchronization (simplified for YELLOW phase)
+# etcd-rs = "1.0"  # Will add in GREEN phase
+# raft = "0.7"     # Will add in GREEN phase
+
 [dev-dependencies]
 criterion = "0.5"
 proptest = "1.6"

@@ -818,9 +818,19 @@ impl S3CheckpointerTrait for S3Checkpointer {
             let checkpoint_id = checkpoint_id.clone();
             let thread_id = thread_id.to_string();
             let state = state.clone();
+            let client = self.client.clone();
+            let config = self.config.clone();
+            let metrics = self.metrics.clone();
 
-            self.retry_with_backoff(|| async {
-                let key = self.generate_key(&thread_id, &checkpoint_id);
+            self.retry_with_backoff(move || {
+                let checkpoint_id = checkpoint_id.clone();
+                let thread_id = thread_id.clone();
+                let state = state.clone();
+                let client = client.clone();
+                let config = config.clone();
+                let metrics = metrics.clone();
+                async move {
+                let key = format!("{}/{}/{}", config.key_prefix, thread_id, checkpoint_id);
 
                 let checkpoint = VersionedCheckpoint {
                     version: checkpoint_id.clone(),
@@ -942,7 +952,7 @@ impl S3CheckpointerTrait for S3Checkpointer {
             let thread_id = thread_id.to_string();
             let checkpoint_id = checkpoint_id.to_string();
 
-            self.retry_with_backoff(|| async {
+            self.retry_with_backoff(move || async {
                 self.load_checkpoint_version(&thread_id, &checkpoint_id, None).await
             })
         }).await;
@@ -994,7 +1004,7 @@ impl S3CheckpointerTrait for S3Checkpointer {
             let thread_id = thread_id.to_string();
             let checkpoint_id = checkpoint_id.to_string();
 
-            self.retry_with_backoff(|| async {
+            self.retry_with_backoff(move || async {
                 let key = self.generate_key(&thread_id, &checkpoint_id);
 
                 self.client

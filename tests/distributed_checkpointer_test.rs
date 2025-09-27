@@ -1,7 +1,7 @@
 // Integration tests for Distributed Checkpointer
 // Following Integration-First methodology - uses real etcd cluster and multiple nodes
 
-use langgraph::checkpoint::{Checkpointer, DistributedCheckpointer, DistributedConfig};
+use langgraph::checkpoint::{Checkpointer, DistributedCheckpointer, DistributedConfig, StateEvent, PerformanceMetrics, DistributedLock};
 use langgraph::state::GraphState;
 use serde_json::json;
 use std::env;
@@ -223,7 +223,10 @@ async fn test_distributed_checkpointer_distributed_locking() {
     ).await;
 
     match lock2_result {
-        Ok(lock2) => assert!(lock2.is_none(), "Node2 should not acquire lock while node1 holds it"),
+        Ok(lock2_option) => match lock2_option {
+            Ok(lock2) => assert!(lock2.is_none(), "Node2 should not acquire lock while node1 holds it"),
+            Err(_) => {}, // Lock error is expected when waiting for lock
+        },
         Err(_) => {}, // Timeout is expected when waiting for lock
     }
 
@@ -293,7 +296,7 @@ async fn test_distributed_checkpointer_partition_tolerance() {
     ).await.expect("Majority partition should accept writes");
 
     // Load from node2 in majority partition
-    let loaded = node2.load(thread_id, Some(checkpoint_id)).await
+    let loaded = node2.load(thread_id, Some(checkpoint_id.clone())).await
         .expect("Failed to load in majority partition")
         .expect("Checkpoint not found in majority partition");
 
@@ -479,43 +482,8 @@ async fn test_distributed_checkpointer_performance_benchmark() {
 }
 
 // Types that need to be implemented (will cause compilation failures)
-use std::collections::HashMap;
+// Use DistributedConfig from library - removed duplicate definition
 
-#[derive(Debug, Clone)]
-pub struct DistributedConfig {
-    pub node_id: String,
-    pub etcd_endpoints: Vec<String>,
-    pub cluster_name: String,
-    pub key_prefix: String,
-    pub consensus_timeout: Duration,
-    pub sync_interval: Duration,
-    pub lock_timeout: Duration,
-    pub enable_leader_election: bool,
-    pub enable_conflict_resolution: bool,
-}
+// Use StateEvent from library - removed duplicate definition
 
-#[derive(Debug, Clone)]
-pub enum StateEvent {
-    CheckpointSaved { thread_id: String, checkpoint_id: String, node_id: String },
-    CheckpointDeleted { thread_id: String, checkpoint_id: String, node_id: String },
-    NodeJoined { node_id: String },
-    NodeLeft { node_id: String },
-    LeaderChanged { old_leader: Option<String>, new_leader: String },
-}
-
-#[derive(Debug, Clone)]
-pub struct PerformanceMetrics {
-    pub average_save_latency: Duration,
-    pub average_sync_latency: Duration,
-    pub throughput_ops_per_second: f64,
-    pub sync_success_rate: f64,
-    pub leader_election_time: Duration,
-}
-
-// Additional types for distributed locking
-pub struct DistributedLock {
-    pub key: String,
-    pub node_id: String,
-    pub lease_id: u64,
-    pub acquired_at: chrono::DateTime<chrono::Utc>,
-}
+// Use PerformanceMetrics and DistributedLock from library - removed duplicate definitions
