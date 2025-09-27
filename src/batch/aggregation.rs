@@ -200,7 +200,7 @@ impl ResultAggregator {
         // Save to checkpointer if configured
         if let Some(checkpointer) = &self.checkpointer {
             let checkpoint_data = serde_json::to_string(&aggregated_results)
-                .map_err(|e| LangGraphError::SerializationError(e.to_string()))?;
+                .map_err(|e| LangGraphError::Serialization(e))?;
             let checkpoint_id = format!("aggregation_{}", uuid::Uuid::new_v4());
 
             // Create temporary state for checkpointing
@@ -247,7 +247,7 @@ impl ResultAggregator {
     pub async fn export(&self, results: &AggregatedResults) -> Result<String, LangGraphError> {
         match &self.output_format {
             OutputFormat::Json => serde_json::to_string_pretty(results)
-                .map_err(|e| LangGraphError::SerializationError(e.to_string())),
+                .map_err(|e| LangGraphError::Serialization(e)),
             OutputFormat::Csv => {
                 // Create CSV output with basic fields
                 let mut csv_output = String::new();
@@ -355,7 +355,7 @@ impl ResultConsumer for JsonConsumer {
         Box::pin(async move {
             // Serialize results to JSON
             let json_data = serde_json::to_string_pretty(&results)
-                .map_err(|e| LangGraphError::SerializationError(e.to_string()))?;
+                .map_err(|e| LangGraphError::Serialization(e))?;
 
             // For YELLOW phase, just write to string (could write to file in GREEN phase)
             // In a real implementation, we'd write to the output_path file
