@@ -159,6 +159,7 @@ pub mod utils;
 /// Message-based graph execution
 pub mod message;
 pub mod backup;
+pub mod batch;
 
 #[cfg(test)]
 mod tests {
