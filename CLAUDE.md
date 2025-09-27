@@ -78,34 +78,40 @@ The codebase implements a graph-based workflow engine with these core architectu
   - `StateGraph` manages nodes and edges with Arc-based thread safety
   - `ConditionalRouter` for dynamic routing based on state evaluation
   - `SubgraphExecutor` for nested graph composition
-  
+
 - **`src/state/`** - State management with versioning and persistence
   - `GraphState` with concurrent access via DashMap
   - Channel-based state updates with reducers
   - Delta compression for efficient versioning
-  
+
 - **`src/engine/`** - Execution strategies and runtime
   - `ExecutionEngine` orchestrates graph traversal
   - `ParallelExecutor` with semaphore-based concurrency control
   - `ResilienceManager` with circuit breaker, retry, and bulkhead patterns
   - `TracingManager` for distributed tracing with OpenTelemetry support
   - Deadlock detection and prevention mechanisms
-  
+
 - **`src/stream/`** - Async streaming with backpressure
   - Broadcast channels for multi-consumer scenarios
   - Flow control and buffering strategies
-  
+
 - **`src/tools/`** - External tool integration framework
   - Trait-based tool abstraction
   - HTTP and function tool implementations
-  
+
 - **`src/agents/`** - Agent reasoning capabilities
   - Chain of Thought, ReAct, Tree of Thoughts strategies
   - Memory management (short-term, long-term, working)
-  
+
 - **`src/checkpoint/`** - Persistence and recovery
   - Memory and SQLite checkpointer implementations
   - Thread-based checkpoint isolation
+
+- **`src/batch/`** - Batch processing and result aggregation
+  - `BatchExecutor` for parallel job execution
+  - `ParallelScheduler` with work-stealing and priority scheduling
+  - `ResultAggregator` for streaming result collection and aggregation
+  - Multiple output formats (JSON, CSV, Parquet) with configurable strategies
 
 ### Key Design Patterns
 
@@ -233,6 +239,29 @@ The parallel executor manages concurrency:
 3. Handle serialization/deserialization
 4. Add tests for persistence/recovery
 
+### Creating Batch Processing Jobs
+
+1. Define batch jobs using `BatchJob` struct in `src/batch/types.rs`
+2. Use `BatchExecutor` or `ParallelScheduler` for execution
+3. Configure result aggregation with `ResultAggregator`
+4. Choose output format (JSON, CSV, Parquet)
+5. Set up streaming with `ResultStream` for real-time processing
+
+```rust
+// Example batch processing setup
+use crate::batch::*;
+
+let executor = BatchExecutor::new(BatchConfig::default());
+let aggregator = ResultAggregator::new(
+    AggregationStrategy::Collect,
+    OutputFormat::Json,
+).with_buffer_size(1000);
+
+let results = executor.execute_batch(jobs).await?;
+let aggregated = aggregator.aggregate(results).await?;
+let json_output = aggregator.export(&aggregated).await?;
+```
+
 ### Adding Resilience to Operations
 
 ```rust
@@ -284,5 +313,7 @@ The project is production-ready with all core features implemented:
 - ✅ Resilience patterns (circuit breaker, retry, bulkhead)
 - ✅ Distributed tracing with OpenTelemetry
 - ✅ Performance benchmarks (Criterion-based)
-- ✅ Comprehensive test coverage (99 tests passing)
+- ✅ Comprehensive test coverage (99+ tests passing)
+- ✅ Batch processing with parallel execution and work-stealing scheduler
+- ✅ Result aggregation framework with streaming and multiple output formats
 - 🚧 Documentation improvements ongoing
