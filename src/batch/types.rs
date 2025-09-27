@@ -35,7 +35,7 @@ pub enum BatchJobStatus {
 }
 
 /// Result of batch job execution
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BatchResult {
     pub job_id: String,
     pub status: BatchJobStatus,
