@@ -3,13 +3,14 @@
 
 use langgraph::checkpoint::{Checkpointer, MemoryCheckpointer};
 use langgraph::state::GraphState;
+use langgraph::backup::{BackupManager, FileBackupStorage, BackupType, RetentionPolicy};
 use serde_json::json;
 use std::collections::HashMap;
 use std::time::Duration;
 use tokio::time::sleep;
 use async_trait::async_trait;
 
-// These tests will fail until BackupManager is implemented
+// These tests use the real BackupManager implementation
 
 #[tokio::test]
 async fn test_backup_manager_full_backup_creation() {
@@ -30,7 +31,7 @@ async fn test_backup_manager_full_backup_creation() {
     let checkpoint_id = checkpointer.save(thread_id, checkpoint_data.clone(), metadata.clone(), None)
         .await.expect("Failed to save checkpoint");
 
-    // This will fail until BackupManager is implemented
+    // Use real BackupManager implementation
     let backup_manager = BackupManager::new(Box::new(FileBackupStorage::new("./backups")));
 
     let backup_id = backup_manager.create_full_backup(&checkpointer, Some("test_backup"))
@@ -328,205 +329,4 @@ async fn test_backup_manager_disaster_recovery_scenario() {
     }
 }
 
-// Types that need to be implemented (will cause compilation failures)
-
-pub struct BackupManager {
-    storage: Box<dyn BackupStorage + Send + Sync>,
-    retention_policy: Option<RetentionPolicy>,
-}
-
-#[async_trait]
-pub trait BackupStorage: Send + Sync {
-    async fn store_backup(&self, backup: &Backup) -> Result<String, BackupError>;
-    async fn retrieve_backup(&self, backup_id: &str) -> Result<Backup, BackupError>;
-    async fn list_backups(&self, filter: Option<BackupFilter>) -> Result<Vec<BackupMetadata>, BackupError>;
-    async fn delete_backup(&self, backup_id: &str) -> Result<(), BackupError>;
-}
-
-pub struct FileBackupStorage {
-    backup_directory: String,
-}
-
-pub struct Backup {
-    pub id: String,
-    pub backup_type: BackupType,
-    pub data: Vec<u8>,
-    pub metadata: BackupMetadata,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum BackupType {
-    Full,
-    Incremental,
-    Differential,
-    DisasterRecovery,
-}
-
-pub struct BackupMetadata {
-    pub backup_type: BackupType,
-    pub source_backend: String,
-    pub created_at: u64,
-    pub size_bytes: u64,
-    pub checksum: String,
-    pub compression_ratio: f64,
-}
-
-pub struct RestoreResult {
-    pub restored_checkpoints: usize,
-    pub restored_threads: usize,
-    pub cross_backend_migration: bool,
-    pub source_backend_type: String,
-    pub target_backend_type: String,
-    pub recovery_time_seconds: f64,
-    pub data_integrity_verified: bool,
-}
-
-pub struct RetentionPolicy {
-    max_backups: usize,
-    max_age_days: usize,
-    cleanup_interval: Duration,
-}
-
-pub struct CleanupResult {
-    pub deleted_backups: usize,
-    pub retained_backups: usize,
-}
-
-pub struct VerificationResult {
-    pub is_valid: bool,
-    pub checksum_match: bool,
-    pub corruption_errors: Vec<String>,
-    pub metadata_valid: bool,
-    pub data_integrity_check: bool,
-    pub metadata_integrity_check: bool,
-    pub compression_integrity_check: bool,
-}
-
-pub struct BackupFilter {
-    pub backup_type: Option<BackupType>,
-    pub date_range: Option<(u64, u64)>,
-    pub source_backend: Option<String>,
-}
-
-#[derive(Debug)]
-pub enum BackupError {
-    StorageError(String),
-    CompressionError(String),
-    EncryptionError(String),
-    VerificationError(String),
-    RestoreError(String),
-    IoError(String),
-}
-
-impl std::fmt::Display for BackupError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            BackupError::StorageError(msg) => write!(f, "Storage error: {}", msg),
-            BackupError::CompressionError(msg) => write!(f, "Compression error: {}", msg),
-            BackupError::EncryptionError(msg) => write!(f, "Encryption error: {}", msg),
-            BackupError::VerificationError(msg) => write!(f, "Verification error: {}", msg),
-            BackupError::RestoreError(msg) => write!(f, "Restore error: {}", msg),
-            BackupError::IoError(msg) => write!(f, "IO error: {}", msg),
-        }
-    }
-}
-
-impl std::error::Error for BackupError {}
-
-// Implementation stubs that will fail compilation until real implementations are added
-impl BackupManager {
-    pub fn new(storage: Box<dyn BackupStorage + Send + Sync>) -> Self {
-        unimplemented!("BackupManager::new not implemented")
-    }
-
-    pub fn with_retention_policy(self, policy: RetentionPolicy) -> Self {
-        unimplemented!("BackupManager::with_retention_policy not implemented")
-    }
-
-    pub async fn create_full_backup(&self, checkpointer: &dyn Checkpointer, name: Option<&str>) -> Result<String, BackupError> {
-        unimplemented!("BackupManager::create_full_backup not implemented")
-    }
-
-    pub async fn create_incremental_backup(&self, checkpointer: &dyn Checkpointer, base_backup_id: &str, name: Option<&str>) -> Result<String, BackupError> {
-        unimplemented!("BackupManager::create_incremental_backup not implemented")
-    }
-
-    pub async fn create_disaster_recovery_backup(&self, checkpointer: &dyn Checkpointer, name: &str) -> Result<String, BackupError> {
-        unimplemented!("BackupManager::create_disaster_recovery_backup not implemented")
-    }
-
-    pub async fn restore_backup(&self, backup_id: &str, target: &dyn Checkpointer) -> Result<RestoreResult, BackupError> {
-        unimplemented!("BackupManager::restore_backup not implemented")
-    }
-
-    pub async fn restore_incremental_chain(&self, backup_id: &str, target: &dyn Checkpointer) -> Result<RestoreResult, BackupError> {
-        unimplemented!("BackupManager::restore_incremental_chain not implemented")
-    }
-
-    pub async fn disaster_recovery_restore(&self, backup_id: &str, target: &dyn Checkpointer) -> Result<RestoreResult, BackupError> {
-        unimplemented!("BackupManager::disaster_recovery_restore not implemented")
-    }
-
-    pub async fn get_backup_info(&self, backup_id: &str) -> Result<BackupMetadata, BackupError> {
-        unimplemented!("BackupManager::get_backup_info not implemented")
-    }
-
-    pub async fn list_backups(&self, filter: Option<BackupFilter>) -> Result<Vec<BackupMetadata>, BackupError> {
-        unimplemented!("BackupManager::list_backups not implemented")
-    }
-
-    pub async fn apply_retention_policy(&self) -> Result<CleanupResult, BackupError> {
-        unimplemented!("BackupManager::apply_retention_policy not implemented")
-    }
-
-    pub async fn verify_backup(&self, backup_id: &str) -> Result<VerificationResult, BackupError> {
-        unimplemented!("BackupManager::verify_backup not implemented")
-    }
-
-    pub async fn verify_backup_detailed(&self, backup_id: &str, deep_check: bool) -> Result<VerificationResult, BackupError> {
-        unimplemented!("BackupManager::verify_backup_detailed not implemented")
-    }
-}
-
-#[async_trait]
-impl BackupStorage for FileBackupStorage {
-    async fn store_backup(&self, backup: &Backup) -> Result<String, BackupError> {
-        unimplemented!("FileBackupStorage::store_backup not implemented")
-    }
-
-    async fn retrieve_backup(&self, backup_id: &str) -> Result<Backup, BackupError> {
-        unimplemented!("FileBackupStorage::retrieve_backup not implemented")
-    }
-
-    async fn list_backups(&self, filter: Option<BackupFilter>) -> Result<Vec<BackupMetadata>, BackupError> {
-        unimplemented!("FileBackupStorage::list_backups not implemented")
-    }
-
-    async fn delete_backup(&self, backup_id: &str) -> Result<(), BackupError> {
-        unimplemented!("FileBackupStorage::delete_backup not implemented")
-    }
-}
-
-impl FileBackupStorage {
-    pub fn new(directory: &str) -> Self {
-        unimplemented!("FileBackupStorage::new not implemented")
-    }
-}
-
-impl RetentionPolicy {
-    pub fn new() -> Self {
-        unimplemented!("RetentionPolicy::new not implemented")
-    }
-
-    pub fn max_backups(self, count: usize) -> Self {
-        unimplemented!("RetentionPolicy::max_backups not implemented")
-    }
-
-    pub fn max_age_days(self, days: usize) -> Self {
-        unimplemented!("RetentionPolicy::max_age_days not implemented")
-    }
-
-    pub fn cleanup_interval(self, interval: Duration) -> Self {
-        unimplemented!("RetentionPolicy::cleanup_interval not implemented")
-    }
-}
+// All types and implementations are now in the backup module
