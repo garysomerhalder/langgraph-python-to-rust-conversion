@@ -246,20 +246,36 @@ The parallel executor manages concurrency:
 3. Configure result aggregation with `ResultAggregator`
 4. Choose output format (JSON, CSV, Parquet)
 5. Set up streaming with `ResultStream` for real-time processing
+6. Add error handling with `BatchErrorHandler`
 
 ```rust
-// Example batch processing setup
+// Example batch processing setup with error handling
 use crate::batch::*;
+use crate::batch::error_handling::*;
 
+// Configure error handler with retry strategy
+let retry_strategy = RetryStrategy::default();
+let error_handler = BatchErrorHandler::new(retry_strategy);
+
+// Execute batch with error handling
 let executor = BatchExecutor::new(BatchConfig::default());
+let results = error_handler.process_batch_with_handling(
+    jobs,
+    |job| Box::pin(executor.execute_job(job))
+).await;
+
+// Aggregate results
 let aggregator = ResultAggregator::new(
     AggregationStrategy::Collect,
     OutputFormat::Json,
 ).with_buffer_size(1000);
 
-let results = executor.execute_batch(jobs).await?;
 let aggregated = aggregator.aggregate(results).await?;
 let json_output = aggregator.export(&aggregated).await?;
+
+// Check error stats
+let error_stats = error_handler.get_error_stats().await;
+println!("Error counts: {:?}", error_stats.error_counts);
 ```
 
 ### Adding Resilience to Operations

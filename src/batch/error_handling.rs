@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 use std::sync::Arc;
 use std::time::Duration;
 use std::future::Future;
@@ -151,7 +151,7 @@ pub struct ErrorReporter {
 }
 
 /// Error aggregation for reporting
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct ErrorAggregator {
     pub error_counts: HashMap<String, u64>,
     pub error_trends: Vec<ErrorTrend>,
@@ -181,12 +181,23 @@ pub struct ErrorAlert {
 }
 
 /// Alert severity levels
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum AlertSeverity {
     Info,
     Warning,
     Error,
     Critical,
+}
+
+impl Display for AlertSeverity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AlertSeverity::Info => write!(f, "Info"),
+            AlertSeverity::Warning => write!(f, "Warning"),
+            AlertSeverity::Error => write!(f, "Error"),
+            AlertSeverity::Critical => write!(f, "Critical"),
+        }
+    }
 }
 
 /// Error classification interface
@@ -237,6 +248,163 @@ impl BatchErrorHandler {
             error_reporter: Arc::new(ErrorReporter::new()),
             error_classifiers: vec![Arc::new(DefaultErrorClassifier)],
         }
+    }
+
+    /// Create with custom configuration
+    pub fn with_config(
+        retry_strategy: RetryStrategy,
+        dead_letter_storage: Arc<dyn DeadLetterStorage>,
+        alert_handlers: Vec<Arc<dyn AlertHandler>>,
+    ) -> Self {
+        let mut error_reporter = ErrorReporter::new();
+        error_reporter.alerts = alert_handlers;
+
+        Self {
+            retry_strategy,
+            dead_letter_queue: Arc::new(DeadLetterQueue::with_storage(dead_letter_storage)),
+            circuit_breaker: Arc::new(CircuitBreaker::new()),
+            error_reporter: Arc::new(error_reporter),
+            error_classifiers: vec![Arc::new(DefaultErrorClassifier)],
+        }
+    }
+
+    /// Add a custom error classifier
+    pub fn add_error_classifier(&mut self, classifier: Arc<dyn ErrorClassifier>) {
+        self.error_classifiers.push(classifier);
+    }
+
+    /// Get current circuit breaker state
+    pub async fn get_circuit_state(&self) -> CircuitBreakerState {
+        self.circuit_breaker.state.lock().await.clone()
+    }
+
+    /// Get error statistics
+    pub async fn get_error_stats(&self) -> ErrorAggregator {
+        self.error_reporter.get_error_stats().await
+    }
+
+    /// Process batch with error handling
+    pub async fn process_batch_with_handling<F, Fut>(
+        &self,
+        jobs: Vec<BatchJob>,
+        executor: F,
+    ) -> Vec<BatchResult>
+    where
+        F: Fn(BatchJob) -> Fut + Clone,
+        Fut: Future<Output = Result<BatchResult, LangGraphError>> + Send,
+    {
+        let mut results = Vec::new();
+
+        for job in jobs {
+            let mut attempt = 0;
+
+            // Check circuit breaker
+            if !self.circuit_breaker.allow_call().await {
+                results.push(BatchResult {
+                    job_id: job.id.clone(),
+                    status: BatchJobStatus::Failed,
+                    output: None,
+                    error: Some("Circuit breaker open".to_string()),
+                    duration: Duration::from_secs(0),
+                    attempts: 0,
+                });
+                continue;
+            }
+
+            loop {
+                attempt += 1;
+
+                let exec = executor.clone();
+                match exec(job.clone()).await {
+                    Ok(result) => {
+                        self.circuit_breaker.record_success().await;
+                        results.push(result);
+                        break;
+                    }
+                    Err(error) => {
+                        self.circuit_breaker.record_failure().await;
+
+                        let error_string = error.to_string();
+                        let context = ErrorContext {
+                            job_id: job.id.clone(),
+                            attempt_number: attempt,
+                            total_attempts: self.retry_strategy.max_attempts,
+                            execution_duration: Duration::from_secs(0),
+                            metadata: HashMap::new(),
+                        };
+
+                        match self.handle_error(&job, error, context).await {
+                            Ok(ErrorHandlingDecision::Retry { delay, .. }) => {
+                                if attempt < self.retry_strategy.max_attempts {
+                                    tokio::time::sleep(delay).await;
+                                    continue;
+                                } else {
+                                    // Max attempts reached
+                                    results.push(BatchResult {
+                                        job_id: job.id.clone(),
+                                        status: BatchJobStatus::Failed,
+                                        output: None,
+                                        error: Some(error_string.clone()),
+                                        duration: Duration::from_secs(0),
+                                        attempts: attempt,
+                                    });
+                                    break;
+                                }
+                            }
+                            Ok(ErrorHandlingDecision::MoveToDeadLetter) => {
+                                results.push(BatchResult {
+                                    job_id: job.id.clone(),
+                                    status: BatchJobStatus::Failed,
+                                    output: None,
+                                    error: Some(format!("Moved to DLQ: {}", error_string)),
+                                    duration: Duration::from_secs(0),
+                                    attempts: attempt,
+                                });
+                                break;
+                            }
+                            Ok(ErrorHandlingDecision::FailBatch) => {
+                                // Fatal error - fail entire batch
+                                results.push(BatchResult {
+                                    job_id: job.id.clone(),
+                                    status: BatchJobStatus::Failed,
+                                    output: None,
+                                    error: Some(format!("Fatal error: {}", error_string)),
+                                    duration: Duration::from_secs(0),
+                                    attempts: attempt,
+                                });
+                                break;
+                            }
+                            Ok(ErrorHandlingDecision::Ignore) => {
+                                // Ignore the error and continue
+                                results.push(BatchResult {
+                                    job_id: job.id.clone(),
+                                    status: BatchJobStatus::Completed,
+                                    output: None,
+                                    error: Some(format!("Ignored error: {}", error_string)),
+                                    duration: Duration::from_secs(0),
+                                    attempts: attempt,
+                                });
+                                break;
+                            }
+                            Err(handling_error) => {
+                                // Error handling itself failed
+                                results.push(BatchResult {
+                                    job_id: job.id.clone(),
+                                    status: BatchJobStatus::Failed,
+                                    output: None,
+                                    error: Some(format!("Error handling failed: {}", handling_error)),
+                                    duration: Duration::from_secs(0),
+                                    attempts: attempt,
+                                });
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        results
     }
 
     /// Handle a batch job error
@@ -333,13 +501,28 @@ pub enum ErrorHandlingDecision {
 }
 
 impl DeadLetterQueue {
-    /// Create a new dead letter queue
+    /// Create a new dead letter queue with default memory storage
     pub fn new() -> Self {
         Self {
             failed_jobs: Arc::new(Mutex::new(HashMap::new())),
             storage: Arc::new(MemoryDeadLetterStorage::new()),
             max_size: 10000,
         }
+    }
+
+    /// Create a new dead letter queue with custom storage
+    pub fn with_storage(storage: Arc<dyn DeadLetterStorage>) -> Self {
+        Self {
+            failed_jobs: Arc::new(Mutex::new(HashMap::new())),
+            storage,
+            max_size: 10000,
+        }
+    }
+
+    /// Set maximum queue size
+    pub fn with_max_size(mut self, max_size: usize) -> Self {
+        self.max_size = max_size;
+        self
     }
 
     /// Add a job to the dead letter queue
@@ -611,6 +794,240 @@ impl DeadLetterStorage for MemoryDeadLetterStorage {
         Box::pin(async move {
             let mut storage = self.storage.lock().await;
             storage.remove(&job_id);
+            Ok(())
+        })
+    }
+}
+
+/// Recovery strategy implementation for job resurrection
+#[derive(Debug)]
+pub struct JobRecoveryManager {
+    error_handler: Arc<BatchErrorHandler>,
+    recovery_strategies: Vec<Arc<dyn RecoveryStrategy>>,
+    recovery_history: Arc<Mutex<Vec<RecoveryAttempt>>>,
+    max_recovery_attempts: u32,
+}
+
+impl JobRecoveryManager {
+    pub fn new(error_handler: Arc<BatchErrorHandler>) -> Self {
+        Self {
+            error_handler,
+            recovery_strategies: vec![
+                Arc::new(SimpleRetryStrategy),
+                Arc::new(ExponentialBackoffStrategy),
+                Arc::new(DataCleanupStrategy),
+            ],
+            recovery_history: Arc::new(Mutex::new(Vec::new())),
+            max_recovery_attempts: 5,
+        }
+    }
+
+    pub async fn attempt_recovery(
+        &self,
+        job: &BatchJob,
+        error: &ErrorType,
+    ) -> Result<Option<BatchJob>, LangGraphError> {
+        let context = ErrorContext {
+            job_id: job.id.clone(),
+            attempt_number: 1,
+            total_attempts: self.max_recovery_attempts,
+            execution_duration: Duration::from_secs(0),
+            metadata: HashMap::new(),
+        };
+
+        // Try each recovery strategy
+        for strategy in &self.recovery_strategies {
+            if strategy.can_recover(error, &context).await {
+                match strategy.recover(job, error).await {
+                    Ok(recovered_job) => {
+                        let attempt = RecoveryAttempt {
+                            job_id: job.id.clone(),
+                            strategy_used: format!("{:?}", strategy),
+                            timestamp: Utc::now(),
+                            success: true,
+                            error: None,
+                        };
+                        self.recovery_history.lock().await.push(attempt);
+                        return Ok(Some(recovered_job));
+                    }
+                    Err(e) => {
+                        let attempt = RecoveryAttempt {
+                            job_id: job.id.clone(),
+                            strategy_used: format!("{:?}", strategy),
+                            timestamp: Utc::now(),
+                            success: false,
+                            error: Some(e.to_string()),
+                        };
+                        self.recovery_history.lock().await.push(attempt);
+                    }
+                }
+            }
+        }
+
+        Ok(None)
+    }
+
+    pub async fn get_recovery_history(&self) -> Vec<RecoveryAttempt> {
+        self.recovery_history.lock().await.clone()
+    }
+}
+
+/// Simple retry recovery strategy
+#[derive(Debug)]
+pub struct SimpleRetryStrategy;
+
+impl RecoveryStrategy for SimpleRetryStrategy {
+    fn can_recover(&self, error: &ErrorType, _context: &ErrorContext) -> Pin<Box<dyn Future<Output = bool> + Send + '_>> {
+        let result = matches!(error, ErrorType::Transient(_) | ErrorType::Recoverable(_));
+        Box::pin(async move {
+            result
+        })
+    }
+
+    fn recover(&self, job: &BatchJob, _error: &ErrorType) -> Pin<Box<dyn Future<Output = Result<BatchJob, LangGraphError>> + Send + '_>> {
+        let job = job.clone();
+        Box::pin(async move {
+            // Simply return the job for retry
+            Ok(job)
+        })
+    }
+}
+
+/// Exponential backoff recovery strategy
+#[derive(Debug)]
+pub struct ExponentialBackoffStrategy;
+
+impl RecoveryStrategy for ExponentialBackoffStrategy {
+    fn can_recover(&self, error: &ErrorType, context: &ErrorContext) -> Pin<Box<dyn Future<Output = bool> + Send + '_>> {
+        let result = context.attempt_number < 5 && matches!(error, ErrorType::Recoverable(_));
+        Box::pin(async move {
+            result
+        })
+    }
+
+    fn recover(&self, job: &BatchJob, _error: &ErrorType) -> Pin<Box<dyn Future<Output = Result<BatchJob, LangGraphError>> + Send + '_>> {
+        let mut recovered_job = job.clone();
+        recovered_job.priority = recovered_job.priority.saturating_sub(1);
+        Box::pin(async move {
+            // Return job with reduced priority for delayed retry
+            Ok(recovered_job)
+        })
+    }
+}
+
+/// Data cleanup recovery strategy
+#[derive(Debug)]
+pub struct DataCleanupStrategy;
+
+impl RecoveryStrategy for DataCleanupStrategy {
+    fn can_recover(&self, error: &ErrorType, _context: &ErrorContext) -> Pin<Box<dyn Future<Output = bool> + Send + '_>> {
+        let result = matches!(error, ErrorType::Permanent(_));
+        Box::pin(async move {
+            result
+        })
+    }
+
+    fn recover(&self, job: &BatchJob, _error: &ErrorType) -> Pin<Box<dyn Future<Output = Result<BatchJob, LangGraphError>> + Send + '_>> {
+        let mut recovered_job = job.clone();
+        // In a real implementation, this would clean/transform the input data
+        recovered_job.input.clear(); // Clear potentially problematic data
+        Box::pin(async move {
+            // Clean up problematic data and retry
+            Ok(recovered_job)
+        })
+    }
+}
+
+/// Email alert handler for critical errors
+#[derive(Debug)]
+pub struct EmailAlertHandler {
+    smtp_config: String,
+    recipients: Vec<String>,
+}
+
+impl EmailAlertHandler {
+    pub fn new(smtp_config: String, recipients: Vec<String>) -> Self {
+        Self {
+            smtp_config,
+            recipients,
+        }
+    }
+}
+
+impl AlertHandler for EmailAlertHandler {
+    fn handle_alert(&self, alert: &ErrorAlert) -> Pin<Box<dyn Future<Output = Result<(), LangGraphError>> + Send + '_>> {
+        let alert = alert.clone();
+        let recipients = self.recipients.clone();
+        Box::pin(async move {
+            // In production, this would send actual emails
+            tracing::error!(
+                "EMAIL ALERT: Severity: {}, Message: {}, Recipients: {:?}",
+                alert.severity, alert.message, recipients
+            );
+            Ok(())
+        })
+    }
+}
+
+/// Slack alert handler for team notifications
+#[derive(Debug)]
+pub struct SlackAlertHandler {
+    webhook_url: String,
+    channel: String,
+}
+
+impl SlackAlertHandler {
+    pub fn new(webhook_url: String, channel: String) -> Self {
+        Self {
+            webhook_url,
+            channel,
+        }
+    }
+}
+
+impl AlertHandler for SlackAlertHandler {
+    fn handle_alert(&self, alert: &ErrorAlert) -> Pin<Box<dyn Future<Output = Result<(), LangGraphError>> + Send + '_>> {
+        let alert = alert.clone();
+        let channel = self.channel.clone();
+        Box::pin(async move {
+            // In production, this would post to Slack
+            tracing::warn!(
+                "SLACK ALERT to {}: Severity: {}, Message: {}",
+                channel, alert.severity, alert.message
+            );
+            Ok(())
+        })
+    }
+}
+
+/// PagerDuty alert handler for critical incidents
+#[derive(Debug)]
+pub struct PagerDutyAlertHandler {
+    api_key: String,
+    service_id: String,
+}
+
+impl PagerDutyAlertHandler {
+    pub fn new(api_key: String, service_id: String) -> Self {
+        Self {
+            api_key,
+            service_id,
+        }
+    }
+}
+
+impl AlertHandler for PagerDutyAlertHandler {
+    fn handle_alert(&self, alert: &ErrorAlert) -> Pin<Box<dyn Future<Output = Result<(), LangGraphError>> + Send + '_>> {
+        let alert = alert.clone();
+        let service_id = self.service_id.clone();
+        Box::pin(async move {
+            // In production, this would create PagerDuty incident
+            if alert.severity == "critical" || alert.severity == "fatal" {
+                tracing::error!(
+                    "PAGERDUTY INCIDENT for service {}: {}",
+                    service_id, alert.message
+                );
+            }
             Ok(())
         })
     }
