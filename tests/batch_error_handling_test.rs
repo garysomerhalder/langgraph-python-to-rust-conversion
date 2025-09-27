@@ -52,7 +52,7 @@ async fn test_error_classification_transient() {
     let context = create_error_context("test_job_1", 1);
 
     // Create a transient error (e.g., network timeout)
-    let transient_error = LangGraphError::ExecutionError("Connection timeout".to_string());
+    let transient_error = LangGraphError::Execution("Connection timeout".to_string());
 
     // This should classify as transient and suggest retry
     let decision = error_handler.handle_error(&job, transient_error, context).await;
@@ -85,7 +85,7 @@ async fn test_error_classification_permanent() {
     let context = create_error_context("test_job_3", 3);
 
     // Create a permanent error (e.g., invalid input data)
-    let permanent_error = LangGraphError::ValidationError("Invalid job configuration".to_string());
+    let permanent_error = LangGraphError::GraphValidation("Invalid job configuration".to_string());
 
     let decision = error_handler.handle_error(&job, permanent_error, context).await;
 
@@ -101,7 +101,7 @@ async fn test_error_classification_fatal() {
     let context = create_error_context("test_job_4", 1);
 
     // Create a fatal error (e.g., system error)
-    let fatal_error = LangGraphError::SystemError("Out of memory".to_string());
+    let fatal_error = LangGraphError::Internal("Out of memory".to_string());
 
     let decision = error_handler.handle_error(&job, fatal_error, context).await;
 
@@ -294,7 +294,7 @@ async fn test_error_context_metadata() {
     };
 
     let classifier = DefaultErrorClassifier;
-    let error = LangGraphError::NetworkError("DNS resolution failed".to_string());
+    let error = LangGraphError::Execution("DNS resolution failed".to_string());
 
     let classified_error = classifier.classify_error(&error, &context);
     // Will fail until implemented - expected for RED phase

@@ -246,20 +246,80 @@ impl BatchErrorHandler {
         error: LangGraphError,
         context: ErrorContext,
     ) -> Result<ErrorHandlingDecision, LangGraphError> {
-        // TODO: Implement error handling logic
-        unimplemented!("handle_error method not yet implemented")
+        // Classify error type
+        let error_type = self.error_classifiers[0].classify_error(&error, &context);
+
+        // Report the error
+        let _ = self.error_reporter.report_error(&error_type, &context).await;
+
+        // Determine handling strategy based on error type
+        match error_type {
+            ErrorType::Transient(_) => {
+                if context.attempt_number < self.retry_strategy.max_attempts {
+                    let delay = self.calculate_retry_delay(context.attempt_number);
+                    Ok(ErrorHandlingDecision::Retry {
+                        delay,
+                        attempt: context.attempt_number + 1
+                    })
+                } else {
+                    // Max attempts reached, move to dead letter queue
+                    let _ = self.dead_letter_queue.add_failed_job(job.clone(), error_type).await;
+                    Ok(ErrorHandlingDecision::MoveToDeadLetter)
+                }
+            },
+            ErrorType::Recoverable(ref recoverable_error) => {
+                if context.attempt_number < self.retry_strategy.max_attempts {
+                    let delay = recoverable_error.retry_after
+                        .unwrap_or_else(|| self.calculate_retry_delay(context.attempt_number));
+                    Ok(ErrorHandlingDecision::Retry {
+                        delay,
+                        attempt: context.attempt_number + 1
+                    })
+                } else {
+                    let _ = self.dead_letter_queue.add_failed_job(job.clone(), error_type).await;
+                    Ok(ErrorHandlingDecision::MoveToDeadLetter)
+                }
+            },
+            ErrorType::Permanent(_) => {
+                let _ = self.dead_letter_queue.add_failed_job(job.clone(), error_type).await;
+                Ok(ErrorHandlingDecision::MoveToDeadLetter)
+            },
+            ErrorType::Fatal(_) => {
+                let _ = self.dead_letter_queue.add_failed_job(job.clone(), error_type).await;
+                Ok(ErrorHandlingDecision::FailBatch)
+            }
+        }
     }
 
     /// Check if a job should be retried
     pub async fn should_retry(&self, error: &ErrorType, attempt: u32) -> bool {
-        // TODO: Implement retry logic
-        unimplemented!("should_retry method not yet implemented")
+        // Check if we've exceeded max attempts
+        if attempt >= self.retry_strategy.max_attempts {
+            return false;
+        }
+
+        // Check error type for retry eligibility
+        match error {
+            ErrorType::Transient(_) => true,
+            ErrorType::Recoverable(_) => true,
+            ErrorType::Permanent(_) => false,
+            ErrorType::Fatal(_) => false,
+        }
     }
 
     /// Calculate the next retry delay
     pub fn calculate_retry_delay(&self, attempt: u32) -> Duration {
-        // TODO: Implement retry delay calculation
-        unimplemented!("calculate_retry_delay method not yet implemented")
+        match &self.retry_strategy.backoff_strategy {
+            BackoffStrategy::Fixed(duration) => *duration,
+            BackoffStrategy::Linear { base, increment } => {
+                *base + (*increment * attempt)
+            },
+            BackoffStrategy::Exponential { base, multiplier, max } => {
+                let delay = *base * (*multiplier as u32).pow(attempt - 1);
+                let delay_duration = Duration::from_millis(delay.as_millis() as u64);
+                delay_duration.min(*max)
+            }
+        }
     }
 }
 
@@ -284,20 +344,51 @@ impl DeadLetterQueue {
 
     /// Add a job to the dead letter queue
     pub async fn add_failed_job(&self, job: BatchJob, error: ErrorType) -> Result<(), LangGraphError> {
-        // TODO: Implement dead letter queue addition
-        unimplemented!("add_failed_job method not yet implemented")
+        let failed_job = FailedJob {
+            job: job.clone(),
+            error,
+            failure_count: 1,
+            first_failure: Utc::now(),
+            last_failure: Utc::now(),
+            metadata: HashMap::new(),
+        };
+
+        // Store in persistent storage
+        self.storage.store_failed_job(&job.id, &failed_job).await?;
+
+        // Add to in-memory cache
+        let mut cache = self.failed_jobs.lock().await;
+        cache.insert(job.id, failed_job);
+
+        Ok(())
     }
 
     /// Retrieve a job from the dead letter queue
     pub async fn get_failed_job(&self, job_id: &str) -> Result<Option<FailedJob>, LangGraphError> {
-        // TODO: Implement dead letter queue retrieval
-        unimplemented!("get_failed_job method not yet implemented")
+        // Check in-memory cache first
+        let cache = self.failed_jobs.lock().await;
+        if let Some(failed_job) = cache.get(job_id) {
+            return Ok(Some(failed_job.clone()));
+        }
+        drop(cache);
+
+        // Check persistent storage
+        self.storage.retrieve_failed_job(job_id).await
     }
 
     /// Resurrect a job from the dead letter queue for retry
     pub async fn resurrect_job(&self, job_id: &str) -> Result<Option<BatchJob>, LangGraphError> {
-        // TODO: Implement job resurrection
-        unimplemented!("resurrect_job method not yet implemented")
+        // Get the failed job
+        if let Some(failed_job) = self.get_failed_job(job_id).await? {
+            // Remove from dead letter queue
+            self.storage.remove_failed_job(job_id).await?;
+            let mut cache = self.failed_jobs.lock().await;
+            cache.remove(job_id);
+
+            Ok(Some(failed_job.job))
+        } else {
+            Ok(None)
+        }
     }
 }
 
@@ -314,20 +405,57 @@ impl CircuitBreaker {
 
     /// Check if the circuit breaker allows the call
     pub async fn allow_call(&self) -> bool {
-        // TODO: Implement circuit breaker allow logic
-        unimplemented!("allow_call method not yet implemented")
+        let state = self.state.lock().await;
+        match &*state {
+            CircuitBreakerState::Closed { .. } => true,
+            CircuitBreakerState::Open { opened_at } => {
+                // Check if recovery timeout has passed
+                Utc::now().signed_duration_since(*opened_at) > chrono::Duration::from_std(self.recovery_timeout).unwrap_or_default()
+            },
+            CircuitBreakerState::HalfOpen { test_calls } => {
+                *test_calls < self.half_open_max_calls
+            }
+        }
     }
 
     /// Record a successful call
     pub async fn record_success(&self) {
-        // TODO: Implement success recording
-        unimplemented!("record_success method not yet implemented")
+        let mut state = self.state.lock().await;
+        match &*state {
+            CircuitBreakerState::Closed { .. } => {
+                // Already closed, do nothing
+            },
+            CircuitBreakerState::HalfOpen { .. } => {
+                // Success in half-open state closes the circuit
+                *state = CircuitBreakerState::Closed { failure_count: 0 };
+            },
+            CircuitBreakerState::Open { .. } => {
+                // Should not happen if allow_call is respected
+                *state = CircuitBreakerState::Closed { failure_count: 0 };
+            }
+        }
     }
 
     /// Record a failed call
     pub async fn record_failure(&self) {
-        // TODO: Implement failure recording
-        unimplemented!("record_failure method not yet implemented")
+        let mut state = self.state.lock().await;
+        match &*state {
+            CircuitBreakerState::Closed { failure_count } => {
+                let new_count = failure_count + 1;
+                if new_count >= self.failure_threshold {
+                    *state = CircuitBreakerState::Open { opened_at: Utc::now() };
+                } else {
+                    *state = CircuitBreakerState::Closed { failure_count: new_count };
+                }
+            },
+            CircuitBreakerState::HalfOpen { test_calls } => {
+                // Failure in half-open state opens the circuit again
+                *state = CircuitBreakerState::Open { opened_at: Utc::now() };
+            },
+            CircuitBreakerState::Open { .. } => {
+                // Already open, do nothing
+            }
+        }
     }
 }
 
@@ -342,14 +470,33 @@ impl ErrorReporter {
 
     /// Report an error
     pub async fn report_error(&self, error: &ErrorType, context: &ErrorContext) -> Result<(), LangGraphError> {
-        // TODO: Implement error reporting
-        unimplemented!("report_error method not yet implemented")
+        let mut aggregator = self.error_aggregator.lock().await;
+
+        // Get error type string
+        let error_type_str = match error {
+            ErrorType::Transient(e) => format!("transient:{}", e.code),
+            ErrorType::Recoverable(e) => format!("recoverable:{}", e.code),
+            ErrorType::Permanent(e) => format!("permanent:{}", e.code),
+            ErrorType::Fatal(e) => format!("fatal:{}", e.code),
+        };
+
+        // Update error counts
+        *aggregator.error_counts.entry(error_type_str.clone()).or_insert(0) += 1;
+
+        // Add error trend
+        aggregator.error_trends.push(ErrorTrend {
+            timestamp: Utc::now(),
+            error_type: error_type_str,
+            count: 1,
+        });
+
+        Ok(())
     }
 
     /// Get error statistics
     pub async fn get_error_stats(&self) -> ErrorAggregator {
-        // TODO: Implement error statistics retrieval
-        unimplemented!("get_error_stats method not yet implemented")
+        let aggregator = self.error_aggregator.lock().await;
+        aggregator.clone()
     }
 }
 
@@ -358,9 +505,64 @@ impl ErrorReporter {
 pub struct DefaultErrorClassifier;
 
 impl ErrorClassifier for DefaultErrorClassifier {
-    fn classify_error(&self, _error: &LangGraphError, _context: &ErrorContext) -> ErrorType {
-        // TODO: Implement default error classification
-        unimplemented!("classify_error method not yet implemented")
+    fn classify_error(&self, error: &LangGraphError, context: &ErrorContext) -> ErrorType {
+        match error {
+            LangGraphError::Execution(msg) if msg.contains("timeout") => {
+                ErrorType::Transient(TransientError {
+                    message: msg.clone(),
+                    code: "TIMEOUT".to_string(),
+                    context: HashMap::new(),
+                })
+            },
+            LangGraphError::Execution(msg) if msg.contains("Connection") => {
+                ErrorType::Transient(TransientError {
+                    message: msg.clone(),
+                    code: "CONNECTION_ERROR".to_string(),
+                    context: HashMap::new(),
+                })
+            },
+            LangGraphError::StateError(msg) if msg.contains("rate limit") => {
+                ErrorType::Recoverable(RecoverableError {
+                    message: msg.clone(),
+                    code: "RATE_LIMIT".to_string(),
+                    retry_after: Some(Duration::from_secs(5)),
+                    context: HashMap::new(),
+                })
+            },
+            LangGraphError::State(msg) if msg.contains("rate limit") => {
+                ErrorType::Recoverable(RecoverableError {
+                    message: msg.clone(),
+                    code: "RATE_LIMIT".to_string(),
+                    retry_after: Some(Duration::from_secs(5)),
+                    context: HashMap::new(),
+                })
+            },
+            LangGraphError::GraphValidation(msg) => {
+                ErrorType::Permanent(PermanentError {
+                    message: msg.clone(),
+                    code: "VALIDATION_ERROR".to_string(),
+                    reason: "Invalid job configuration".to_string(),
+                    context: HashMap::new(),
+                })
+            },
+            LangGraphError::Internal(msg) => {
+                ErrorType::Fatal(FatalError {
+                    message: msg.clone(),
+                    code: "SYSTEM_ERROR".to_string(),
+                    severity: "high".to_string(),
+                    context: HashMap::new(),
+                })
+            },
+            _ => {
+                // Default to recoverable for unknown errors
+                ErrorType::Recoverable(RecoverableError {
+                    message: error.to_string(),
+                    code: "UNKNOWN_ERROR".to_string(),
+                    retry_after: Some(Duration::from_secs(1)),
+                    context: HashMap::new(),
+                })
+            }
+        }
     }
 }
 
