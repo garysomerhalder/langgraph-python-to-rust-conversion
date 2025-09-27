@@ -4,17 +4,45 @@ use std::sync::Arc;
 use langgraph::{
     batch::{BatchExecutor, BatchJob, BatchConfig, BatchJobStatus},
     engine::ExecutionEngine,
-    graph::CompiledGraph,
+    graph::{CompiledGraph, StateGraph, Node, NodeType, Edge, EdgeType},
     state::StateData,
 };
 use serde_json::json;
 
-/// Simple failing test to establish RED phase
-#[tokio::test]
-async fn test_batch_executor_not_implemented() {
-    // This will fail because BatchExecutor is not implemented yet
-    panic!("BatchExecutor not implemented - this is expected RED phase failure");
+/// Helper function to create a minimal CompiledGraph for testing
+fn create_test_graph() -> CompiledGraph {
+    let mut graph = StateGraph::new("test_graph");
+
+    // Add required __start__ node
+    let start_node = Node {
+        id: "__start__".to_string(),
+        node_type: NodeType::Start,
+        metadata: None,
+    };
+    graph.add_node(start_node);
+
+    // Add an end node
+    let end_node = Node {
+        id: "__end__".to_string(),
+        node_type: NodeType::End,
+        metadata: None,
+    };
+    graph.add_node(end_node);
+
+    // Connect start to end to avoid orphaned nodes
+    let edge = Edge {
+        edge_type: EdgeType::Direct,
+        metadata: None,
+    };
+    graph.add_edge("__start__", "__end__", edge).expect("Failed to add edge");
+
+    // Set entry point
+    graph.set_entry_point("__start__").expect("Failed to set entry point");
+
+    // Compile the graph
+    graph.compile().expect("Failed to compile test graph")
 }
+
 
 #[tokio::test]
 async fn test_batch_executor_single_job() {
@@ -23,9 +51,8 @@ async fn test_batch_executor_single_job() {
     let config = BatchConfig::default();
     let executor = BatchExecutor::new(config, engine);
 
-    // For RED phase, we'll use a placeholder graph
-    // In YELLOW phase, we'll implement proper graph creation
-    let graph: CompiledGraph = todo!("CompiledGraph creation not implemented");
+    // Use the minimal test graph for batch execution
+    let graph = create_test_graph();
     let input: StateData = HashMap::from([
         ("initial".to_string(), json!("test"))
     ]);
@@ -58,7 +85,7 @@ async fn test_batch_executor_multiple_jobs() {
     };
     let executor = BatchExecutor::new(config, engine);
 
-    let graph: CompiledGraph = todo!("CompiledGraph creation not implemented");
+    let graph = create_test_graph();
     let mut jobs = Vec::new();
 
     // Create 5 jobs to test concurrency
@@ -90,7 +117,7 @@ async fn test_batch_executor_concurrency_limit() {
     };
     let executor = BatchExecutor::new(config, engine);
 
-    let graph: CompiledGraph = todo!("CompiledGraph creation not implemented");
+    let graph = create_test_graph();
     let mut jobs = Vec::new();
 
     for i in 0..5 {
