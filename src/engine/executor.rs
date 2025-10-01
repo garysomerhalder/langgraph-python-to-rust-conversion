@@ -16,6 +16,12 @@ use crate::engine::breakpoint::BreakpointManager;
 use crate::engine::state_inspector::StateInspector;
 use crate::Result;
 
+// Global tracking for partial execution results
+lazy_static::lazy_static! {
+    pub static ref GLOBAL_PARTIAL_TRACKING: Arc<dashmap::DashMap<String, Vec<String>>> = Arc::new(dashmap::DashMap::new());
+    static ref GLOBAL_CURRENT_EXECUTION: Arc<dashmap::DashMap<String, String>> = Arc::new(dashmap::DashMap::new());
+}
+
 /// Errors specific to execution
 #[derive(Error, Debug)]
 pub enum ExecutionError {
@@ -345,6 +351,12 @@ impl ExecutionEngine {
             active.insert(execution_id.to_string(), context);
         }
 
+        // Initialize global tracking for this execution
+        GLOBAL_PARTIAL_TRACKING.insert(execution_id.to_string(), Vec::new());
+
+        // Set as current execution (for execute_node to use)
+        GLOBAL_CURRENT_EXECUTION.insert("current".to_string(), execution_id.to_string());
+
         Ok(execution_id)
     }
 
@@ -409,6 +421,14 @@ impl ExecutionEngine {
         node_id: &str,
         state: StateData,
     ) -> Result<StateData> {
+        // Track this node as completed in the current execution
+        if let Some(current_exec) = GLOBAL_CURRENT_EXECUTION.get("current") {
+            let exec_id = current_exec.value().clone();
+            if let Some(mut tracking) = GLOBAL_PARTIAL_TRACKING.get_mut(&exec_id) {
+                tracking.push(node_id.to_string());
+            }
+        }
+
         // For YELLOW phase: just return the state unchanged
         // In GREEN phase, this would execute the specific node
         Ok(state)

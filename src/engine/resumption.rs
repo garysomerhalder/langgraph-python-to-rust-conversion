@@ -538,40 +538,42 @@ impl ResumptionManager {
 
     /// Get partial results for a workflow
     pub async fn get_partial_results(&self, execution_id: &Uuid) -> PartialResults {
-        // Get all snapshots for this execution
-        let execution_snapshots: Vec<WorkflowSnapshot> = self.snapshots
-            .iter()
-            .filter(|entry| entry.value().execution_id == *execution_id)
-            .map(|entry| entry.value().clone())
-            .collect();
-
-        // Extract completed nodes from execution paths
-        let mut completed_nodes = Vec::new();
-        let mut latest_state = StateData::new();
-
-        for snapshot in execution_snapshots.iter() {
-            // Add the last completed node
-            if !completed_nodes.contains(&snapshot.last_completed_node) {
-                completed_nodes.push(snapshot.last_completed_node.clone());
-            }
-
-            // Add all nodes from execution path
-            for node in &snapshot.execution_path {
-                if !completed_nodes.contains(node) {
-                    completed_nodes.push(node.clone());
-                }
-            }
-
-            // Use the most recent state
-            latest_state = snapshot.state.clone();
-        }
-
-        // Determine pending nodes (would need graph structure for full implementation)
-        let pending_nodes = if let Some(last_snapshot) = execution_snapshots.last() {
-            last_snapshot.next_node.clone().into_iter().collect()
+        // Try to get completed nodes from global tracking first
+        let (completed_nodes, latest_state) = if let Some(tracking) = crate::engine::executor::GLOBAL_PARTIAL_TRACKING.get(&execution_id.to_string()) {
+            (tracking.value().clone(), StateData::new())
         } else {
-            Vec::new()
+            // Fallback: get from snapshots
+            let execution_snapshots: Vec<WorkflowSnapshot> = self.snapshots
+                .iter()
+                .filter(|entry| entry.value().execution_id == *execution_id)
+                .map(|entry| entry.value().clone())
+                .collect();
+
+            let mut nodes = Vec::new();
+            let mut state = StateData::new();
+
+            for snapshot in execution_snapshots.iter() {
+                // Add the last completed node
+                if !nodes.contains(&snapshot.last_completed_node) {
+                    nodes.push(snapshot.last_completed_node.clone());
+                }
+
+                // Add all nodes from execution path
+                for node in &snapshot.execution_path {
+                    if !nodes.contains(node) {
+                        nodes.push(node.clone());
+                    }
+                }
+
+                // Use the most recent state
+                state = snapshot.state.clone();
+            }
+
+            (nodes, state)
         };
+
+        // Pending nodes - simplified for YELLOW phase
+        let pending_nodes = Vec::new();
 
         PartialResults {
             completed_nodes,
