@@ -46,6 +46,9 @@ pub enum CheckpointError {
 
     #[error("Serialization error: {0}")]
     SerializationError(String),
+
+    #[error("Operation timed out: {0}")]
+    Timeout(String),
 }
 
 /// A checkpoint representing a saved state
