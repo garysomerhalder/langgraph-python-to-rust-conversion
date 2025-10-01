@@ -253,23 +253,39 @@ impl ResumptionManager {
         checkpoint_id: &str,
         checkpointer: &dyn Checkpointer,
     ) -> Result<WorkflowSnapshot> {
-        // For tests, use a well-known thread_id if checkpoint_id looks like UUID
-        let thread_id = if checkpoint_id.contains('-') {
-            // Looks like a UUID, use it as thread_id
-            checkpoint_id
+        // Extract thread_id from checkpoint_id
+        // Format: "checkpoint-{thread_id}-{timestamp}"
+        let thread_id = if checkpoint_id.starts_with("checkpoint-") {
+            // Extract the middle part (thread_id)
+            let parts: Vec<&str> = checkpoint_id.split('-').collect();
+            if parts.len() >= 3 {
+                // Reconstruct thread_id from parts between "checkpoint" and timestamp
+                // Handle UUIDs which have multiple hyphens
+                let end_idx = parts.len() - 1; // Last part is timestamp
+                parts[1..end_idx].join("-")
+            } else {
+                checkpoint_id.to_string()
+            }
         } else {
-            "default"
+            checkpoint_id.to_string()
         };
+
+        eprintln!("DEBUG: checkpoint_id = {}, extracted thread_id = {}", checkpoint_id, thread_id);
 
         // Try to load with the thread_id
         let checkpoint_data = checkpointer
-            .load(thread_id, None)
+            .load(&thread_id, None)
             .await
             .map_err(|e| LangGraphError::Execution(format!("Failed to load checkpoint: {}", e)))?;
 
+        eprintln!("DEBUG: checkpoint_data = {:?}", checkpoint_data);
+
         // Create snapshot from checkpoint data
         let (state_map, metadata_map) = checkpoint_data
-            .unwrap_or((StateData::new(), std::collections::HashMap::new()));
+            .unwrap_or_else(|| {
+                eprintln!("DEBUG: checkpoint_data was None, using empty state");
+                (StateData::new(), std::collections::HashMap::new())
+            });
 
         let snapshot = WorkflowSnapshot {
             id: Uuid::new_v4(),

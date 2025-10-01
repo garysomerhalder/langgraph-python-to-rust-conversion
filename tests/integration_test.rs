@@ -42,15 +42,17 @@ async fn test_complete_workflow_execution() {
 /// Test state persistence and recovery
 #[tokio::test]
 async fn test_state_checkpointing() {
+    use langgraph::checkpoint::CheckpointerOld; // Explicitly use old trait
+
     let checkpointer = InMemoryCheckpointer::new();
     let checkpoint_id = "test_checkpoint_1";
-    
+
     // Create and save state
     let mut state = GraphState::new();
     state.values.insert("user_id".to_string(), json!("user_123"));
     state.values.insert("session_id".to_string(), json!("session_456"));
     state.values.insert("messages".to_string(), json!(["Hello", "How can I help?"]));
-    
+
     let checkpoint = Checkpoint {
         id: checkpoint_id.to_string(),
         thread_id: "test_thread".to_string(),
@@ -61,11 +63,11 @@ async fn test_state_checkpointing() {
             .as_secs(),
         metadata: None,
     };
-    
-    checkpointer.save(checkpoint.clone()).await.unwrap();
-    
+
+    CheckpointerOld::save(&checkpointer, checkpoint.clone()).await.unwrap();
+
     // Load and verify state
-    let loaded_checkpoint = checkpointer.load(checkpoint_id).await.unwrap();
+    let loaded_checkpoint = CheckpointerOld::load(&checkpointer, checkpoint_id).await.unwrap();
     assert_eq!(loaded_checkpoint.state.values.get("user_id"), state.values.get("user_id"));
     assert_eq!(loaded_checkpoint.state.values.get("session_id"), state.values.get("session_id"));
     assert_eq!(loaded_checkpoint.state.values.get("messages"), state.values.get("messages"));

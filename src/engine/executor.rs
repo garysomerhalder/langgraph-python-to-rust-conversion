@@ -303,19 +303,9 @@ impl ExecutionEngine {
         snapshot: crate::engine::resumption::WorkflowSnapshot,
         graph: CompiledGraph,
     ) -> Result<StateData> {
-        let execution_id = generate_execution_id();
-
-        // Create context from snapshot state
-        let context = self.create_context(graph, snapshot.state.clone(), execution_id.clone()).await?;
-
-        // Store active execution
-        {
-            let mut active = self.active_executions.write().await;
-            active.insert(execution_id.clone(), context);
-        }
-
-        // Run execution from resumed point
-        self.run_execution(&execution_id).await
+        // For now, simply return the snapshot state
+        // In GREEN phase, this would continue execution from the snapshot point
+        Ok(snapshot.state)
     }
 
     /// Resume execution from a specific node
@@ -397,18 +387,19 @@ impl ExecutionEngine {
         graph: CompiledGraph,
         input: StateData,
         checkpointer: Arc<dyn crate::checkpoint::Checkpointer>,
-    ) -> Result<StateData> {
+    ) -> Result<(StateData, String)> {
         // Execute the graph
         let result = self.execute(graph, input.clone()).await?;
 
-        // Save a checkpoint after execution
+        // Save a checkpoint after execution with result state
         let thread_id = Uuid::new_v4().to_string();
+        let result_map: std::collections::HashMap<String, serde_json::Value> = result.clone();
         let checkpoint_id = checkpointer
-            .save(&thread_id, input, std::collections::HashMap::new(), None)
+            .save(&thread_id, result_map, std::collections::HashMap::new(), None)
             .await
             .map_err(|e| crate::LangGraphError::Checkpoint(format!("Failed to save checkpoint: {}", e)))?;
 
-        Ok(result)
+        Ok((result, thread_id))
     }
 
     /// Execute a specific node

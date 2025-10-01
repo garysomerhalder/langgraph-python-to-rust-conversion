@@ -187,15 +187,14 @@ async fn test_checkpointer_integration() -> Result<()> {
     input.insert("data".to_string(), json!("test"));
 
     // Execute with checkpointing
-    let result = engine.execute_with_checkpointing(
+    let (result, thread_id) = engine.execute_with_checkpointing(
         graph.clone(),
         input,
         Arc::new(checkpointer.clone()),
     ).await?;
-    let exec_id = Uuid::new_v4(); // For now, generate an ID
 
     // Create resumption from checkpoint
-    let checkpoint_id = checkpointer.get_latest_checkpoint(&exec_id.to_string()).await
+    let checkpoint_id = checkpointer.get_latest_checkpoint(&thread_id).await
         .map_err(|e| langgraph::LangGraphError::Execution(format!("Checkpoint error: {}", e)))?;
     let snapshot = resumption.create_from_checkpoint(
         &checkpoint_id,
@@ -203,7 +202,9 @@ async fn test_checkpointer_integration() -> Result<()> {
     ).await?;
 
     // Resume from checkpoint
+    println!("Snapshot state: {:?}", snapshot.state);
     let result = engine.resume_from(snapshot, graph).await?;
+    println!("Resume result: {:?}", result);
 
     assert!(result.contains_key("data"));
 
