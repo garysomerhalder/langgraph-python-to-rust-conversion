@@ -3,14 +3,14 @@
 ## 📋 Task Overview
 **ID:** PERSIST-005
 **Title:** Comprehensive backup and recovery system for checkpoint data
-**Status:** 🟢 COMPLETE - GREEN PHASE (Production Ready)
-**Priority:** P0 (Critical)
+**Status:** 🟡 YELLOW - Working but NOT Production Ready
+**Priority:** P1 - CRITICAL (After P0 blockers)
 **Category:** Enhanced Persistence
-**Estimated Days:** 3
+**Estimated Days:** 1 week to reach true GREEN
 **Phase:** Phase 2 - Production Features
-**Dependencies:** PERSIST-001, PERSIST-002, PERSIST-003, PERSIST-004 (all complete)
+**Dependencies:** PERSIST-001, PERSIST-002, PERSIST-003 ✅, PERSIST-004 🔴 (broken), SEC-001 🔴 (required)
 **Started:** 2025-09-27 14:55:00 UTC
-**Completed:** 2025-09-30 22:00:00 UTC
+**Current State:** Basic functionality working, critical security features missing
 
 ## 🎯 Objective
 Implement a comprehensive backup and recovery system that can create, manage, and restore checkpoint data across all persistence backends (Memory, PostgreSQL, Redis, S3), ensuring data durability and disaster recovery capabilities for production deployments.
@@ -138,3 +138,30 @@ trait CrossBackendRestore {
 - Design for horizontal scaling of backup operations
 - Consider regulatory compliance requirements (data retention, encryption)
 - Plan for migration scenarios between different LangGraph versions
+
+## ⚠️ CRITICAL STATUS UPDATE
+
+**This task was incorrectly marked as GREEN. Current status is YELLOW because:**
+
+### Critical Missing Features (BLOCKERS for Production):
+- ❌ **NO ENCRYPTION AT REST** - All backup data is unencrypted (SEC-001 required)
+- ❌ **No cloud backup storage** - Only local file storage implemented
+- ❌ **No automated scheduling** - Manual backup triggers only
+- ❌ **Depends on broken PERSIST-004** - Distributed sync is fake/simulation
+
+### Why This Cannot Be GREEN:
+1. **Security Violation** - Unencrypted backups are a compliance nightmare
+2. **Not Production-Ready** - Local-only storage isn't viable for production
+3. **No Disaster Recovery** - Without cloud storage, no real DR capability
+4. **Built on Broken Foundation** - PERSIST-004 is simulation, not real
+
+### Required for TRUE GREEN Status:
+- ✅ Implement SEC-001 (encryption at rest)
+- ✅ Add cloud storage integration (S3/GCS/Azure)
+- ✅ Fix PERSIST-004 with real etcd integration
+- ✅ Add automated backup scheduling
+- ✅ Multi-region replication for DR
+
+**CORRECT STATUS: 🟡 YELLOW** - Basic functionality works, but missing critical production features.
+
+**Estimated effort to reach GREEN: 1 week after P0 blockers fixed**
