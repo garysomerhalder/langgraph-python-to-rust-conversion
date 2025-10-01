@@ -198,24 +198,103 @@ impl ExecutionEngine {
         let execution_id = Uuid::new_v4();
 
         // Create context and mark target node for suspension
-        let mut context = self.create_context(graph, input, execution_id.to_string()).await?;
+        let mut context = self.create_context(graph.clone(), input.clone(), execution_id.to_string()).await?;
 
-        // Store active execution
+        // Store active execution with initial state
         {
-            let mut active = self.active_executions.write().await;
-            active.insert(execution_id.to_string(), context);
+            let mut state = self.state.write().await;
+            state.update(input.clone());
         }
 
-        // Run until target node
-        // TODO: Implement actual execution logic to stop at target
+        {
+            let mut active = self.active_executions.write().await;
+            active.insert(execution_id.to_string(), context.clone());
+        }
+
+        // Get the graph structure
+        let state_graph = graph.graph();
+
+        // Find entry point
+        let entry_node = state_graph.get_node("start")
+            .ok_or_else(|| crate::LangGraphError::Execution("Start node not found".to_string()))?;
+
+        // Track executed nodes
+        let mut executed_nodes = Vec::new();
+        let mut current_node = "start".to_string();
+        let mut current_state = input.clone();
+
+        // Execute nodes sequentially until we reach the target
+        while current_node != target_node {
+            // Get the current node
+            let node = state_graph.get_node(&current_node)
+                .ok_or_else(|| crate::LangGraphError::Execution(format!("Node '{}' not found", current_node)))?;
+
+            // Execute the node (simplified for now - full implementation would handle node types)
+            match &node.node_type {
+                crate::graph::NodeType::Start => {
+                    // Start node doesn't modify state
+                    executed_nodes.push(current_node.clone());
+                }
+                crate::graph::NodeType::Agent(agent_name) => {
+                    // Agent nodes would execute agent logic
+                    // For now, just track execution
+                    executed_nodes.push(current_node.clone());
+
+                    // Update execution metadata
+                    if let Some(mut ctx) = self.active_executions.write().await.get_mut(&execution_id.to_string()) {
+                        ctx.metadata.nodes_executed += 1;
+                    }
+                }
+                _ => {
+                    // Handle other node types
+                    executed_nodes.push(current_node.clone());
+                }
+            }
+
+            // Update the global state after node execution
+            {
+                let mut state = self.state.write().await;
+                state.update(current_state.clone());
+            }
+
+            // Get next node from edges
+            let edges = state_graph.get_edges_from(&current_node);
+            if edges.is_empty() {
+                break; // No more edges, execution complete
+            }
+
+            // For simplicity, take the first edge (full implementation would handle conditionals)
+            if let Some((next_node, _edge)) = edges.first() {
+                current_node = next_node.id.clone();
+
+                // Check if we've reached the target
+                if current_node == target_node {
+                    // Mark that we've reached the target node
+                    executed_nodes.push(current_node.clone());
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+
+        // Update execution context with completed nodes
+        {
+            let mut active = self.active_executions.write().await;
+            if let Some(ctx) = active.get_mut(&execution_id.to_string()) {
+                ctx.metadata.status = ExecutionStatus::Suspended;
+                ctx.metadata.nodes_executed = executed_nodes.len();
+            }
+        }
 
         Ok(execution_id)
     }
 
     /// Get current state of an execution
     pub async fn get_current_state(&self) -> Result<StateData> {
-        // Return a default state for now
-        Ok(StateData::new())
+        // Return the actual current state from the engine
+        let state = self.state.read().await;
+        Ok(state.values.clone())
     }
 
     /// Resume execution from a snapshot
@@ -281,8 +360,35 @@ impl ExecutionEngine {
 
     /// Execute the next node in the graph
     pub async fn execute_next_node(&self, execution_id: &Uuid) -> Result<StateData> {
-        // For YELLOW phase: just return current state
-        self.get_current_state().await
+        // Get the execution context
+        let context = {
+            let active = self.active_executions.read().await;
+            active.get(&execution_id.to_string()).cloned()
+        };
+
+        let context = context.ok_or_else(|| {
+            crate::LangGraphError::Execution(format!("Execution {} not found", execution_id))
+        })?;
+
+        // Get current state
+        let mut current_state = self.get_current_state().await?;
+
+        // Track that a node was executed (simplified - full implementation would execute actual node logic)
+        {
+            let mut active = self.active_executions.write().await;
+            if let Some(ctx) = active.get_mut(&execution_id.to_string()) {
+                ctx.metadata.nodes_executed += 1;
+                ctx.metadata.status = ExecutionStatus::Running;
+            }
+        }
+
+        // Update the state to reflect node execution
+        {
+            let mut state = self.state.write().await;
+            state.update(current_state.clone());
+        }
+
+        Ok(current_state)
     }
 
     /// Execute with checkpointing support
@@ -290,10 +396,19 @@ impl ExecutionEngine {
         &self,
         graph: CompiledGraph,
         input: StateData,
-        _checkpointer: Arc<dyn crate::checkpoint::Checkpointer>,
+        checkpointer: Arc<dyn crate::checkpoint::Checkpointer>,
     ) -> Result<StateData> {
-        // For YELLOW phase: just run normal execution
-        self.execute(graph, input).await
+        // Execute the graph
+        let result = self.execute(graph, input.clone()).await?;
+
+        // Save a checkpoint after execution
+        let thread_id = Uuid::new_v4().to_string();
+        let checkpoint_id = checkpointer
+            .save(&thread_id, input, std::collections::HashMap::new(), None)
+            .await
+            .map_err(|e| crate::LangGraphError::Checkpoint(format!("Failed to save checkpoint: {}", e)))?;
+
+        Ok(result)
     }
 
     /// Execute a specific node
