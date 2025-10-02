@@ -462,23 +462,111 @@ impl Agent for ReasoningAgent {
         tools: &ToolRegistry,
         _state: &mut StateData,
     ) -> Result<ToolResult> {
-        // Execute the decided action using tools
+        // GREEN PHASE: Enhanced tool execution with timeout and observability
+        let tool_name = &decision.action;
+
+        tracing::info!(
+            agent = %self.name,
+            tool = %tool_name,
+            confidence = decision.confidence,
+            "Agent executing tool"
+        );
+
         let context = ToolContext {
             state: HashMap::new(),
-            metadata: HashMap::new(),
+            metadata: HashMap::from([
+                ("agent".to_string(), serde_json::json!(self.name)),
+                ("strategy".to_string(), serde_json::json!(format!("{:?}", self.strategy))),
+            ]),
             auth: None,
-            timeout: Some(30),
+            timeout: Some(30), // 30 second timeout
         };
-        
-        if let Some(tool) = tools.get(&decision.action) {
-            tool.execute(decision.parameters.clone(), context).await
+
+        if let Some(tool) = tools.get(tool_name) {
+            // GREEN: Enforce timeout with tokio
+            let execution_start = std::time::Instant::now();
+            let timeout_secs = context.timeout.unwrap_or(30); // Save before moving context
+
+            let result = match tokio::time::timeout(
+                std::time::Duration::from_secs(timeout_secs),
+                tool.execute(decision.parameters.clone(), context)
+            ).await {
+                Ok(Ok(result)) => {
+                    let duration = execution_start.elapsed();
+                    tracing::info!(
+                        tool = %tool_name,
+                        duration_ms = duration.as_millis(),
+                        success = result.success,
+                        "Tool execution completed"
+                    );
+
+                    #[cfg(feature = "metrics")]
+                    {
+                        tracing::debug!(
+                            tool = %tool_name,
+                            duration_ms = duration.as_millis(),
+                            "Tool execution metric"
+                        );
+                    }
+
+                    Ok(result)
+                },
+                Ok(Err(e)) => {
+                    tracing::error!(
+                        tool = %tool_name,
+                        error = %e,
+                        "Tool execution failed"
+                    );
+
+                    // Return error as tool result for graceful handling
+                    Ok(ToolResult {
+                        success: false,
+                        data: None,
+                        error: Some(format!("Tool execution error: {}", e)),
+                        metadata: HashMap::from([
+                            ("tool".to_string(), serde_json::json!(tool_name)),
+                            ("error_type".to_string(), serde_json::json!("execution_failed")),
+                        ]),
+                    })
+                },
+                Err(_) => {
+                    tracing::error!(
+                        tool = %tool_name,
+                        timeout_secs = timeout_secs,
+                        "Tool execution timed out"
+                    );
+
+                    // Return timeout as tool result
+                    Ok(ToolResult {
+                        success: false,
+                        data: None,
+                        error: Some(format!("Tool '{}' timed out after {} seconds", tool_name, timeout_secs)),
+                        metadata: HashMap::from([
+                            ("tool".to_string(), serde_json::json!(tool_name)),
+                            ("error_type".to_string(), serde_json::json!("timeout")),
+                        ]),
+                    })
+                }
+            };
+
+            result
         } else {
-            // No tool found, return a default result
+            // GREEN: Better error handling for missing tools
+            tracing::warn!(
+                tool = %tool_name,
+                available_tools = ?tools.list(),
+                "Tool not found in registry"
+            );
+
             Ok(ToolResult {
-                success: true,
+                success: false,
                 data: Some(decision.parameters.clone()),
-                error: None,
-                metadata: HashMap::new(),
+                error: Some(format!("Tool '{}' not found. Available tools: {:?}", tool_name, tools.list())),
+                metadata: HashMap::from([
+                    ("tool".to_string(), serde_json::json!(tool_name)),
+                    ("error_type".to_string(), serde_json::json!("tool_not_found")),
+                    ("available_tools".to_string(), serde_json::json!(tools.list())),
+                ]),
             })
         }
     }

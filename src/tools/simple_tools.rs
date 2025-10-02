@@ -40,24 +40,59 @@ impl Tool for CalculatorTool {
     }
 
     async fn validate(&self, params: &Value) -> Result<()> {
+        // GREEN PHASE: Enhanced validation with detailed error messages
         if !params.is_object() {
-            return Err(ToolError::InvalidParameters("Parameters must be an object".to_string()).into());
+            return Err(ToolError::InvalidParameters(
+                "Parameters must be a JSON object. Example: {\"operation\": \"add\", \"operands\": [5, 3]}".to_string()
+            ).into());
         }
 
         let operation = params.get("operation")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| ToolError::InvalidParameters("Missing operation".to_string()))?;
+            .ok_or_else(|| ToolError::InvalidParameters(
+                "Missing 'operation' field. Must be one of: add, subtract, multiply, divide".to_string()
+            ))?;
 
         if !["add", "subtract", "multiply", "divide"].contains(&operation) {
-            return Err(ToolError::InvalidParameters(format!("Invalid operation: {}", operation)).into());
+            return Err(ToolError::InvalidParameters(
+                format!("Invalid operation '{}'. Supported operations: add, subtract, multiply, divide", operation)
+            ).into());
         }
 
         let operands = params.get("operands")
             .and_then(|v| v.as_array())
-            .ok_or_else(|| ToolError::InvalidParameters("Missing operands array".to_string()))?;
+            .ok_or_else(|| ToolError::InvalidParameters(
+                "Missing 'operands' field. Must be an array of numbers. Example: [5, 3]".to_string()
+            ))?;
+
+        if operands.is_empty() {
+            return Err(ToolError::InvalidParameters("Operands array cannot be empty".to_string()).into());
+        }
 
         if operands.len() < 2 {
-            return Err(ToolError::InvalidParameters("Need at least 2 operands".to_string()).into());
+            return Err(ToolError::InvalidParameters(
+                format!("Need at least 2 operands, got {}. Example: [5, 3]", operands.len())
+            ).into());
+        }
+
+        // GREEN: Validate that all operands are actually numbers
+        for (i, operand) in operands.iter().enumerate() {
+            if !operand.is_f64() && !operand.is_i64() && !operand.is_u64() {
+                return Err(ToolError::InvalidParameters(
+                    format!("Operand at index {} is not a number: {:?}", i, operand)
+                ).into());
+            }
+        }
+
+        // GREEN: Check for division by zero upfront
+        if operation == "divide" && operands.len() >= 2 {
+            if let Some(divisor) = operands[1].as_f64() {
+                if divisor == 0.0 {
+                    return Err(ToolError::InvalidParameters(
+                        "Cannot divide by zero".to_string()
+                    ).into());
+                }
+            }
         }
 
         Ok(())
