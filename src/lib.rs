@@ -158,6 +158,7 @@ pub mod utils;
 
 /// Message-based graph execution
 pub mod message;
+#[cfg(feature = "s3")]
 pub mod backup;
 
 #[cfg(test)]

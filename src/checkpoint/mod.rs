@@ -3,13 +3,15 @@
 mod memory;
 pub mod postgres;
 pub mod redis;
-// pub mod s3;  // Temporarily disabled due to compilation issues
+#[cfg(feature = "s3")]
+pub mod s3;
 pub mod distributed;
 
 pub use memory::MemoryCheckpointer;
 pub use postgres::{PostgresCheckpointer, PostgresConfig};
 pub use redis::{RedisCheckpointer, RedisConfig};
-// pub use s3::{S3Checkpointer, S3Config, S3LifecyclePolicy};  // Temporarily disabled
+#[cfg(feature = "s3")]
+pub use s3::{S3Checkpointer, S3Config, S3LifecyclePolicy};
 pub use distributed::{DistributedCheckpointer, DistributedConfig, StateEvent, NodeInfo, PerformanceMetrics, DistributedLock};
 
 use std::sync::Arc;
