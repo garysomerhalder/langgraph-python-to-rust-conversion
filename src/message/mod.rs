@@ -39,6 +39,8 @@ pub struct Message {
     pub message_type: MessageType,
     pub metadata: serde_json::Value,
     pub timestamp: chrono::DateTime<chrono::Utc>,
+    /// Parent message ID for threading support
+    pub parent_id: Option<uuid::Uuid>,
 }
 
 impl Message {
@@ -51,6 +53,7 @@ impl Message {
             message_type: MessageType::Text,
             metadata: serde_json::json!({}),
             timestamp: chrono::Utc::now(),
+            parent_id: None,
         }
     }
 
@@ -63,6 +66,7 @@ impl Message {
             message_type,
             metadata: serde_json::json!({}),
             timestamp: chrono::Utc::now(),
+            parent_id: None,
         }
     }
 
@@ -295,6 +299,59 @@ impl MessageGraph {
         self
     }
 
+    /// GREEN PHASE: Enhanced message management methods
+
+    /// Get the graph name
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Get current message count
+    pub async fn message_count(&self) -> usize {
+        self.history.read().await.len()
+    }
+
+    /// Add a message to history (manual addition)
+    pub async fn add_message(&self, message: Message) -> Result<()> {
+        let mut history = self.history.write().await;
+        history.push(message);
+        if self.max_history > 0 && history.len() > self.max_history {
+            history.remove(0);
+        }
+        Ok(())
+    }
+
+    /// Get history with limit (most recent N messages)
+    pub async fn get_history_with_limit(&self, limit: usize) -> Result<Vec<Message>> {
+        let history = self.history.read().await;
+        let start = if history.len() > limit {
+            history.len() - limit
+        } else {
+            0
+        };
+        Ok(history[start..].to_vec())
+    }
+
+    /// Get messages filtered by role
+    pub async fn get_messages_by_role(&self, role: MessageRole) -> Result<Vec<Message>> {
+        let history = self.history.read().await;
+        Ok(history
+            .iter()
+            .filter(|msg| msg.role == role)
+            .cloned()
+            .collect())
+    }
+
+    /// Get child messages of a parent message (threading support)
+    pub async fn get_children(&self, parent_id: &uuid::Uuid) -> Result<Vec<Message>> {
+        let history = self.history.read().await;
+        Ok(history
+            .iter()
+            .filter(|msg| msg.parent_id == Some(*parent_id))
+            .cloned()
+            .collect())
+    }
+
     /// Process a batch of messages
     pub async fn process_batch(&self, messages: Vec<Message>) -> Result<Vec<Message>> {
         let mut responses = Vec::new();
@@ -324,4 +381,31 @@ pub struct MessageGraphStats {
     pub has_entry_point: bool,
     pub history_enabled: bool,
     pub max_history_size: usize,
+}
+
+/// Builder for MessageGraph - GREEN PHASE
+pub struct MessageGraphBuilder {
+    name: String,
+    max_history: usize,
+}
+
+impl MessageGraphBuilder {
+    /// Create a new MessageGraphBuilder
+    pub fn new(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            max_history: 1000, // Default history limit
+        }
+    }
+
+    /// Enable history tracking with custom limit
+    pub fn with_history(mut self, max_messages: usize) -> Self {
+        self.max_history = max_messages;
+        self
+    }
+
+    /// Build the MessageGraph
+    pub fn build(self) -> Result<MessageGraph> {
+        Ok(MessageGraph::new(self.name).with_history_enabled(self.max_history))
+    }
 }
