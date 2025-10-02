@@ -158,6 +158,10 @@ pub mod utils;
 
 /// Message-based graph execution
 pub mod message;
+
+/// Security (authentication and authorization)
+pub mod security;
+
 #[cfg(feature = "s3")]
 pub mod backup;
 

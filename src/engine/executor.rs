@@ -27,18 +27,24 @@ lazy_static::lazy_static! {
 pub enum ExecutionError {
     #[error("Node execution failed: {0}")]
     NodeExecutionFailed(String),
-    
+
     #[error("Execution timeout: {0}")]
     Timeout(String),
-    
+
     #[error("Execution cancelled")]
     Cancelled,
-    
+
     #[error("Invalid execution state: {0}")]
     InvalidState(String),
-    
+
     #[error("Message passing error: {0}")]
     MessageError(String),
+
+    #[error("Authentication required")]
+    AuthenticationRequired,
+
+    #[error("Authentication failed: {0}")]
+    AuthenticationFailed(String),
 }
 
 /// Message passed between nodes during execution
@@ -193,7 +199,27 @@ impl ExecutionEngine {
         
         result
     }
-    
+
+    /// Execute graph with authentication
+    pub async fn execute_authenticated(
+        &self,
+        graph: &crate::graph::CompiledGraph,
+        input: crate::state::StateData,
+        auth_token: &str,
+    ) -> Result<crate::state::StateData> {
+        // Validate authentication token
+        if auth_token.is_empty() {
+            return Err(ExecutionError::AuthenticationRequired.into());
+        }
+
+        // For now, we accept any non-empty token
+        // In production, this would validate against an Authenticator
+        // TODO: Integrate with security::Authenticator trait
+
+        // Execute the graph normally if authenticated
+        self.execute(graph.clone(), input).await
+    }
+
     /// Execute graph until a specific node
     pub async fn execute_until(
         &self,

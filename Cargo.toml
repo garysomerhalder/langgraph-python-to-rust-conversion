@@ -60,6 +60,10 @@ wide = "0.7"  # SIMD operations for performance
 # For validation
 regex = "1.10"
 
+# For security (authentication)
+jsonwebtoken = "9.3"
+base64 = "0.22"
+
 # For metrics
 prometheus = "0.13"
 lazy_static = "1.5"
