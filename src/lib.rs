@@ -169,6 +169,9 @@ pub mod security;
 #[cfg(feature = "s3")]
 pub mod backup;
 
+/// Batch execution module
+pub mod batch;
+
 #[cfg(test)]
 mod tests {
     use super::*;
