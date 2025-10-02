@@ -3,7 +3,8 @@
 use super::auth::{AuthContext, AuthResult, Authenticator, Credentials, Permission, TokenPair};
 use super::AuthError;
 use async_trait::async_trait;
-use chrono::{Duration, Utc};
+use chrono::{DateTime, Duration, Utc};
+use dashmap::{DashMap, DashSet};
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -35,6 +36,12 @@ pub struct JwtAuthenticator {
 
     /// Validation rules
     validation: Validation,
+
+    /// Revoked token IDs (jti) - for token rotation security
+    revoked_tokens: Arc<DashSet<String>>,
+
+    /// Token rotation tracking: maps old refresh token JTI to expiration time
+    rotation_tracker: Arc<DashMap<String, DateTime<Utc>>>,
 }
 
 /// JWT claims structure
@@ -92,6 +99,8 @@ impl JwtAuthenticator {
             access_token_expiration,
             refresh_token_expiration: Duration::days(30), // Default 30 days for refresh tokens
             validation,
+            revoked_tokens: Arc::new(DashSet::new()),
+            rotation_tracker: Arc::new(DashMap::new()),
         }
     }
 
@@ -239,6 +248,37 @@ impl JwtAuthenticator {
 
         auth_context
     }
+
+    /// Clean up expired tokens from revocation list (prevents unbounded growth)
+    fn cleanup_expired_tokens(&self) {
+        let now = Utc::now();
+        let mut to_remove = Vec::new();
+
+        // Find expired tokens
+        for entry in self.rotation_tracker.iter() {
+            if *entry.value() < now {
+                to_remove.push(entry.key().clone());
+            }
+        }
+
+        // Remove expired tokens
+        for jti in to_remove {
+            self.rotation_tracker.remove(&jti);
+            self.revoked_tokens.remove(&jti);
+        }
+    }
+
+    /// Manually revoke a token by its JTI (for logout or security events)
+    pub fn revoke_token(&self, jti: impl Into<String>) {
+        let jti_str = jti.into();
+        self.revoked_tokens.insert(jti_str.clone());
+        debug!("Manually revoked token: {}", jti_str);
+    }
+
+    /// Check if a token is revoked
+    pub fn is_token_revoked(&self, jti: &str) -> bool {
+        self.revoked_tokens.contains(jti)
+    }
 }
 
 #[async_trait]
@@ -274,12 +314,34 @@ impl Authenticator for JwtAuthenticator {
             return Err(AuthError::InvalidToken("Expected refresh token".to_string()));
         }
 
+        // Check if this refresh token has already been used (rotation attack detection)
+        if self.revoked_tokens.contains(&claims.jti) {
+            warn!("Attempted reuse of revoked refresh token: {} for user: {}", claims.jti, claims.sub);
+            return Err(AuthError::InvalidToken("Refresh token has been revoked".to_string()));
+        }
+
+        // Revoke the old refresh token (single-use pattern for rotation)
+        self.revoked_tokens.insert(claims.jti.clone());
+
+        // Track rotation for audit purposes
+        self.rotation_tracker.insert(
+            claims.jti.clone(),
+            Utc::now() + self.refresh_token_expiration,
+        );
+
+        // Clean up expired tokens from revocation list periodically
+        self.cleanup_expired_tokens();
+
         // Generate new token pair using the same user info
-        self.generate_token_pair(
-            claims.sub,
-            claims.roles,
-            claims.metadata,
-        ).await
+        let new_token_pair = self.generate_token_pair(
+            claims.sub.clone(),
+            claims.roles.clone(),
+            claims.metadata.clone(),
+        ).await?;
+
+        debug!("Rotated refresh token for user: {}, old JTI: {}", claims.sub, claims.jti);
+
+        Ok(new_token_pair)
     }
 }
 
