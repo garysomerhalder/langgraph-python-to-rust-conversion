@@ -1,6 +1,7 @@
 //! API Key authentication implementation
 
 use super::auth::{AuthContext, AuthResult, Authenticator, Credentials, TokenPair};
+use super::metrics::SecurityMetrics;
 use super::AuthError;
 use argon2::{
     password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
@@ -13,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Instant;
 use tracing::{debug, warn};
 
 /// API Key authenticator
@@ -235,9 +237,14 @@ impl Default for ApiKeyAuthenticator {
 #[async_trait]
 impl Authenticator for ApiKeyAuthenticator {
     async fn authenticate(&self, credentials: &Credentials) -> AuthResult<AuthContext> {
+        let start = Instant::now();
+
         let api_key = match credentials {
             Credentials::ApiKey(key) => key,
-            _ => return Err(AuthError::InvalidCredentials),
+            _ => {
+                SecurityMetrics::record_auth_failure("api_key", "invalid_credentials_type");
+                return Err(AuthError::InvalidCredentials);
+            }
         };
 
         let key_hash = self.lookup_hash(api_key);
@@ -246,27 +253,41 @@ impl Authenticator for ApiKeyAuthenticator {
         let mut metadata = self.keys.get_mut(&key_hash)
             .ok_or_else(|| {
                 warn!("Authentication failed: invalid API key");
+                SecurityMetrics::record_auth_failure("api_key", "key_not_found");
+                SecurityMetrics::record_auth_attempt("api_key", false);
                 AuthError::InvalidCredentials
             })?;
 
         // Verify the key using Argon2
+        let argon2_start = Instant::now();
         if !self.verify_key(api_key, &metadata.secure_hash) {
             warn!("Authentication failed: API key verification failed for user {}", metadata.user_id);
+            SecurityMetrics::record_auth_failure("api_key", "verification_failed");
+            SecurityMetrics::record_auth_attempt("api_key", false);
             self.log_auth_event(&metadata.user_id, false).await;
             return Err(AuthError::InvalidCredentials);
         }
+        super::metrics::ARGON2_DURATION.with_label_values(&["verify"])
+            .observe(argon2_start.elapsed().as_secs_f64());
 
         // Check expiration
         if let Some(expires_at) = metadata.expires_at {
             if Utc::now() > expires_at {
                 warn!("Authentication failed: expired API key for user {}", metadata.user_id);
+                SecurityMetrics::record_auth_failure("api_key", "token_expired");
+                SecurityMetrics::record_auth_attempt("api_key", false);
                 self.log_auth_event(&metadata.user_id, false).await;
                 return Err(AuthError::TokenExpired);
             }
         }
 
         // Check rate limit
-        self.check_rate_limit(&mut metadata)?;
+        if let Err(e) = self.check_rate_limit(&mut metadata) {
+            SecurityMetrics::record_rate_limit_hit(&metadata.user_id);
+            SecurityMetrics::record_auth_failure("api_key", "rate_limit_exceeded");
+            SecurityMetrics::record_auth_attempt("api_key", false);
+            return Err(e);
+        }
 
         // Create auth context
         let mut auth_context = AuthContext::new(
@@ -279,8 +300,13 @@ impl Authenticator for ApiKeyAuthenticator {
             auth_context.expires_at = expires_at;
         }
 
-        debug!("API key authentication successful for user: {}", metadata.user_id);
+        // Record successful authentication
+        let duration = start.elapsed().as_secs_f64();
+        super::metrics::AUTH_DURATION.with_label_values(&["api_key"]).observe(duration);
+        SecurityMetrics::record_auth_attempt("api_key", true);
         self.log_auth_event(&metadata.user_id, true).await;
+
+        debug!("API key authentication successful for user: {} ({}s)", metadata.user_id, duration);
 
         Ok(auth_context)
     }

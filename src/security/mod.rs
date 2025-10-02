@@ -7,11 +7,13 @@ pub mod auth;
 pub mod api_key;
 pub mod jwt;
 pub mod audit;
+pub mod metrics;
 
 pub use auth::{Authenticator, AuthContext, Credentials, Permission, TokenPair};
 pub use api_key::{ApiKeyAuthenticator, ApiKeyMetadata};
 pub use jwt::JwtAuthenticator;
 pub use audit::{AuditLogger, AuditEvent};
+pub use metrics::SecurityMetrics;
 
 use thiserror::Error;
 

@@ -1,6 +1,7 @@
 //! JWT (JSON Web Token) authentication implementation
 
 use super::auth::{AuthContext, AuthResult, Authenticator, Credentials, Permission, TokenPair};
+use super::metrics::SecurityMetrics;
 use super::AuthError;
 use async_trait::async_trait;
 use chrono::{DateTime, Duration, Utc};
@@ -10,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Instant;
 use tokio::sync::RwLock;
 use tracing::{debug, warn};
 use uuid::Uuid;
@@ -307,21 +309,30 @@ impl Authenticator for JwtAuthenticator {
     }
 
     async fn refresh_token(&self, refresh_token: &str) -> AuthResult<TokenPair> {
-        let claims = self.decode_token(refresh_token).await?;
+        let start = Instant::now();
+
+        let claims = self.decode_token(refresh_token).await.map_err(|e| {
+            SecurityMetrics::record_token_refresh(false);
+            e
+        })?;
 
         // Ensure this is a refresh token
         if claims.token_type != "refresh" {
+            SecurityMetrics::record_token_refresh(false);
             return Err(AuthError::InvalidToken("Expected refresh token".to_string()));
         }
 
         // Check if this refresh token has already been used (rotation attack detection)
         if self.revoked_tokens.contains(&claims.jti) {
             warn!("Attempted reuse of revoked refresh token: {} for user: {}", claims.jti, claims.sub);
+            SecurityMetrics::record_security_event("token_reuse_attack", "high");
+            SecurityMetrics::record_token_refresh(false);
             return Err(AuthError::InvalidToken("Refresh token has been revoked".to_string()));
         }
 
         // Revoke the old refresh token (single-use pattern for rotation)
         self.revoked_tokens.insert(claims.jti.clone());
+        SecurityMetrics::record_token_revocation("rotation");
 
         // Track rotation for audit purposes
         self.rotation_tracker.insert(
@@ -339,7 +350,11 @@ impl Authenticator for JwtAuthenticator {
             claims.metadata.clone(),
         ).await?;
 
-        debug!("Rotated refresh token for user: {}, old JTI: {}", claims.sub, claims.jti);
+        let duration = start.elapsed().as_secs_f64();
+        SecurityMetrics::record_token_refresh(true);
+        SecurityMetrics::record_token_operation("refresh", true);
+
+        debug!("Rotated refresh token for user: {}, old JTI: {} ({}s)", claims.sub, claims.jti, duration);
 
         Ok(new_token_pair)
     }
