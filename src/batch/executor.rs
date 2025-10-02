@@ -1,13 +1,20 @@
-//! Batch Executor Implementation
+//! Batch Executor Implementation - GREEN PHASE
 //!
-//! Provides concurrent execution of multiple graph workflows with
-//! resource management, progress tracking, and error handling.
+//! Production-ready batch processing with:
+//! - Concurrent execution with semaphore-based limiting
+//! - Priority-based scheduling
+//! - Comprehensive error handling and retry logic
+//! - Progress tracking and observability
+//! - Timeout enforcement per job
+//! - Detailed metrics and logging
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 use tokio::sync::Semaphore;
 use serde::{Serialize, Deserialize};
+use tracing::{info, warn, error, debug, instrument};
 
 use crate::graph::CompiledGraph;
 use crate::state::StateData;
@@ -116,64 +123,142 @@ impl BatchExecutor {
         self
     }
 
-    /// Execute a batch of jobs
+    /// Execute a batch of jobs with comprehensive observability
+    #[instrument(skip(self, jobs), fields(job_count = jobs.len()))]
     pub async fn execute_batch(&self, mut jobs: Vec<BatchJob>) -> Result<Vec<BatchResult>> {
+        let batch_start = Instant::now();
+
         if jobs.is_empty() {
+            info!("No jobs to execute in batch");
             return Ok(Vec::new());
         }
 
+        let total_jobs = jobs.len();
+        info!(
+            total_jobs = total_jobs,
+            concurrency_limit = self.concurrency_limit,
+            max_retries = self.max_retries,
+            timeout = ?self.timeout_duration,
+            "Starting batch execution"
+        );
+
         // Sort by priority (highest first)
         jobs.sort_by(|a, b| b.priority.cmp(&a.priority));
+        debug!("Jobs sorted by priority (highest first)");
 
-        let total_jobs = jobs.len();
         let semaphore = Arc::new(Semaphore::new(self.concurrency_limit));
 
-        // Progress tracking
-        let completed_count = Arc::new(tokio::sync::Mutex::new(0usize));
+        // Progress tracking with atomic counters
+        let completed_count = Arc::new(AtomicUsize::new(0));
+        let failed_count = Arc::new(AtomicUsize::new(0));
+        let timeout_count = Arc::new(AtomicUsize::new(0));
         let progress_callback = self.progress_callback.clone();
 
         // Spawn tasks for all jobs
         let mut tasks = Vec::new();
 
         for job in jobs {
+            let job_id = job.id.clone();
             let sem = semaphore.clone();
             let timeout = self.timeout_duration;
+            let max_retries = self.max_retries;
             let completed = completed_count.clone();
+            let failed = failed_count.clone();
+            let timeouts = timeout_count.clone();
             let progress = progress_callback.clone();
 
             let task = tokio::spawn(async move {
+                debug!(job_id = %job_id, "Job starting");
+
                 // Acquire semaphore permit (limits concurrency)
                 let _permit = sem.acquire().await.expect("Semaphore should not be closed");
+                debug!(job_id = %job_id, "Acquired execution slot");
 
-                // Execute job
+                // Execute job with retry logic
                 let start = Instant::now();
-                let result = Self::execute_single_job(job.clone(), timeout).await;
+                let mut last_error = None;
+                let mut attempts = 0u32;
 
-                // Update progress
-                {
-                    let mut count = completed.lock().await;
-                    *count += 1;
+                let result = loop {
+                    attempts += 1;
+                    debug!(job_id = %job_id, attempt = attempts, "Executing job");
 
-                    if let Some(ref callback) = progress {
-                        callback(*count, total_jobs);
+                    match Self::execute_single_job(job.clone(), timeout).await {
+                        Ok(output) => break Ok(output),
+                        Err(e) => {
+                            last_error = Some(e);
+                            if attempts > max_retries {
+                                warn!(
+                                    job_id = %job_id,
+                                    attempts = attempts,
+                                    "Job failed after all retries"
+                                );
+                                break Err(last_error.unwrap());
+                            }
+                            warn!(
+                                job_id = %job_id,
+                                attempt = attempts,
+                                max_retries = max_retries,
+                                "Job failed, retrying"
+                            );
+                            // Simple exponential backoff
+                            tokio::time::sleep(Duration::from_millis(100 * 2u64.pow(attempts - 1))).await;
+                        }
                     }
+                };
+
+                let duration = start.elapsed();
+
+                // Update progress and counters
+                let current_completed = completed.fetch_add(1, Ordering::SeqCst) + 1;
+                if let Some(ref callback) = progress {
+                    callback(current_completed, total_jobs);
                 }
 
-                // Build result
-                let duration = start.elapsed();
+                // Build result with detailed error classification
                 match result {
-                    Ok(output) => BatchResult {
-                        job_id: job.id,
-                        status: BatchJobStatus::Completed,
-                        output: Some(output),
-                        error: None,
-                        duration,
-                        metadata: job.metadata,
+                    Ok(output) => {
+                        info!(
+                            job_id = %job_id,
+                            duration_ms = duration.as_millis(),
+                            attempts = attempts,
+                            "Job completed successfully"
+                        );
+                        BatchResult {
+                            job_id: job.id,
+                            status: BatchJobStatus::Completed,
+                            output: Some(output),
+                            error: None,
+                            duration,
+                            metadata: {
+                                let mut meta = job.metadata;
+                                meta.insert("attempts".to_string(), serde_json::json!(attempts));
+                                meta
+                            },
+                        }
                     },
                     Err(e) => {
                         // Check if it was a timeout
-                        let is_timeout = e.to_string().contains("timeout") ||
-                                       e.to_string().contains("timed out");
+                        let error_str = e.to_string();
+                        let is_timeout = error_str.contains("timeout") ||
+                                       error_str.contains("timed out");
+
+                        if is_timeout {
+                            timeouts.fetch_add(1, Ordering::SeqCst);
+                            error!(
+                                job_id = %job_id,
+                                duration_ms = duration.as_millis(),
+                                "Job timed out"
+                            );
+                        } else {
+                            failed.fetch_add(1, Ordering::SeqCst);
+                            error!(
+                                job_id = %job_id,
+                                duration_ms = duration.as_millis(),
+                                error = %error_str,
+                                "Job failed"
+                            );
+                        }
 
                         BatchResult {
                             job_id: job.id,
@@ -183,9 +268,13 @@ impl BatchExecutor {
                                 BatchJobStatus::Failed
                             },
                             output: None,
-                            error: Some(e.to_string()),
+                            error: Some(error_str),
                             duration,
-                            metadata: job.metadata,
+                            metadata: {
+                                let mut meta = job.metadata;
+                                meta.insert("attempts".to_string(), serde_json::json!(attempts));
+                                meta
+                            },
                         }
                     }
                 }
@@ -194,13 +283,14 @@ impl BatchExecutor {
             tasks.push(task);
         }
 
-        // Collect all results
+        // Collect all results with error handling
         let mut results = Vec::new();
         for task in tasks {
             match task.await {
                 Ok(result) => results.push(result),
                 Err(e) => {
-                    tracing::error!("Task join error: {}", e);
+                    error!("Task join error: {}", e);
+                    failed_count.fetch_add(1, Ordering::SeqCst);
                     // Create error result for failed task
                     results.push(BatchResult {
                         job_id: "unknown".to_string(),
@@ -214,26 +304,80 @@ impl BatchExecutor {
             }
         }
 
+        // Calculate batch statistics
+        let batch_duration = batch_start.elapsed();
+        let final_completed = completed_count.load(Ordering::SeqCst);
+        let final_failed = failed_count.load(Ordering::SeqCst);
+        let final_timeouts = timeout_count.load(Ordering::SeqCst);
+
+        let success_rate = if total_jobs > 0 {
+            ((final_completed - final_failed - final_timeouts) as f64 / total_jobs as f64) * 100.0
+        } else {
+            0.0
+        };
+
+        // Log batch summary with comprehensive metrics
+        info!(
+            total_jobs = total_jobs,
+            completed = final_completed,
+            failed = final_failed,
+            timed_out = final_timeouts,
+            success_rate = format!("{:.2}%", success_rate),
+            batch_duration_ms = batch_duration.as_millis(),
+            avg_job_duration_ms = if total_jobs > 0 {
+                results.iter().map(|r| r.duration.as_millis()).sum::<u128>() / total_jobs as u128
+            } else {
+                0
+            },
+            "Batch execution completed"
+        );
+
+        // Log warning if high failure rate
+        if success_rate < 80.0 && total_jobs > 5 {
+            warn!(
+                success_rate = format!("{:.2}%", success_rate),
+                failed = final_failed,
+                timed_out = final_timeouts,
+                "High failure rate detected in batch execution"
+            );
+        }
+
         Ok(results)
     }
 
-    /// Execute a single job
+    /// Execute a single job with timeout enforcement
+    #[instrument(skip(job), fields(job_id = %job.id))]
     async fn execute_single_job(
         job: BatchJob,
         timeout: Option<Duration>,
     ) -> Result<StateData> {
         let execution = async {
+            debug!(job_id = %job.id, "Starting graph execution");
             let engine = ExecutionEngine::new();
-            engine.execute(job.graph, job.input).await
+            let result = engine.execute(job.graph, job.input).await;
+
+            match &result {
+                Ok(_) => debug!(job_id = %job.id, "Graph execution completed successfully"),
+                Err(e) => error!(job_id = %job.id, error = %e, "Graph execution failed"),
+            }
+
+            result
         };
 
         // Apply timeout if configured
         if let Some(timeout_duration) = timeout {
             match tokio::time::timeout(timeout_duration, execution).await {
                 Ok(result) => result,
-                Err(_) => Err(crate::LangGraphError::Execution(
-                    format!("Job {} timed out after {:?}", job.id, timeout_duration)
-                ).into()),
+                Err(_) => {
+                    error!(
+                        job_id = %job.id,
+                        timeout_ms = timeout_duration.as_millis(),
+                        "Job timed out"
+                    );
+                    Err(crate::LangGraphError::Execution(
+                        format!("Job {} timed out after {:?}", job.id, timeout_duration)
+                    ).into())
+                },
             }
         } else {
             execution.await
