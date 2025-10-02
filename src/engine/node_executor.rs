@@ -178,11 +178,50 @@ impl DefaultNodeExecutor {
                 format!("Agent reasoning failed: {}", e)
             ))?;
 
-        // 3. Output reasoning and decision to state
+        // GREEN PHASE: Full observe → reason → act → reflect cycle
+        // 3. ACT: Execute the decision if it has an action
+        use crate::tools::ToolRegistry;
+        let tool_registry = ToolRegistry::new(); // Empty registry for YELLOW
+
+        let action_result = if !decision.action.is_empty() {
+            agent.act(&decision, &tool_registry, state).await
+                .map_err(|e| {
+                    tracing::warn!(
+                        node_id = %node_id,
+                        error = %e,
+                        "Agent action execution failed, continuing without tool result"
+                    );
+                    e
+                })
+                .ok()
+        } else {
+            None
+        };
+
+        // 4. REFLECT: Let agent reflect on the outcome
+        if let Some(ref result) = action_result {
+            agent.reflect(result, state).await
+                .map_err(|e| {
+                    tracing::warn!(
+                        node_id = %node_id,
+                        error = %e,
+                        "Agent reflection failed"
+                    );
+                    e
+                })
+                .ok();
+        }
+
+        // 5. Output reasoning, decision, and memory to state
         state.insert("agent_reasoning".to_string(), Value::String(decision.reasoning.clone()));
         state.insert("agent_decision".to_string(), serde_json::to_value(&decision).unwrap());
 
-        // 4. Output memory to state
+        // Output action result if available
+        if let Some(result) = action_result {
+            state.insert("agent_action_result".to_string(), serde_json::to_value(&result).unwrap());
+        }
+
+        // Output memory to state
         let memory_entries: Vec<Value> = agent.memory()
             .short_term
             .iter()
