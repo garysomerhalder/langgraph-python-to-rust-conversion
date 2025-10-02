@@ -160,6 +160,29 @@ impl DefaultNodeExecutor {
             ReasoningStrategy::ChainOfThought,
         );
 
+        // YELLOW PHASE ITERATION 3: Restore agent memory from previous nodes
+        let state_key = format!("agent_state_{}", agent_name);
+        if let Some(stored_memory) = state.get(&state_key) {
+            match serde_json::from_value::<AgentMemory>(stored_memory.clone()) {
+                Ok(memory) => {
+                    agent.update_memory(memory);
+                    tracing::debug!(
+                        node_id = %node_id,
+                        agent_name = %agent_name,
+                        "Restored agent memory from previous execution"
+                    );
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        node_id = %node_id,
+                        agent_name = %agent_name,
+                        error = %e,
+                        "Failed to restore agent memory, starting fresh"
+                    );
+                }
+            }
+        }
+
         // 1. OBSERVE: Let agent observe current state
         let observation = state.get("input")
             .or_else(|| state.get("question"))
@@ -221,13 +244,24 @@ impl DefaultNodeExecutor {
             state.insert("agent_action_result".to_string(), serde_json::to_value(&result).unwrap());
         }
 
-        // Output memory to state
+        // Output memory to state (for display/debugging)
         let memory_entries: Vec<Value> = agent.memory()
             .short_term
             .iter()
             .map(|e| serde_json::to_value(e).unwrap())
             .collect();
         state.insert("agent_memory".to_string(), Value::Array(memory_entries));
+
+        // YELLOW PHASE ITERATION 3: Persist agent memory for next nodes
+        if let Ok(memory_value) = serde_json::to_value(agent.memory()) {
+            state.insert(state_key.clone(), memory_value);
+            tracing::debug!(
+                node_id = %node_id,
+                agent_name = %agent_name,
+                memory_entries = agent.memory().short_term.len(),
+                "Saved agent memory for next execution"
+            );
+        }
 
         // LEGACY: Maintain backwards compatibility with Iteration 1 tests
         if state.contains_key("agent_executed") {
