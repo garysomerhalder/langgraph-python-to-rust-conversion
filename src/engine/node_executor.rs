@@ -150,26 +150,55 @@ impl DefaultNodeExecutor {
             AGENT_EXECUTIONS.inc();
         }
 
-        // YELLOW PHASE: Minimal agent execution implementation
-        // Set agent_executed flag if present (test 1)
+        // YELLOW PHASE ITERATION 2: Real agent reasoning integration
+        use crate::agents::{Agent, ReasoningAgent, ReasoningStrategy, AgentMemory, MemoryLimits};
+
+        // Create a ReasoningAgent for this execution
+        let mut agent = ReasoningAgent::new(
+            agent_name.to_string(),
+            format!("Agent for node {}", node_id),
+            ReasoningStrategy::ChainOfThought,
+        );
+
+        // 1. OBSERVE: Let agent observe current state
+        let observation = state.get("input")
+            .or_else(|| state.get("question"))
+            .or_else(|| state.get("observation"))
+            .cloned()
+            .unwrap_or(Value::String("No input".to_string()));
+
+        agent.observe(observation.clone(), state).await
+            .map_err(|e| ExecutionError::NodeExecutionFailed(
+                format!("Agent observation failed: {}", e)
+            ))?;
+
+        // 2. REASON: Let agent reason about the situation
+        let decision = agent.reason(state).await
+            .map_err(|e| ExecutionError::NodeExecutionFailed(
+                format!("Agent reasoning failed: {}", e)
+            ))?;
+
+        // 3. Output reasoning and decision to state
+        state.insert("agent_reasoning".to_string(), Value::String(decision.reasoning.clone()));
+        state.insert("agent_decision".to_string(), serde_json::to_value(&decision).unwrap());
+
+        // 4. Output memory to state
+        let memory_entries: Vec<Value> = agent.memory()
+            .short_term
+            .iter()
+            .map(|e| serde_json::to_value(e).unwrap())
+            .collect();
+        state.insert("agent_memory".to_string(), Value::Array(memory_entries));
+
+        // LEGACY: Maintain backwards compatibility with Iteration 1 tests
         if state.contains_key("agent_executed") {
             state.insert("agent_executed".to_string(), Value::Bool(true));
         }
-
-        // Increment execution_count if present (test 3)
         if let Some(count_value) = state.get("execution_count") {
             if let Some(count) = count_value.as_i64() {
                 state.insert("execution_count".to_string(), Value::Number((count + 1).into()));
-            } else {
-                // GREEN: Validation - warn if execution_count has wrong type
-                tracing::warn!(
-                    node_id = %node_id,
-                    "execution_count exists but is not an integer"
-                );
             }
         }
-
-        // Legacy behavior for backwards compatibility
         if node_id.starts_with("collect") {
             let data_key = format!("{}_data", node_id);
             state.insert(data_key, Value::String(format!("data_from_{}", node_id)));
