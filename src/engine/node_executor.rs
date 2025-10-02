@@ -253,14 +253,60 @@ impl DefaultNodeExecutor {
         state.insert("agent_memory".to_string(), Value::Array(memory_entries));
 
         // YELLOW PHASE ITERATION 3: Persist agent memory for next nodes
+        // GREEN PHASE: Add size limits and validation
+        const MAX_MEMORY_ENTRIES: usize = 100;
+        const MAX_MEMORY_SIZE_BYTES: usize = 1024 * 1024; // 1MB
+
         if let Ok(memory_value) = serde_json::to_value(agent.memory()) {
-            state.insert(state_key.clone(), memory_value);
-            tracing::debug!(
-                node_id = %node_id,
-                agent_name = %agent_name,
-                memory_entries = agent.memory().short_term.len(),
-                "Saved agent memory for next execution"
-            );
+            // GREEN: Validate memory size before persisting
+            let memory_str = serde_json::to_string(&memory_value).unwrap_or_default();
+            let memory_size = memory_str.len();
+
+            if memory_size > MAX_MEMORY_SIZE_BYTES {
+                tracing::warn!(
+                    node_id = %node_id,
+                    agent_name = %agent_name,
+                    memory_size = memory_size,
+                    max_size = MAX_MEMORY_SIZE_BYTES,
+                    "Agent memory exceeds size limit, truncating older entries"
+                );
+
+                // Truncate to most recent entries
+                let mut truncated_memory = agent.memory().clone();
+                let target_count = (truncated_memory.short_term.len() * MAX_MEMORY_SIZE_BYTES) / memory_size;
+                truncated_memory.short_term.truncate(target_count);
+
+                if let Ok(truncated_value) = serde_json::to_value(&truncated_memory) {
+                    state.insert(state_key.clone(), truncated_value);
+                }
+            } else if agent.memory().short_term.len() > MAX_MEMORY_ENTRIES {
+                tracing::warn!(
+                    node_id = %node_id,
+                    agent_name = %agent_name,
+                    entry_count = agent.memory().short_term.len(),
+                    max_entries = MAX_MEMORY_ENTRIES,
+                    "Agent memory exceeds entry limit, keeping most recent entries"
+                );
+
+                // Keep only most recent entries
+                let mut limited_memory = agent.memory().clone();
+                let keep_from = limited_memory.short_term.len() - MAX_MEMORY_ENTRIES;
+                limited_memory.short_term = limited_memory.short_term.split_off(keep_from);
+
+                if let Ok(limited_value) = serde_json::to_value(&limited_memory) {
+                    state.insert(state_key.clone(), limited_value);
+                }
+            } else {
+                // Within limits, persist normally
+                state.insert(state_key.clone(), memory_value);
+                tracing::debug!(
+                    node_id = %node_id,
+                    agent_name = %agent_name,
+                    memory_entries = agent.memory().short_term.len(),
+                    memory_size = memory_size,
+                    "Saved agent memory for next execution"
+                );
+            }
         }
 
         // LEGACY: Maintain backwards compatibility with Iteration 1 tests
