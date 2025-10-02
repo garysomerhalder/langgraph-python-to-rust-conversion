@@ -74,6 +74,10 @@ pub enum LangGraphError {
     /// State management error
     #[error("State error: {0}")]
     State(String),
+
+    /// Schema validation error
+    #[error("Schema validation error: {0}")]
+    Schema(#[from] state::SchemaError),
     
     /// Execution error during graph traversal
     #[error("Execution error: {0}")]
