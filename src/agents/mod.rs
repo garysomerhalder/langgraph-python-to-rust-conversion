@@ -291,22 +291,73 @@ impl ReasoningAgent {
         // Analyze current state
         let mut reasoning = String::new();
         reasoning.push_str("Analyzing current state...\n");
-        
+
         // Consider available actions
         reasoning.push_str("Available actions: ");
         reasoning.push_str(&self.tools.join(", "));
         reasoning.push_str("\n");
-        
-        // Make decision based on state
-        let action = if state.is_empty() {
-            "initialize"
+
+        // YELLOW PHASE: Simple pattern matching for tool selection
+        let (action, parameters) = if let Some(input) = state.get("input") {
+            if let Some(input_str) = input.as_str() {
+                // Pattern: "Calculate X + Y" -> calculator tool
+                if input_str.starts_with("Calculate ") || input_str.starts_with("calculate ") {
+                    reasoning.push_str("Detected calculation request\n");
+                    if let Some(expr) = input_str.split_whitespace().skip(1).collect::<Vec<_>>().first() {
+                        // Simple parsing: "5 + 3" -> add(5, 3)
+                        let parts: Vec<&str> = input_str.split_whitespace().collect();
+                        if parts.len() >= 4 {
+                            let num1 = parts[1].parse::<f64>().unwrap_or(0.0);
+                            let op = parts[2];
+                            let num2 = parts[3].parse::<f64>().unwrap_or(0.0);
+
+                            let operation = match op {
+                                "+" => "add",
+                                "-" => "subtract",
+                                "*" => "multiply",
+                                "/" => "divide",
+                                _ => "add",
+                            };
+
+                            reasoning.push_str(&format!("Using {} operation with {}, {}\n", operation, num1, num2));
+
+                            ("calculator", serde_json::json!({
+                                "operation": operation,
+                                "operands": [num1, num2]
+                            }))
+                        } else {
+                            ("process", Value::Object(serde_json::Map::new()))
+                        }
+                    } else {
+                        ("process", Value::Object(serde_json::Map::new()))
+                    }
+                }
+                // Pattern: "Echo ..." -> echo tool
+                else if input_str.starts_with("Echo ") || input_str.starts_with("echo ") {
+                    reasoning.push_str("Detected echo request\n");
+                    // Echo the full message unchanged
+                    reasoning.push_str(&format!("Echoing message: {}\n", input_str));
+
+                    ("echo", serde_json::json!({
+                        "message": input_str
+                    }))
+                }
+                // Default: generic processing
+                else {
+                    ("process", Value::Object(serde_json::Map::new()))
+                }
+            } else {
+                ("process", Value::Object(serde_json::Map::new()))
+            }
+        } else if state.is_empty() {
+            ("initialize", Value::Object(serde_json::Map::new()))
         } else {
-            "process"
+            ("process", Value::Object(serde_json::Map::new()))
         };
-        
+
         AgentDecision {
             action: action.to_string(),
-            parameters: Value::Object(serde_json::Map::new()),
+            parameters,
             reasoning,
             confidence: 0.8,
             alternatives: vec![],

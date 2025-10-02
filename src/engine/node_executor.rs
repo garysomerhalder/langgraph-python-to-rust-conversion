@@ -204,7 +204,19 @@ impl DefaultNodeExecutor {
         // GREEN PHASE: Full observe → reason → act → reflect cycle
         // 3. ACT: Execute the decision if it has an action
         use crate::tools::ToolRegistry;
-        let tool_registry = ToolRegistry::new(); // Empty registry for YELLOW
+
+        // YELLOW PHASE ITERATION 4: Register actual tools
+        use std::sync::Arc;
+        use crate::tools::simple_tools::{CalculatorTool, StringTool};
+        let mut tool_registry = ToolRegistry::new();
+        tool_registry.register(Arc::new(CalculatorTool));
+        tool_registry.register(Arc::new(StringTool));
+
+        tracing::debug!(
+            node_id = %node_id,
+            tools = tool_registry.list().len(),
+            "Created tool registry with registered tools"
+        );
 
         let action_result = if !decision.action.is_empty() {
             agent.act(&decision, &tool_registry, state).await

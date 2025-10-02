@@ -51,11 +51,11 @@ async fn test_agent_executes_calculator_tool() {
 
     // Check that the result is 8 (5 + 3)
     let answer = data.get("result")
-        .and_then(|v| v.as_i64())
+        .and_then(|v| v.as_f64())
         .expect("Tool result should contain numeric answer");
 
     assert_eq!(
-        answer, 8,
+        answer, 8.0,
         "Calculator tool should return 8 for '5 + 3', got {}",
         answer
     );

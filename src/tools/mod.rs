@@ -3,6 +3,11 @@
 //! This module provides abstractions for integrating external tools
 //! and functions into LangGraph workflows.
 
+// Note: implementations.rs has ToolSpec schema mismatch and missing reqwest dependency
+// Using simple_tools.rs for YELLOW phase implementation
+// pub mod implementations;
+pub mod simple_tools;
+
 use std::sync::Arc;
 use std::collections::HashMap;
 use async_trait::async_trait;
