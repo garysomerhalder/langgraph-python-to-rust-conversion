@@ -148,6 +148,9 @@ pub struct ExecutionEngine {
 
     /// Current state for inspection
     pub state: Arc<RwLock<GraphState>>,
+
+    /// Optional authenticator for secured execution
+    authenticator: Option<Arc<dyn crate::security::Authenticator>>,
 }
 
 impl ExecutionEngine {
@@ -160,7 +163,26 @@ impl ExecutionEngine {
             breakpoint_manager: Arc::new(BreakpointManager::new()),
             state_inspector: None,
             state: Arc::new(RwLock::new(GraphState::new())),
+            authenticator: None,
         }
+    }
+
+    /// Create execution engine with authenticator
+    pub fn with_authenticator(authenticator: Arc<dyn crate::security::Authenticator>) -> Self {
+        Self {
+            active_executions: Arc::new(RwLock::new(HashMap::new())),
+            history: Arc::new(RwLock::new(Vec::new())),
+            interrupt_manager: Arc::new(RwLock::new(InterruptManager::new())),
+            breakpoint_manager: Arc::new(BreakpointManager::new()),
+            state_inspector: None,
+            state: Arc::new(RwLock::new(GraphState::new())),
+            authenticator: Some(authenticator),
+        }
+    }
+
+    /// Set authenticator after construction
+    pub fn set_authenticator(&mut self, authenticator: Arc<dyn crate::security::Authenticator>) {
+        self.authenticator = Some(authenticator);
     }
 
     /// Create a new execution engine from a compiled graph
@@ -212,9 +234,26 @@ impl ExecutionEngine {
             return Err(ExecutionError::AuthenticationRequired.into());
         }
 
-        // For now, we accept any non-empty token
-        // In production, this would validate against an Authenticator
-        // TODO: Integrate with security::Authenticator trait
+        // If authenticator is configured, validate the token
+        if let Some(ref authenticator) = self.authenticator {
+            let auth_context = authenticator
+                .validate_token(auth_token)
+                .await
+                .map_err(|e| ExecutionError::AuthenticationFailed(e.to_string()))?;
+
+            // TODO: Check permissions based on graph requirements
+            // For now, we accept any valid authentication
+            tracing::info!(
+                "Authenticated execution for user: {} with roles: {:?}",
+                auth_context.user_id,
+                auth_context.roles
+            );
+        } else {
+            // No authenticator configured - accept any non-empty token (backward compatibility)
+            tracing::warn!(
+                "No authenticator configured - accepting any non-empty token (INSECURE)"
+            );
+        }
 
         // Execute the graph normally if authenticated
         self.execute(graph.clone(), input).await
@@ -761,6 +800,7 @@ impl Clone for ExecutionEngine {
             breakpoint_manager: self.breakpoint_manager.clone(),
             state_inspector: self.state_inspector.clone(),
             state: self.state.clone(),
+            authenticator: self.authenticator.clone(),
         }
     }
 }

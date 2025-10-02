@@ -2,6 +2,10 @@
 
 use super::auth::{AuthContext, AuthResult, Authenticator, Credentials, TokenPair};
 use super::AuthError;
+use argon2::{
+    password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
+    Argon2,
+};
 use async_trait::async_trait;
 use chrono::{DateTime, Duration, Utc};
 use dashmap::DashMap;
@@ -23,8 +27,11 @@ pub struct ApiKeyAuthenticator {
 /// Metadata associated with an API key
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiKeyMetadata {
-    /// SHA-256 hash of the API key
+    /// SHA-256 hash for lookup (deterministic)
     pub key_hash: String,
+
+    /// Argon2 hash for secure verification (includes salt)
+    pub secure_hash: String,
 
     /// User ID associated with this key
     pub user_id: String,
@@ -85,11 +92,13 @@ impl ApiKeyAuthenticator {
         roles: Vec<String>,
         expires_at: Option<DateTime<Utc>>,
     ) -> AuthResult<String> {
-        let key_hash = self.hash_key(api_key);
+        let key_hash = self.lookup_hash(api_key);
+        let secure_hash = self.secure_hash(api_key);
         let user_id = user_id.into();
 
         let metadata = ApiKeyMetadata {
             key_hash: key_hash.clone(),
+            secure_hash,
             user_id: user_id.clone(),
             roles,
             created_at: Utc::now(),
@@ -100,7 +109,7 @@ impl ApiKeyAuthenticator {
 
         self.keys.insert(key_hash.clone(), metadata);
 
-        debug!("Registered API key for user: {}", user_id);
+        debug!("Registered API key for user: {} with Argon2 encryption", user_id);
 
         Ok(key_hash)
     }
@@ -115,7 +124,8 @@ impl ApiKeyAuthenticator {
         max_requests: u32,
         window: Duration,
     ) -> AuthResult<String> {
-        let key_hash = self.hash_key(api_key);
+        let key_hash = self.lookup_hash(api_key);
+        let secure_hash = self.secure_hash(api_key);
         let user_id = user_id.into();
 
         let rate_limit = RateLimitConfig {
@@ -127,6 +137,7 @@ impl ApiKeyAuthenticator {
 
         let metadata = ApiKeyMetadata {
             key_hash: key_hash.clone(),
+            secure_hash,
             user_id: user_id.clone(),
             roles,
             created_at: Utc::now(),
@@ -142,11 +153,39 @@ impl ApiKeyAuthenticator {
         Ok(key_hash)
     }
 
-    /// Hash an API key using SHA-256
-    fn hash_key(&self, api_key: &str) -> String {
+    /// Generate SHA-256 hash for lookup (deterministic)
+    fn lookup_hash(&self, api_key: &str) -> String {
         let mut hasher = Sha256::new();
         hasher.update(api_key.as_bytes());
         format!("{:x}", hasher.finalize())
+    }
+
+    /// Hash an API key using Argon2 for secure storage
+    fn secure_hash(&self, api_key: &str) -> String {
+        let salt = SaltString::generate(&mut OsRng);
+        let argon2 = Argon2::default();
+
+        // Hash the API key with Argon2
+        argon2
+            .hash_password(api_key.as_bytes(), &salt)
+            .expect("Failed to hash API key")
+            .to_string()
+    }
+
+    /// Verify an API key against a stored Argon2 hash
+    fn verify_key(&self, api_key: &str, hash: &str) -> bool {
+        let argon2 = Argon2::default();
+
+        // Parse the stored hash
+        let Ok(parsed_hash) = PasswordHash::new(hash) else {
+            warn!("Failed to parse stored password hash");
+            return false;
+        };
+
+        // Verify the API key matches the hash
+        argon2
+            .verify_password(api_key.as_bytes(), &parsed_hash)
+            .is_ok()
     }
 
     /// Check rate limit for a key
@@ -201,7 +240,7 @@ impl Authenticator for ApiKeyAuthenticator {
             _ => return Err(AuthError::InvalidCredentials),
         };
 
-        let key_hash = self.hash_key(api_key);
+        let key_hash = self.lookup_hash(api_key);
 
         // Look up key metadata
         let mut metadata = self.keys.get_mut(&key_hash)
@@ -209,6 +248,13 @@ impl Authenticator for ApiKeyAuthenticator {
                 warn!("Authentication failed: invalid API key");
                 AuthError::InvalidCredentials
             })?;
+
+        // Verify the key using Argon2
+        if !self.verify_key(api_key, &metadata.secure_hash) {
+            warn!("Authentication failed: API key verification failed for user {}", metadata.user_id);
+            self.log_auth_event(&metadata.user_id, false).await;
+            return Err(AuthError::InvalidCredentials);
+        }
 
         // Check expiration
         if let Some(expires_at) = metadata.expires_at {
