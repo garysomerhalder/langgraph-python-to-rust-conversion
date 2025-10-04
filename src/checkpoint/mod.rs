@@ -3,13 +3,13 @@
 mod memory;
 pub mod postgres;
 pub mod redis;
-// pub mod s3;  // Temporarily disabled due to compilation issues
+// pub mod s3;  // TODO P1-YEL-006: Fix S3 lifetime issues in retry_with_backoff closures
 pub mod distributed;
 
 pub use memory::MemoryCheckpointer;
 pub use postgres::{PostgresCheckpointer, PostgresConfig};
 pub use redis::{RedisCheckpointer, RedisConfig};
-// pub use s3::{S3Checkpointer, S3Config, S3LifecyclePolicy};  // Temporarily disabled
+// pub use s3::{S3Checkpointer, S3Config, S3LifecyclePolicy};  // TODO P1-YEL-006: Re-enable after fixing
 pub use distributed::{DistributedCheckpointer, DistributedConfig, StateEvent, NodeInfo, PerformanceMetrics, DistributedLock};
 
 use std::sync::Arc;
@@ -128,29 +128,7 @@ impl Checkpoint {
     }
 }
 
-/// Trait for checkpoint storage implementations (original interface)
-#[async_trait]
-pub trait CheckpointerOld: Send + Sync {
-    /// Save a checkpoint
-    async fn save(&self, checkpoint: Checkpoint) -> Result<String, CheckpointError>;
-
-    /// Load a checkpoint by ID
-    async fn load(&self, checkpoint_id: &str) -> Result<Checkpoint, CheckpointError>;
-
-    /// Load the latest checkpoint for a thread
-    async fn load_latest(&self, thread_id: &str) -> Result<Option<Checkpoint>, CheckpointError>;
-
-    /// List all checkpoints for a thread
-    async fn list(&self, thread_id: &str) -> Result<Vec<String>, CheckpointError>;
-
-    /// Delete a checkpoint
-    async fn delete(&self, checkpoint_id: &str) -> Result<(), CheckpointError>;
-
-    /// Delete all checkpoints for a thread
-    async fn delete_thread(&self, thread_id: &str) -> Result<(), CheckpointError>;
-}
-
-/// New unified Checkpointer trait for all implementations
+/// Unified Checkpointer trait for all implementations
 #[async_trait]
 pub trait Checkpointer: Send + Sync {
     /// Save a checkpoint with metadata

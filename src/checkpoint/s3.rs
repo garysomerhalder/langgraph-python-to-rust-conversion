@@ -924,6 +924,7 @@ impl S3CheckpointerTrait for S3Checkpointer {
                 }
 
                 Ok(checkpoint_id.clone())
+                }
             })
         }).await;
 
